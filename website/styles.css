@@ -1,0 +1,16 @@
+html, body {
+  height: 100%;
+}
+
+body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#drop_zone {
+  border: 2px dashed gray;
+  border-radius: 10px;
+  width: 500px;
+  height: 250px;
+}
