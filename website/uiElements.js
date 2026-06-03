@@ -44,4 +44,6 @@ function setupUIElements() {
         $("#button_play").show();
         setFrameNr(+$(this).val());
     });
+
+    tryLoadLocalData();
 }

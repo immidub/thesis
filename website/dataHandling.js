@@ -4,6 +4,8 @@ var playerShirtNumbers = {};
 
 var startTime = 0;
 
+const LOCAL_DATA_PATH = "data/local.json";
+
 /**
  * Converts frame number into the frame number without dead-frames
  * @param {Number} oldFrame old Frame
@@ -217,6 +219,28 @@ function showDataError(message, secondaryMessage) {
 		document.getElementById("dataErrorMessageSecondary").innerHTML = secondaryMessage
 	}
 	
+}
+
+// ================================================================================================
+// Local dev data (website/data/ is gitignored — see README)
+
+async function tryLoadLocalData() {
+	try {
+		const response = await fetch(LOCAL_DATA_PATH);
+		if (!response.ok) {
+			return;
+		}
+
+		dataReceived();
+		gameData = JSON.parse(await response.text());
+		dataLoaded();
+	} catch (err) {
+		if (err instanceof SyntaxError) {
+			showDataError("Failed to parse local data", err.message);
+		} else {
+			console.log("No local data loaded:", err.message);
+		}
+	}
 }
 
 // ================================================================================================
