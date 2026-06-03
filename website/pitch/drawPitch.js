@@ -1,12 +1,6 @@
 function draw() {
-    if (gameCanvas == null) return;
+    if (gameCanvases.length === 0) return;
     if (gameData == null) return;
-
-    gameCanvas.clearCanvasWhite();
-
-    if (pitchOffsetX == -1) {
-        drawGameSetup();
-    }
 
     handleFrameNr();
 
@@ -15,6 +9,19 @@ function draw() {
 
     flipPitch = getIsSecondHalf(frameNr);
 
+    gameCanvas = gameCanvases[0];
+    if (pitchOffsetX == -1) {
+        drawGameSetup();
+    }
+
+    for (var i = 0; i < gameCanvases.length; i++) {
+        gameCanvas = gameCanvases[i];
+        gameCanvas.clearCanvasWhite();
+        drawPitchFrame();
+    }
+}
+
+function drawPitchFrame() {
     drawPitch();
     drawTeam(1);
     drawTeam(2);

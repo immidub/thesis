@@ -14,3 +14,30 @@ body {
   width: 500px;
   height: 250px;
 }
+
+#main_div_pitch {
+  max-width: 100%;
+}
+
+.playback-controls {
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pitches-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.pitch-panel {
+  flex: 0 0 auto;
+}
+
+.pitch-panel canvas {
+  display: block;
+}

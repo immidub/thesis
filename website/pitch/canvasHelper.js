@@ -1,9 +1,13 @@
+var gameCanvases = [];
 var gameCanvas;
+var drawLoopStarted = false;
+
+const PITCH_COUNT = 3;
 
 //helper class for canvas setup and drawing
 
 class CanvasHelper {
-    constructor(id, width, height, mouseClick, mouseDown, draw, limitedRefresh = false) {
+    constructor(id, width, height, mouseClick, mouseDown, draw, limitedRefresh = false, startLoop = true) {
         this.limitedRefresh = limitedRefresh;
         this.count = 0;
         this.mouseX = 0;
@@ -28,9 +32,11 @@ class CanvasHelper {
 
         this.ctx.scale(scaleFactor, scaleFactor);
 
-        window.requestAnimationFrame(() => {
-            this.drawHandler();
-        });
+        if (startLoop && draw) {
+            window.requestAnimationFrame(() => {
+                this.drawHandler();
+            });
+        }
 
         var helper = this;
 
@@ -95,22 +101,36 @@ class CanvasHelper {
 
 function empty() {}
 
+function startDrawLoop() {
+    if (drawLoopStarted) return;
+    drawLoopStarted = true;
+
+    function loop() {
+        draw();
+        window.requestAnimationFrame(loop);
+    }
+
+    window.requestAnimationFrame(loop);
+}
+
 function setupCanvases() {
-    var windowSize = Math.min($(window).width(), $(window).height() * 1.35);
-
-    if (windowSize == null) {
-        windowSize = 1200;
-    }
-    if (windowSize > 1200) {
-        windowSize = 1200;
-    }
-    if (windowSize < 400) {
-        windowSize = 400;
+    var availableWidth = Math.min($(window).width() - 32, 1500);
+    if (availableWidth < 600) {
+        availableWidth = 600;
     }
 
-    var w1 = Math.floor(windowSize * 0.85);
-    var h1 = Math.floor(w1 * 1.35);
+    var gap = 12;
+    var pitchWidth = Math.floor((availableWidth - gap * (PITCH_COUNT - 1)) / PITCH_COUNT);
+    var pitchHeight = Math.floor(pitchWidth * 1.35);
 
-    gameCanvas = new CanvasHelper("canvas1", w1, h1, empty, empty, draw);
-    gameCanvas.clearCanvas();
+    gameCanvases = [];
+
+    for (var i = 0; i < PITCH_COUNT; i++) {
+        var canvas = new CanvasHelper("canvas" + (i + 1), pitchWidth, pitchHeight, empty, empty, null, false, false);
+        canvas.clearCanvas();
+        gameCanvases.push(canvas);
+    }
+
+    gameCanvas = gameCanvases[0];
+    startDrawLoop();
 }

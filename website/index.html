@@ -130,42 +130,32 @@
                 </div>
     
                 <div class="row justify-content-center">
-                    <div class="col-auto" id="main_div_pitch">
-                        <div id="container">
-                            <canvas id="canvas1"></canvas>
-                        </div>
+                    <div class="col-12" id="main_div_pitch">
 
-                        <div class="row justify-content-center">
+                        <div class="playback-controls row justify-content-center align-items-center mb-3">
                             <div class="col-md-auto p-0">
-                                <div class="align-items-center justify-content-center">
-
-                                    <div class="dropup">
-                                        <div class="btn-group">
+                                <div class="dropup">
+                                    <div class="btn-group">
                                         <button type="button" class="btn btn-primary btn-sm" id="play_pause_btn">
-
                                             <div id="button_play">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16">
                                                     <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393"/>
                                                 </svg>
-                                                </div>
+                                            </div>
                                             <div id="button_pause">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-pause" viewBox="0 0 16 16">
                                                     <path d="M6 3.5a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5"/>
                                                 </svg>
                                             </div>
-
                                         </button>
                                         <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         </button>
-
                                         <ul class="dropdown-menu">
-                                        <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(0.5)">0.5x</a></li>
-                                        <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(1)">1x</a></li>
-                                        <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(2)">2x</a></li>
+                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(0.5)">0.5x</a></li>
+                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(1)">1x</a></li>
+                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(2)">2x</a></li>
                                         </ul>
                                     </div>
-                                    </div>
-                                    
                                 </div>
                             </div>
                             <div class="col p-0 d-flex" style="max-width: 500px;">
@@ -175,12 +165,23 @@
                             </div>
                             <div class="col-md-auto p-0 d-flex">
                                 <div class="d-flex container align-items-center justify-content-center">
-                                    <div id="time_label_text">
-                                        
-                                    </div>
+                                    <div id="time_label_text"></div>
                                 </div>
                             </div>
-                        </div>   
+                        </div>
+
+                        <div id="pitches_row" class="pitches-row">
+                            <div class="pitch-panel">
+                                <canvas id="canvas1"></canvas>
+                            </div>
+                            <div class="pitch-panel">
+                                <canvas id="canvas2"></canvas>
+                            </div>
+                            <div class="pitch-panel">
+                                <canvas id="canvas3"></canvas>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
