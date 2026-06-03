@@ -17,12 +17,18 @@ function draw() {
     for (var i = 0; i < gameCanvases.length; i++) {
         gameCanvas = gameCanvases[i];
         gameCanvas.clearCanvasWhite();
-        drawPitchFrame();
+        drawPitchFrame(i);
     }
 }
 
-function drawPitchFrame() {
+function drawPitchFrame(pitchIndex) {
     drawPitch();
+
+    if (pitchIndex === 0) {
+        var edges = getDistanceMarkingEdges(frameNr, distanceThresholdMeters);
+        drawMarkingEdges(edges, "#E67E22");
+    }
+
     drawTeam(1);
     drawTeam(2);
     drawArrows(getIsSecondHalf(frameNr));

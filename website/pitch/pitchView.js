@@ -42,34 +42,18 @@ function getIsSecondHalf(frame) {
     }
 
     return false;
-    //return (frame > 69724); //TODO
-    //return false;
-    //return (gameData.tracking[0+frame*23][TRACKING_HALF] != "One")
-}
-
-function getSecondObject(object1, dataLine2) {
-    for(var object in dataLine2.objects) {
-        if(object1.id == object.id) {
-            return;
-        }
-    }
-
-    //default case if no match found
-    return object1;
 }
 
 function getGoalKeepers(frame) {
     var points = [];
 
     var dataLine = gameData.tracking[frame];
-    var dataLine2 = gameData.tracking[frame+1];
+    var dataLine2 = gameData.tracking[frame + 1];
 
     for(var playerId in dataLine.objects) {
 
         var object1 = dataLine.objects[playerId];
         var object2 = dataLine2.objects[playerId] ?? object1;
-        
-
         var [h,v] = getCoordinates(object1, object2);
 
         var isInTeam1 = gameData.players.team1.includes(playerId);
@@ -89,46 +73,48 @@ function getGoalKeepers(frame) {
 }
 
 function getCoordinates(object1, object2) {
-    var h1 = +object1.h
-    var v1 = +object1.v
-    var h2 = +object2.h
-    var v2 = +object1.v
+    if (object2 == null) {
+        return [+object1.h, +object1.v];
+    }
 
-    var h = h1+(h2-h1)*frameDelta;
-    var v = v1+(v2-v1)*frameDelta;
+    var h1 = +object1.h;
+    var v1 = +object1.v;
+    var h2 = +object2.h;
+    var v2 = +object2.v;
 
-    return [h,v]
+    var h = h1 + (h2 - h1) * frameDelta;
+    var v = v1 + (v2 - v1) * frameDelta;
+
+    return [h, v];
 }
 
 function getGamePoints(frame, team) {
     var points = [];
-
-
     var playerIDs = [];
 
-    //Indicates which way the team is playing (relative  to the coordinate system)
     var isReversed = false;
     if(getIsSecondHalf(frame) && team == 1) isReversed = true;
     if(!getIsSecondHalf(frame) && team == 2) isReversed = true;
 
     var dataLine = gameData.tracking[frame];
-    var dataLine2 = gameData.tracking[frame+1];
+    var dataLine2 = gameData.tracking[frame + 1];
 
     for(var playerId in dataLine.objects) {
 
         var object1 = dataLine.objects[playerId];
         var object2 = dataLine2.objects[playerId] ?? object1;
-        
-        var [h,v] = getCoordinates(object1, object2);
+
         if(gameData.players.goalKeepers.includes(playerId)) continue;
 
+        var [h,v] = getCoordinates(object1, object2);
+
         if(team == 1 && gameData.players.team1.includes(playerId)) {
-            points.push(convertX(v),convertY(h));
-            playerIDs.push(playerId)
+            points.push(convertX(v), convertY(h));
+            playerIDs.push(playerId);
         }
         if(team == 2 && gameData.players.team2.includes(playerId)) {
-            points.push(convertX(v),convertY(h));
-            playerIDs.push(playerId)
+            points.push(convertX(v), convertY(h));
+            playerIDs.push(playerId);
         }
     }
 
