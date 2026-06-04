@@ -22,6 +22,8 @@ function getTeamPlayerPositions(frame, team) {
     return players;
 }
 
+const MARKING_EDGE_COLOR = "#2563EB";
+
 function getPitchDistanceSquared(h1, v1, h2, v2) {
     var dh = h1 - h2;
     var dv = v1 - v2;

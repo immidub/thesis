@@ -1,6 +1,8 @@
 var distanceThresholdMeters = 10;
 
 function getDistanceMarkingEdges(frame, thresholdMeters) {
+    if (!isBallTracked(frame)) return [];
+
     var team1 = getTeamPlayerPositions(frame, 1);
     var team2 = getTeamPlayerPositions(frame, 2);
     var edges = [];

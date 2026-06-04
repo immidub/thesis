@@ -49,7 +49,7 @@ async function parseTrackingJsonl(source) {
 
         if (tracking.length % 5000 === 0) {
             var subtitle = document.getElementById("dataLoadingSubtitle");
-            if (subtitle) subtitle.innerHTML = "Parsing… " + tracking.length + " frames";
+            if (subtitle) subtitle.textContent = "Parsing " + tracking.length + " frames";
         }
     }
 

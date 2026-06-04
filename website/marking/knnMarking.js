@@ -1,19 +1,23 @@
 var knnK = 1;
 
 function getKnnMarkingEdges(frame, k) {
-    var team1 = getTeamPlayerPositions(frame, 1);
-    var team2 = getTeamPlayerPositions(frame, 2);
+    if (!isBallTracked(frame)) return [];
+
+    var defendingTeam = getDefendingTeam(frame);
+    if (defendingTeam == null) return [];
+
+    var opponents = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
+    var defenders = getTeamPlayerPositions(frame, defendingTeam);
     var edges = [];
 
-    addKnnEdgesForTeam(team1, team2, k, edges);
-    addKnnEdgesForTeam(team2, team1, k, edges);
+    addKnnEdgesForDefenders(defenders, opponents, k, edges);
 
     return edges;
 }
 
-function addKnnEdgesForTeam(team, opponents, k, edges) {
-    for (var i = 0; i < team.length; i++) {
-        var player = team[i];
+function addKnnEdgesForDefenders(defenders, opponents, k, edges) {
+    for (var i = 0; i < defenders.length; i++) {
+        var player = defenders[i];
         var distances = [];
 
         for (var j = 0; j < opponents.length; j++) {

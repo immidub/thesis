@@ -37,6 +37,20 @@ class CanvasHelper {
         this.ctx.fill();
     }
 
+    drawDotWithStroke(x, y, r, strokeStyle, lineWidth) {
+        var prevStroke = this.ctx.strokeStyle;
+        var prevWidth = this.ctx.lineWidth;
+
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, r, 0, 2 * Math.PI);
+        this.ctx.strokeStyle = strokeStyle;
+        this.ctx.lineWidth = lineWidth;
+        this.ctx.stroke();
+
+        this.ctx.strokeStyle = prevStroke;
+        this.ctx.lineWidth = prevWidth;
+    }
+
     drawCircle(x, y, r, startAngle = 0, endAngle = 2 * Math.PI) {
         this.ctx.beginPath();
         this.ctx.arc(x, y, r, startAngle, endAngle);

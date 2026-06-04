@@ -21,7 +21,7 @@ async function tryLoadLocalData() {
 //loads tracking data from source
 async function loadTrackingData(source) {
 	dataReceived();
-	document.getElementById("dataLoadingSubtitle").innerHTML = "Loading tracking data…";
+	document.getElementById("dataLoadingSubtitle").textContent = "Loading tracking data...";
 	gameData = await parseTrackingJsonl(source);
 	var meta = await loadMatchMetadata(LOCAL_META_PATH);
 	if (meta) {

@@ -44,6 +44,27 @@ function getIsSecondHalf(frame) {
     return false;
 }
 
+function isBallTracked(frame) {
+    var dataLine = gameData.tracking[frame];
+    if (!dataLine || !dataLine.objects) return false;
+    return gameData.ballId in dataLine.objects;
+}
+
+function getDefendingTeam(frame) {
+    if (!isBallTracked(frame)) return null;
+
+    var possession = gameData.tracking[frame].possession;
+    if (possession == null) return null;
+
+    if (possession === "home" || gameData.players.team1.includes(possession)) {
+        return 2;
+    }
+    if (possession === "away" || gameData.players.team2.includes(possession)) {
+        return 1;
+    }
+    return null;
+}
+
 function getGoalKeepers(frame) {
     var points = [];
 
@@ -182,8 +203,9 @@ function drawBall(frame) {
 function drawPitch() {
     //source: https://upload.wikimedia.org/wikipedia/commons/b/b3/Soccer_pitch_dimensions.png
 
-    gameCanvas.ctx.fillStyle = "#8C8C8C"
-    gameCanvas.ctx.strokeStyle = "#8C8C8C"
+    gameCanvas.ctx.lineWidth = 1;
+    gameCanvas.ctx.fillStyle = "#8C8C8C";
+    gameCanvas.ctx.strokeStyle = "#8C8C8C";
 
     var height = gameData.pitch.width;
     var width = gameData.pitch.length;
