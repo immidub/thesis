@@ -90,11 +90,6 @@ function getCoordinates(object1, object2) {
 
 function getGamePoints(frame, team) {
     var points = [];
-    var playerIDs = [];
-
-    var isReversed = false;
-    if(getIsSecondHalf(frame) && team == 1) isReversed = true;
-    if(!getIsSecondHalf(frame) && team == 2) isReversed = true;
 
     var dataLine = gameData.tracking[frame];
     var dataLine2 = gameData.tracking[frame + 1];
@@ -110,19 +105,13 @@ function getGamePoints(frame, team) {
 
         if(team == 1 && gameData.players.team1.includes(playerId)) {
             points.push(convertX(v), convertY(h));
-            playerIDs.push(playerId);
         }
         if(team == 2 && gameData.players.team2.includes(playerId)) {
             points.push(convertX(v), convertY(h));
-            playerIDs.push(playerId);
         }
     }
 
-    if(flipPitch) {
-        isReversed = !isReversed;
-    }
-
-    return [points, isReversed, playerIDs];
+    return [points];
 }
 
 function drawGameSetup() {

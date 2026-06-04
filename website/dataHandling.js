@@ -2,77 +2,64 @@ var gameData = null;
 
 var playerShirtNumbers = {};
 
-var startTime = 0;
+const LOCAL_DATA_PATH = "../data/tracking-produced.jsonl";
+const LOCAL_META_PATH = "../data/metaData.json";
 
-const LOCAL_DATA_PATH = "../data/local.json";
+//-- Local data handling ------------------------------------------------------------------------------
 
-/**
- * Converts frame number into the frame number without dead-frames
- * @param {Number} oldFrame old Frame
- * @returns index
- */
-function convertFrame(oldFrame) {
-	var low = 0;
-	var high = maxFrame;
-
-	while(high-low > 1) {
-		var mid = Math.floor((low+high)/2);
-
-		var frame = +gameData.tracking[mid].frame;
-
-		if(frame > oldFrame) {
-			high = mid;
-		}
-		else {
-			low = mid;
-		}
+//try to load local data if not available then returns
+async function tryLoadLocalData() {
+	try {
+		var response = await fetch(LOCAL_DATA_PATH);
+		if (!response.ok) return;
+		await loadTrackingData(response);
+	} catch (err) {
+		console.log("Local data load failed:", err.message);
 	}
-
-	return high;
 }
 
-function getShirtNumberLabel(playerId) {
-	return playerShirtNumbers[playerId] ?? "";
+//loads tracking data from source
+async function loadTrackingData(source) {
+	dataReceived();
+	document.getElementById("dataLoadingSubtitle").innerHTML = "Loading tracking data…";
+	gameData = await parseTrackingJsonl(source);
+	var meta = await loadMatchMetadata(LOCAL_META_PATH);
+	if (meta) {
+		applyMatchMetadata(gameData, meta);
+	} else {
+		inferGoalkeepersFromPositions();
+	}
+	dataLoaded();
 }
 
+function dataReceived() {
+	$("#entry_view").hide();
+	$("#website_view").hide();
+	$("#data_error_view").hide();
+	$("#data_loading_view").show();
+}
 
+function dataFinishedReading() {
+	$("#entry_view").hide();
+	$("#data_error_view").hide();
+	$("#data_loading_view").hide();
+	$("#website_view").show();
+	setupCanvases();
+}
+
+//sets up the data after it has been loaded
 function dataLoaded() {
 	console.log("Data loaded");
-	dataFinishedReading();
-
-	if(""+gameData.version != "1.0") {
-		var versionNr = gameData.version
-		gameData = null
-		if(versionNr == null) {
-			showDataError("Incompatible Version","Expected Version 1.0");
-		}
-		else {
-			showDataError("Incompatible Version","Expected Version 1.0, Uploaded Version " + versionNr);
-		}
-		return;
-	}
-
-	if(gameData.tracking == null) {
-		gameData = null
-		showDataError("No tracking data found", "JSON file dose not contain field 'tracking'")
-		return;
-	}
-	if(gameData.events == null) {
-		$("#error_div_events").show();
-	}
 
 	setupDefaultColors();
 	getPlayers();
 	setupDefaultTeamNames();
-	computeFinalScore();
-	maxFrame = Math.max(0, Math.floor(gameData.tracking.length) - 2); //-2 because of framedeltas
-	if (!gameData.frameRate || gameData.frameRate <= 0) {
-		gameData.frameRate = 25;
-	}
-	if (gameData.pitch == null) {
-		gameData.pitch = { width: 68, length: 105 };
-	}
+
+	maxFrame = Math.max(0, Math.floor(gameData.tracking.length) - 2);
 	convertEvents();
+	updateTitle();
+
+	dataFinishedReading();
 	setupSlider();
 
 	frameNr = 0;
@@ -86,9 +73,47 @@ function dataLoaded() {
 	$("#button_play").show();
 }
 
-function setupDefaultColors() {
+//-- Game data handling ------------------------------------------------------------------------------
 
-	//Filling in default information if empty
+function getShirtNumberLabel(playerId) {
+	return playerShirtNumbers[playerId] ?? "";
+}
+
+function inferGoalkeepersFromPositions() {
+	var halfLength = gameData.pitch.length / 2;
+	var firstFrame = gameData.tracking[0].objects;
+
+	function distanceToNearestGoalLine(h) {
+		return Math.min(Math.abs(h + halfLength), Math.abs(h - halfLength));
+	}
+
+	function pickGoalkeeperForTeam(teamPlayers) {
+		var bestId = null;
+		var bestDist = Infinity;
+
+		for (var i = 0; i < teamPlayers.length; i++) {
+			var player = teamPlayers[i];
+			var obj = firstFrame[player.id];
+			if (!obj) continue;
+			var h = +obj.h;
+
+			var dist = distanceToNearestGoalLine(h);
+			if (dist < bestDist) {
+				bestDist = dist;
+				bestId = player.id;
+			}
+		}
+
+		for (var j = 0; j < teamPlayers.length; j++) {
+			teamPlayers[j].isGoalie = teamPlayers[j].id === bestId;
+		}
+	}
+
+	pickGoalkeeperForTeam(gameData.homeTeam.players);
+	pickGoalkeeperForTeam(gameData.awayTeam.players);
+}
+
+function setupDefaultColors() {
 	if(gameData.homeTeam == null) gameData.homeTeam = {};
 	if(gameData.awayTeam == null) gameData.awayTeam = {};
 
@@ -106,14 +131,6 @@ function setupDefaultColors() {
 	if(gameData.awayTeam.colorNumber == null) {
 		gameData.awayTeam.colorNumber = "#fff";
 	}
-
-}
-
-function convertEvents() {
-	if (gameData.events == null) return;
-	for(var event of gameData.events) {
-		event.frame = convertFrame(event.frame);
-	}
 }
 
 function getPlayers() {
@@ -122,13 +139,9 @@ function getPlayers() {
 	gameData.players.team2 = [];
 	gameData.players.goalKeepers = [];
 
-	gameData.players.goalKeepers
-
 	for(var player of gameData.homeTeam.players) {
 		gameData.players.team1.push(player.id)
-
 		playerShirtNumbers[player.id] = player.shirtNumber;
-
 		if(player.isGoalie == true) {
 			gameData.players.goalKeepers.push(player.id);
 		}
@@ -136,39 +149,31 @@ function getPlayers() {
 
 	for(var player of gameData.awayTeam.players) {
 		gameData.players.team2.push(player.id)
-
 		playerShirtNumbers[player.id] = player.shirtNumber;
-
-
 		if(player.isGoalie == true) {
 			gameData.players.goalKeepers.push(player.id);
 		}
 	}
 }
 
-function computeFinalScore() {
-	if(gameData.events == null) {
-		var text =  gameData.homeTeam.name + " vs. " + gameData.awayTeam.name;
-		document.getElementById("title_text").innerHTML = text
+function updateTitle() {
+	if (gameData.events == null) {
+		document.getElementById("title_text").innerHTML =
+			gameData.homeTeam.name + " vs. " + gameData.awayTeam.name;
 		return;
 	}
 
 	var score1 = 0;
 	var score2 = 0;
-	for(const event of gameData.events) {
-		if(event.type == "GOAL") {
-			if(event.team == 1) {
-				score1 += 1;
-			}
-			else {
-				score2 += 1;
-			}
+	for (var event of gameData.events) {
+		if (event.type === "GOAL") {
+			if (event.team === 1) score1++;
+			else score2++;
 		}
 	}
 
-	var text =  gameData.homeTeam.name + " " + score1 + " : " + score2 + " " + gameData.awayTeam.name;
-	document.getElementById("title_text").innerHTML = text
-
+	document.getElementById("title_text").innerHTML =
+		gameData.homeTeam.name + " " + score1 + " : " + score2 + " " + gameData.awayTeam.name;
 }
 
 function setupDefaultTeamNames() {
@@ -180,37 +185,49 @@ function setupDefaultTeamNames() {
 	}
 }
 
-// ================================================================================================
-// Update UI Functions while gameData is being populated 
+//-- File handling ------------------------------------------------------------------------------
 
-function dataReceived(isZipped = false) {
-	$("#entry_view").hide();
-	$("#website_view").hide();
-	$("#data_error_view").hide();
-
-	$("#data_loading_view").show();
-
-	if(isZipped) {
-		document.getElementById("dataLoadingTitle").innerHTML = "Unarchiving File..."
-		document.getElementById("dataLoadingSubtitle").innerHTML = "This may take a while"
+//handles the drop event
+function dropHandler(ev) {
+	ev.preventDefault();
+	var files = ev.dataTransfer.files;
+	for (var i = 0; i < files.length; i++) {
+		handleFile(files[i]);
 	}
 }
 
-function dataFinishedReading() {
-	$("#entry_view").hide();
-	$("#data_error_view").hide();
-	$("#data_loading_view").hide();
+//handles the upload button click
+function uploadFileButton() {
+	document.getElementById("fileupload").click();
+}
 
-	$("#website_view").show();
-	setupCanvases();
+function dragOverHandler(ev) {
+	ev.preventDefault();
+}
+
+function handleFileUpload(event) {
+	var file = event.target.files[0];
+	if (file) {
+		handleFile(file);
+	} else {
+		showDataError("No file received");
+	}
+}
+
+async function handleFile(file) {
+	gameData = null;
+	try {
+		await loadTrackingData(file);
+	} catch (err) {
+		console.error("Failed to load tracking:", err);
+		showDataError("Failed to load tracking data", err.message);
+	}
 }
 
 function showDataError(message, secondaryMessage) {
-	console.log("Showing error view");
 	$("#entry_view").hide();
 	$("#website_view").hide();
 	$("#data_loading_view").hide();
-
 	$("#data_error_view").show();
 	if(message) {
 		document.getElementById("dataErrorMessage").innerHTML = message
@@ -218,132 +235,4 @@ function showDataError(message, secondaryMessage) {
 	if(secondaryMessage) {
 		document.getElementById("dataErrorMessageSecondary").innerHTML = secondaryMessage
 	}
-	
-}
-
-// ================================================================================================
-// Local dev data (data/ at repo root is gitignored — see README)
-
-async function tryLoadLocalData() {
-	try {
-		const response = await fetch(LOCAL_DATA_PATH);
-		if (!response.ok) {
-			return;
-		}
-
-		dataReceived();
-		gameData = JSON.parse(await response.text());
-		dataLoaded();
-	} catch (err) {
-		if (err instanceof SyntaxError) {
-			showDataError("Failed to parse local data", err.message);
-		} else {
-			console.log("No local data loaded:", err.message);
-		}
-	}
-}
-
-// ================================================================================================
-// Uploading File Functions
-
-function dropHandler(ev) {
-	console.log("File(s) dropped");
-  
-	// Prevent default behavior (Prevent file from being opened)
-	ev.preventDefault();
-  
-	if (ev.dataTransfer.items) {
-	  // Use DataTransferItemList interface to access the file(s)
-	  [...ev.dataTransfer.items].forEach((item, i) => {
-		// If dropped items aren't files, reject them
-		if (item.kind === "file") {
-			const file = item.getAsFile();
-		  	console.log(`recived file[${i}] with name ${file.name}`);
-
-			handleFile(file);
-		}
-	  });
-	} else {
-	  // Use DataTransfer interface to access the file(s)
-	  [...ev.dataTransfer.files].forEach((file, i) => {
-		console.log(`… file[${i}].name = ${file.name}`);
-	  });
-	}
-  }
-
-//prevents browser opening file when dropped
-function dragOverHandler(ev) {
-	ev.preventDefault();
-}
-
-function handleFile(file) {
-	if (file.type === 'application/zip') {
-		decompressFile(file);
-	}
-	else if(file.type === 'application/json' || file.type === 'text/plain') {
-		readFile(file);
-	}
-	else {
-		showDataError("Unsupported file type","received " + file.type + ", expected JSON");
-	}
-}
-
-
-function decompressFile(file) {
-	console.log("Decompressing file");
-	const reader = new FileReader();
-
-      reader.onload = function(e) {
-        const arrayBuffer = e.target.result;
-        const zip = new JSZip();
-
-        zip.loadAsync(arrayBuffer).then(function(zip) {
-          // Get the first file name in the zip
-          const fileName = Object.keys(zip.files)[0];
-          console.log('File in zip:', fileName);
-
-          // Read the file contents as text
-          zip.files[fileName].async('text').then(function(content) {
-
-			gameData = JSON.parse(content);
-
-			dataLoaded();
-
-			});
-        }).catch(function(err) {
-			showDataError("Failed reading zip file", err.message);
-          	console.error('Error reading zip file:', err);
-        });
-      };
-
-	dataReceived(true);
-    reader.readAsArrayBuffer(file);
-}
-
-function readFile(file) {
-	var reader = new FileReader();
-	reader.addEventListener("loadend", function(event) {
-		console.log("Read content of file");
-		if(gameData == null) {
-			gameData = JSON.parse(event.target.result);
-			dataLoaded();
-		}
-	});
-	dataReceived();
-	reader.readAsText(file);
-}
-
-function handleFileUpload(event) {
-	const file = event.target.files[0];
-	if (file) {
-		console.log("File uploaded:", file.name);
-		handleFile(file);	
-	}
-	else {
-		showDataError("No file received");
-	}
-}
-
-function uploadFileButton() {
-	document.getElementById("fileupload").click();
 }

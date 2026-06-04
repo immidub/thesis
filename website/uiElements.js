@@ -11,8 +11,6 @@ function setupUIElements() {
 
     $("#data_error_view").hide();
     $("#data_loading_view").hide();
-    $("#error_div_possessions").hide();
-    $("#error_div_events").hide();
 
     function onPlay() {
         if (gameData == null || maxFrame <= 0) return;

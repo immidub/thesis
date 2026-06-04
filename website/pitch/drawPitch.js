@@ -7,7 +7,7 @@ function draw() {
     document.getElementById("time_label_text").innerHTML = frameToTime(frameNr);
     document.getElementById("time_label_text").setAttribute("title", "frame: " + gameData.tracking[frameNr].frame);
 
-    flipPitch = getIsSecondHalf(frameNr);
+    flipPitch = !getIsSecondHalf(frameNr);
 
     gameCanvas = gameCanvases[0];
     if (pitchOffsetX == -1) {
@@ -67,7 +67,7 @@ function drawGoalKeepers(points) {
 }
 
 function drawArrows(isSecondHalf) {
-    var arrowDirection = flipPitch ? !isSecondHalf : isSecondHalf;
+    var arrowDirection = flipPitch ? isSecondHalf : !isSecondHalf;
 
     gameCanvas.ctx.strokeStyle = "#575757";
     gameCanvas.ctx.fillStyle = gameData.homeTeam.colorShirt;
@@ -115,8 +115,4 @@ function drawArrowUp() {
     gameCanvas.ctx.lineTo(w0, h0A - h);
     gameCanvas.ctx.closePath();
     gameCanvas.ctx.fill();
-}
-
-function getSquaredDist(x1, y1, x2, y2) {
-    return (x1-x2)*(x1-x2)+(y1-y2)*(y1-y2);
 }

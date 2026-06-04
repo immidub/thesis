@@ -4,23 +4,12 @@ var drawLoopStarted = false;
 
 const PITCH_COUNT = 3;
 
-//helper class for canvas setup and drawing
-
 class CanvasHelper {
-    constructor(id, width, height, mouseClick, mouseDown, draw, limitedRefresh = false, startLoop = true) {
-        this.limitedRefresh = limitedRefresh;
-        this.count = 0;
-        this.mouseX = 0;
-        this.mouseY = 0;
-        this.mouseIsPressed = false;
-
+    constructor(id, width, height) {
         this.width = width;
         this.height = height;
 
-        this.draw = draw;
-
         var scaleFactor = 2;
-
         var canvas = document.getElementById(id);
 
         $("#" + id).css({ width: "" + width, height: "" + height });
@@ -31,37 +20,6 @@ class CanvasHelper {
         canvas.height = Math.ceil(height * scaleFactor);
 
         this.ctx.scale(scaleFactor, scaleFactor);
-
-        if (startLoop && draw) {
-            window.requestAnimationFrame(() => {
-                this.drawHandler();
-            });
-        }
-
-        var helper = this;
-
-        canvas.addEventListener("mousemove", function (event) {
-            helper.mouseX = event.offsetX;
-            helper.mouseY = event.offsetY;
-        });
-
-        canvas.addEventListener("mouseup", function (event) {
-            mouseClick();
-            helper.mouseIsPressed = false;
-        });
-
-        canvas.addEventListener("mousedown", function (event) {
-            helper.mouseIsPressed = true;
-            mouseDown();
-        });
-    }
-
-    drawHandler() {
-        this.count++;
-        this.draw();
-        window.requestAnimationFrame(() => {
-            this.drawHandler();
-        });
     }
 
     clearCanvas() {
@@ -99,8 +57,6 @@ class CanvasHelper {
     }
 }
 
-function empty() {}
-
 function startDrawLoop() {
     if (drawLoopStarted) return;
     drawLoopStarted = true;
@@ -126,7 +82,7 @@ function setupCanvases() {
     gameCanvases = [];
 
     for (var i = 0; i < PITCH_COUNT; i++) {
-        var canvas = new CanvasHelper("canvas" + (i + 1), pitchWidth, pitchHeight, empty, empty, null, false, false);
+        var canvas = new CanvasHelper("canvas" + (i + 1), pitchWidth, pitchHeight);
         canvas.clearCanvas();
         gameCanvases.push(canvas);
     }
