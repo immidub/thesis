@@ -4,7 +4,7 @@ var playerShirtNumbers = {};
 
 var startTime = 0;
 
-const LOCAL_DATA_PATH = "data/local.json";
+const LOCAL_DATA_PATH = "../data/local.json";
 
 /**
  * Converts frame number into the frame number without dead-frames
@@ -222,7 +222,7 @@ function showDataError(message, secondaryMessage) {
 }
 
 // ================================================================================================
-// Local dev data (website/data/ is gitignored — see README)
+// Local dev data (data/ at repo root is gitignored — see README)
 
 async function tryLoadLocalData() {
 	try {

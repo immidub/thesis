@@ -29,6 +29,11 @@ function drawPitchFrame(pitchIndex) {
         drawMarkingEdges(edges, "#E67E22");
     }
 
+    if (pitchIndex === 1) {
+        var knnEdges = getKnnMarkingEdges(frameNr, knnK);
+        drawMarkingEdges(knnEdges, "#3498DB");
+    }
+
     drawTeam(1);
     drawTeam(2);
     drawArrows(getIsSecondHalf(frameNr));

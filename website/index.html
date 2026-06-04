@@ -16,6 +16,7 @@
         <script src="pitch/pitchView.js"></script>
         <script src="marking/common.js"></script>
         <script src="marking/distanceMarking.js"></script>
+        <script src="marking/knnMarking.js"></script>
         <script src="timeline.js"></script>
         <script src="uiElements.js"></script>
         <script src="pitch/drawPitch.js"></script>
@@ -184,6 +185,16 @@
                             </div>
                             <div class="pitch-panel">
                                 <canvas id="canvas2"></canvas>
+                                <div class="pitch-control">
+                                    <label class="pitch-control-label" for="knn_k_select">
+                                        k-nearest neighbors: <span id="knn_k_label">1</span>
+                                    </label>
+                                    <select class="form-select form-select-sm pitch-k-select" id="knn_k_select">
+                                        <option value="1" selected>1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="pitch-panel">
                                 <canvas id="canvas3"></canvas>
@@ -197,6 +208,7 @@
         <script>
             setupUIElements();
             setupDistanceMarking();
+            setupKnnMarking();
         </script>
     </body>
 </html>
