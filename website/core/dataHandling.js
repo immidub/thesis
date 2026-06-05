@@ -56,7 +56,6 @@ function dataLoaded() {
 	setupDefaultTeamNames();
 
 	maxFrame = Math.max(0, Math.floor(gameData.tracking.length) - 2);
-	convertEvents();
 	updateTitle();
 
 	dataFinishedReading();

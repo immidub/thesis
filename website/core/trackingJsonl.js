@@ -84,9 +84,9 @@ async function parseTrackingJsonl(source) {
 
     return {
         version: "1.0",
-        frameRate: frameRateEstimate || 25,
+        frameRate: frameRateEstimate || 25, //always 25??
         periods: periods,
-        pitch: { width: 68, length: 105 },
+        pitch: { width: 68, length: 105 }, //mabye change to the actual pitch dimensions
         homeTeam: { name: "Home", players: Object.values(homePlayerMeta) },
         awayTeam: { name: "Away", players: Object.values(awayPlayerMeta) },
         ballId: BALL_TRACKING_ID,

@@ -9,6 +9,27 @@ async function loadMatchMetadata(path) {
 	}
 }
 
+function applyMatchMetadata(gameData, meta) {
+	if (!meta) return;
+
+	if (meta.periods) {
+		gameData.periods = meta.periods;
+	}
+
+	if (meta.events) {
+		gameData.events = meta.events;
+	}
+
+	if (meta.homeTeam) {
+		gameData.homeTeam = mergeTeamMetadata(gameData.homeTeam, meta.homeTeam);
+	}
+
+	if (meta.awayTeam) {
+		gameData.awayTeam = mergeTeamMetadata(gameData.awayTeam, meta.awayTeam);
+	}
+}
+
+//merges the team metadata with the tracking data
 function mergeTeamMetadata(trackingTeam, metaTeam) {
 	if (!trackingTeam) trackingTeam = { players: [] };
 	if (!metaTeam) return trackingTeam;
@@ -39,52 +60,4 @@ function mergeTeamMetadata(trackingTeam, metaTeam) {
 		colorNumber: metaTeam.colorNumber != null ? metaTeam.colorNumber : trackingTeam.colorNumber,
 		players: players,
 	};
-}
-
-function applyMatchMetadata(gameData, meta) {
-	if (!meta) return;
-
-	if (meta.periods) {
-		gameData.periods = meta.periods;
-	}
-
-	if (meta.events) {
-		gameData.events = meta.events;
-	}
-
-	if (meta.homeTeam) {
-		gameData.homeTeam = mergeTeamMetadata(gameData.homeTeam, meta.homeTeam);
-	}
-
-	if (meta.awayTeam) {
-		gameData.awayTeam = mergeTeamMetadata(gameData.awayTeam, meta.awayTeam);
-	}
-}
-
-function convertFrame(oldFrame) {
-	if (!gameData || !gameData.tracking) return oldFrame;
-
-	var low = 0;
-	var high = maxFrame;
-
-	while (high - low > 1) {
-		var mid = Math.floor((low + high) / 2);
-		var frame = +gameData.tracking[mid].frame;
-
-		if (frame > oldFrame) {
-			high = mid;
-		} else {
-			low = mid;
-		}
-	}
-
-	return high;
-}
-
-function convertEvents() {
-	if (!gameData.events) return;
-
-	for (var i = 0; i < gameData.events.length; i++) {
-		gameData.events[i].frame = convertFrame(gameData.events[i].frame);
-	}
 }

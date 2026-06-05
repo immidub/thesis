@@ -34,6 +34,11 @@ function drawPitchFrame(pitchIndex) {
         drawMarkingEdges(knnEdges, MARKING_EDGE_COLOR);
     }
 
+    if (pitchIndex === 2) {
+        var hungarianEdges = getHungarianMarkingEdges(frameNr);
+        drawMarkingEdges(hungarianEdges, MARKING_EDGE_COLOR);
+    }
+
     var defendingTeam = getDefendingTeam(frameNr);
 
     drawTeam(1, defendingTeam);
