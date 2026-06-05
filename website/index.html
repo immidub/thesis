@@ -189,7 +189,23 @@
                                 <div class="pitch-panel">
                                     <div class="pitch-title">Hungarian matching</div>
                                     <canvas id="canvas3"></canvas>
-                                    <div class="pitch-control pitch-control-spacer" aria-hidden="true"></div>
+                                    <div class="pitch-control">
+                                        <label class="pitch-control-label" for="hungarian_attacker_count_select">
+                                            Attackers matched: <span id="hungarian_attacker_count_label">10</span>
+                                        </label>
+                                        <select class="form-select form-select-sm pitch-k-select" id="hungarian_attacker_count_select">
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                            <option value="6">6</option>
+                                            <option value="7">7</option>
+                                            <option value="8">8</option>
+                                            <option value="9">9</option>
+                                            <option value="10" selected>10</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <div class="pitches-row">
@@ -227,6 +243,7 @@
             setupUIElements();
             setupDistanceMarking();
             setupKnnMarking();
+            setupHungarianMarking();
             setupAllOutfieldShapeGraph();
         </script>
     </body>
