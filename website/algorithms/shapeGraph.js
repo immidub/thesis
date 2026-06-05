@@ -1,5 +1,7 @@
 // ---------------- Compute Shape Graph ----------------
 
+var doPrint = false;
+
 function computeBaseGraph(delaunay) {
     var graph = []
 
@@ -215,4 +217,17 @@ function isHullEdgeOneWay(a, b, hull) {
             }
         }
     }
+}
+
+function getAngle(neighborA, center, neighborB, points) {
+    var ax = points[2 * neighborA] - points[2 * center];
+    var ay = points[2 * neighborA + 1] - points[2 * center + 1];
+    var bx = points[2 * neighborB] - points[2 * center];
+    var by = points[2 * neighborB + 1] - points[2 * center + 1];
+    var magA = Math.sqrt(ax * ax + ay * ay);
+    var magB = Math.sqrt(bx * bx + by * by);
+    if (magA === 0 || magB === 0) return 0;
+    var cos = (ax * bx + ay * by) / (magA * magB);
+    cos = Math.max(-1, Math.min(1, cos));
+    return Math.acos(cos);
 }

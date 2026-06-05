@@ -39,7 +39,22 @@ function drawPitchFrame(pitchIndex) {
         drawMarkingEdges(hungarianEdges, MARKING_EDGE_COLOR);
     }
 
-    var defendingTeam = getDefendingTeam(frameNr);
+    if (pitchIndex === 3) {
+        var delaunayEdges = getAttackingDelaunayEdges(frameNr);
+        drawGraphEdges(delaunayEdges, GRAPH_EDGE_COLOR);
+    }
+
+    if (pitchIndex === 4) {
+        var shapeGraphEdges = getAttackingShapeGraphEdges(frameNr);
+        drawGraphEdges(shapeGraphEdges, GRAPH_EDGE_COLOR);
+    }
+
+    if (pitchIndex === 5) {
+        var allOutfieldShapeGraphEdges = getAllOutfieldShapeGraphEdges(frameNr);
+        drawGraphEdges(allOutfieldShapeGraphEdges, GRAPH_EDGE_COLOR);
+    }
+
+    var defendingTeam = (pitchIndex < 3 || pitchIndex === 5) ? getDefendingTeam(frameNr) : null;
 
     drawTeam(1, defendingTeam);
     drawTeam(2, defendingTeam);
