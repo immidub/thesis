@@ -13,17 +13,11 @@ function setupUIElements() {
     $("#data_loading_view").hide();
 
     function onPlay() {
-        if (gameData == null || maxFrame <= 0) return;
-        isPlaying = true;
-        setFrameNr(frameNr);
-        $("#button_pause").show();
-        $("#button_play").hide();
+        playPlayback();
     }
 
     function onPause() {
-        isPlaying = false;
-        $("#button_pause").hide();
-        $("#button_play").show();
+        pausePlayback();
     }
 
     $("#play_pause_btn").on("click", function () {
@@ -37,11 +31,11 @@ function setupUIElements() {
     $("#button_pause").hide();
 
     $("#duration_slider").on("input", function () {
-        isPlaying = false;
-        $("#button_pause").hide();
-        $("#button_play").show();
+        pausePlayback();
         setFrameNr(+$(this).val());
     });
+
+    setupPlaybackKeyboard();
 
     tryLoadLocalData();
 }

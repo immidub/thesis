@@ -43,6 +43,71 @@ function changePlaybackSpeed(val) {
     $("#button_play").hide();
 }
 
+function togglePlayback() {
+    if (gameData == null || maxFrame <= 0) return;
+    if (isPlaying) {
+        pausePlayback();
+    } else {
+        playPlayback();
+    }
+}
+
+function playPlayback() {
+    if (gameData == null || maxFrame <= 0) return;
+    isPlaying = true;
+    setFrameNr(frameNr);
+    $("#button_pause").show();
+    $("#button_play").hide();
+}
+
+function pausePlayback() {
+    isPlaying = false;
+    $("#button_pause").hide();
+    $("#button_play").show();
+}
+
+function skipPlaybackSeconds(seconds) {
+    if (gameData == null || maxFrame <= 0) return;
+
+    var wasPlaying = isPlaying;
+    var deltaFrames = Math.round(seconds * gameData.frameRate);
+    var newFrame = Math.max(0, Math.min(maxFrame, frameNr + deltaFrames));
+    frameDelta = 0;
+    setFrameNr(newFrame);
+
+    if (newFrame >= maxFrame) {
+        pausePlayback();
+        return;
+    }
+
+    if (wasPlaying) {
+        playPlayback();
+    } else {
+        pausePlayback();
+    }
+}
+
+function setupPlaybackKeyboard() {
+    document.addEventListener("keydown", function (e) {
+        if (!$("#website_view").is(":visible")) return;
+        if (gameData == null || maxFrame <= 0) return;
+
+        var tag = e.target.tagName;
+        if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+
+        if (e.code === "Space") {
+            e.preventDefault();
+            togglePlayback();
+        } else if (e.code === "ArrowLeft") {
+            e.preventDefault();
+            skipPlaybackSeconds(-5);
+        } else if (e.code === "ArrowRight") {
+            e.preventDefault();
+            skipPlaybackSeconds(5);
+        }
+    });
+}
+
 function getPeriod(frame) {
     if (!gameData.periods || gameData.periods.length === 0) {
         return 0;
