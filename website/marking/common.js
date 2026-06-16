@@ -8,14 +8,16 @@ function getTeamPlayerPositions(frame, team) {
         if (gameData.players.goalKeepers.includes(playerId)) continue;
 
         var object = dataLine.objects[playerId];
-        var [h, v] = getCoordinates(object);
+        var [h, v] = getCoordinates(object, object);
+
+        var [x, y] = pt(h, v);
 
         players.push({
             id: playerId,
             h: h,
             v: v,
-            x: convertX(v),
-            y: convertY(h),
+            x: x,
+            y: y,
         });
     }
 

@@ -84,7 +84,7 @@ Optional paths:
 python3 convert_fwc_match.py --input-dir input --output-dir data
 ```
 
-Conversion takes a few minutes for a full match (~300k frames). Team names and player rosters come from the FIFA metadata file; kit colors use the same defaults as the website (`#3395AB` home, `#B73B92` away).
+Conversion takes a few minutes for a full match (~300k frames). Team names and player rosters come from the FIFA metadata file; kit colors use the same defaults as the website (`#B73B92` home, `#3395AB` away).
 
 ### 3. Open the viewer
 
@@ -158,7 +158,7 @@ Single JSON file. Supplies what the JSONL does not: display names, kit colors, a
 {
   "homeTeam": {
     "name": "Red FC",
-    "colorShirt": "#3395AB",
+    "colorShirt": "#B73B92",
     "colorNumber": "#fff",
     "players": [
       { "id": "10001", "shirtNumber": 9, "isGoalie": false },
@@ -168,7 +168,7 @@ Single JSON file. Supplies what the JSONL does not: display names, kit colors, a
   },
   "awayTeam": {
     "name": "Blue United",
-    "colorShirt": "#B73B92",
+    "colorShirt": "#3395AB",
     "colorNumber": "#fff",
     "players": [
       { "id": "20001", "shirtNumber": 7, "isGoalie": false },

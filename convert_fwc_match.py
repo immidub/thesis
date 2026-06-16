@@ -24,8 +24,8 @@ FRAME_RATE = 50.0
 PLAYER_POSITIONS = {"Outfielder", "Goalkeeper"}
 
 DEFAULT_TEAM_COLORS = {
-    "home": {"colorShirt": "#3395AB", "colorNumber": "#fff"},
-    "away": {"colorShirt": "#B73B92", "colorNumber": "#fff"},
+    "home": {"colorShirt": "#B73B92", "colorNumber": "#fff"},
+    "away": {"colorShirt": "#3395AB", "colorNumber": "#fff"},
 }
 
 

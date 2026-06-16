@@ -67,6 +67,7 @@ function dataLoaded() {
 	timestampOffset = 0;
 	pitchOffsetX = -1;
 	pitchOffsetY = -1;
+	resetPitchDirectionCache();
 	$("#duration_slider").val(0);
 	$("#button_pause").hide();
 	$("#button_play").show();
@@ -117,10 +118,10 @@ function setupDefaultColors() {
 	if(gameData.awayTeam == null) gameData.awayTeam = {};
 
 	if(gameData.homeTeam.colorShirt == null) {
-		gameData.homeTeam.colorShirt = "#3395AB";
+		gameData.homeTeam.colorShirt = "#B73B92";
 	}
 	if(gameData.awayTeam.colorShirt == null) {
-		gameData.awayTeam.colorShirt = "#B73B92";
+		gameData.awayTeam.colorShirt = "#3395AB";
 	}
 
 	if(gameData.homeTeam.colorNumber == null) {
@@ -156,8 +157,14 @@ function getPlayers() {
 }
 
 function updateTitle() {
+	var homeName = gameData.homeTeam.name;
+	var awayName = gameData.awayTeam.name;
+	var homeColor = gameData.homeTeam.colorShirt || "#B73B92";
+	var awayColor = gameData.awayTeam.colorShirt || "#3395AB";
+
 	document.getElementById("title_text").innerHTML =
-		gameData.homeTeam.name + " vs. " + gameData.awayTeam.name;
+		'<span style="color:' + homeColor + '">' + homeName + "</span> vs. " +
+		'<span style="color:' + awayColor + '">' + awayName + "</span>";
 }
 
 function setupDefaultTeamNames() {

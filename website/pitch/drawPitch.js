@@ -7,12 +7,12 @@ function draw() {
     document.getElementById("time_label_text").innerHTML = frameToTime(frameNr);
     document.getElementById("time_label_text").setAttribute("title", "frame: " + gameData.tracking[frameNr].frame);
 
-    flipPitch = !getIsSecondHalf(frameNr);
-
     gameCanvas = gameCanvases[0];
     if (pitchOffsetX == -1) {
         drawGameSetup();
     }
+
+    updatePitchDirectionBars(frameNr);
 
     for (var i = 0; i < gameCanvases.length; i++) {
         gameCanvas = gameCanvases[i];
@@ -58,7 +58,6 @@ function drawPitchFrame(pitchIndex) {
 
     drawTeam(1, defendingTeam);
     drawTeam(2, defendingTeam);
-    drawArrows(getIsSecondHalf(frameNr));
     drawGoalKeepers(getGoalKeepers(frameNr), defendingTeam);
     drawPlayerLabels(frameNr);
     drawBall(frameNr);
@@ -100,53 +99,3 @@ function drawGoalKeepers(points, defendingTeam) {
     }
 }
 
-function drawArrows(isSecondHalf) {
-    var arrowDirection = flipPitch ? isSecondHalf : !isSecondHalf;
-
-    gameCanvas.ctx.strokeStyle = "#575757";
-    gameCanvas.ctx.fillStyle = gameData.homeTeam.colorShirt;
-    if (!arrowDirection) drawArrowUp();
-    else drawArrowDown();
-
-    gameCanvas.ctx.fillStyle = gameData.awayTeam.colorShirt;
-    if (!arrowDirection) drawArrowDown();
-    else drawArrowUp();
-}
-
-function drawArrowDown() {
-    const h0B = gameCanvas.height / 2 - 25;
-    const h = 12;
-    const h1 = 8;
-    const w = 3;
-    const w0 = 10;
-
-    gameCanvas.ctx.beginPath();
-    gameCanvas.ctx.moveTo(w0 + w * 1.5, h0B + h + h1);
-    gameCanvas.ctx.lineTo(w0 + w * 3, h0B + h);
-    gameCanvas.ctx.lineTo(w0 + w * 2, h0B + h);
-    gameCanvas.ctx.lineTo(w0 + w * 2, h0B - h);
-    gameCanvas.ctx.lineTo(w0 + w, h0B - h);
-    gameCanvas.ctx.lineTo(w0 + w, h0B + h);
-    gameCanvas.ctx.lineTo(w0, h0B + h);
-    gameCanvas.ctx.closePath();
-    gameCanvas.ctx.fill();
-}
-
-function drawArrowUp() {
-    const h0A = gameCanvas.height / 2 + 25;
-    const h = 12;
-    const h1 = 8;
-    const w = 3;
-    const w0 = 10;
-
-    gameCanvas.ctx.beginPath();
-    gameCanvas.ctx.moveTo(w0 + w * 1.5, h0A - h - h1);
-    gameCanvas.ctx.lineTo(w0 + w * 3, h0A - h);
-    gameCanvas.ctx.lineTo(w0 + w * 2, h0A - h);
-    gameCanvas.ctx.lineTo(w0 + w * 2, h0A + h);
-    gameCanvas.ctx.lineTo(w0 + w, h0A + h);
-    gameCanvas.ctx.lineTo(w0 + w, h0A - h);
-    gameCanvas.ctx.lineTo(w0, h0A - h);
-    gameCanvas.ctx.closePath();
-    gameCanvas.ctx.fill();
-}
