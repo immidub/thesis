@@ -1,3 +1,5 @@
 # Local dev tracking data — not committed; others upload via the webpage
 data/*
 !data/.gitkeep
+input/*
+!input/.gitkeep

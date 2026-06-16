@@ -44,6 +44,7 @@ async function parseTrackingJsonl(source) {
             frame: frameIdx,
             timestamp: Math.round(gameClock * 1000),
             possession: frame.lastTouch || null,
+            live: frame.live != null ? frame.live : null,
             objects: objects,
         });
 

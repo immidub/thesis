@@ -16,10 +16,6 @@ function applyMatchMetadata(gameData, meta) {
 		gameData.periods = meta.periods;
 	}
 
-	if (meta.events) {
-		gameData.events = meta.events;
-	}
-
 	if (meta.homeTeam) {
 		gameData.homeTeam = mergeTeamMetadata(gameData.homeTeam, meta.homeTeam);
 	}

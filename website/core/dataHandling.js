@@ -156,23 +156,8 @@ function getPlayers() {
 }
 
 function updateTitle() {
-	if (gameData.events == null) {
-		document.getElementById("title_text").innerHTML =
-			gameData.homeTeam.name + " vs. " + gameData.awayTeam.name;
-		return;
-	}
-
-	var score1 = 0;
-	var score2 = 0;
-	for (var event of gameData.events) {
-		if (event.type === "GOAL") {
-			if (event.team === 1) score1++;
-			else score2++;
-		}
-	}
-
 	document.getElementById("title_text").innerHTML =
-		gameData.homeTeam.name + " " + score1 + " : " + score2 + " " + gameData.awayTeam.name;
+		gameData.homeTeam.name + " vs. " + gameData.awayTeam.name;
 }
 
 function setupDefaultTeamNames() {
