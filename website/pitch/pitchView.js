@@ -31,22 +31,42 @@ function isBallTracked(frame) {
     return gameData.ballId in dataLine.objects;
 }
 
-function getDefendingTeam(frame) {
-    if (!isBallTracked(frame)) return null;
+function isBallLive(frame) {
+    if (!isBallTracked(frame)) return false;
+    var live = gameData.tracking[frame].live;
+    return live !== false;
+}
+
+function getPossessionTeam(frame) {
+    if (!isBallLive(frame)) return null;
 
     var possession = gameData.tracking[frame].possession;
-    if (possession == null) return null;
-
-    if (possession === "home" || gameData.players.team1.includes(possession)) return 2;
-    if (possession === "away" || gameData.players.team2.includes(possession)) return 1;
+    if (possession === "home") return 1;
+    if (possession === "away") return 2;
     return null;
 }
 
-function getGoalkeeperId(team) {
-    var teamIds = team === 1 ? gameData.players.team1 : gameData.players.team2;
-    for (var i = 0; i < gameData.players.goalKeepers.length; i++) {
-        var playerId = gameData.players.goalKeepers[i];
-        if (teamIds.includes(playerId)) return playerId;
+function getDefendingTeam(frame) {
+    var possessionTeam = getPossessionTeam(frame);
+    if (possessionTeam == null) return null;
+    return possessionTeam === 1 ? 2 : 1;
+}
+
+function getAttackingTeam(frame) {
+    return getPossessionTeam(frame);
+}
+
+function getGoalkeeperId(team, frame) {
+    var teamPlayers = team === 1 ? gameData.homeTeam.players : gameData.awayTeam.players;
+    if (!teamPlayers) return null;
+
+    var dataLine = frame != null && gameData.tracking[frame] ? gameData.tracking[frame] : null;
+    for (var i = 0; i < teamPlayers.length; i++) {
+        var player = teamPlayers[i];
+        if (!player.isGoalie) continue;
+        var playerId = String(player.id);
+        if (dataLine != null && !dataLine.objects[playerId]) continue;
+        return playerId;
     }
     return null;
 }
@@ -55,7 +75,7 @@ function getGoalkeeperH(frame, team) {
     var dataLine = gameData.tracking[frame];
     if (!dataLine) return null;
 
-    var playerId = getGoalkeeperId(team);
+    var playerId = getGoalkeeperId(team, frame);
     if (!playerId) return null;
 
     var object1 = dataLine.objects[playerId];
@@ -71,13 +91,13 @@ function getGoalKeepers(frame) {
     var dataLine2 = gameData.tracking[frame + 1];
 
     for (var playerId in dataLine.objects) {
-        if (!gameData.players.goalKeepers.includes(playerId)) continue;
+        if (!isGoalkeeperPlayer(playerId)) continue;
 
         var object1 = dataLine.objects[playerId];
         var object2 = dataLine2.objects[playerId] ?? object1;
         var [h, v] = getCoordinates(object1, object2);
         var [x, y] = pt(h, v);
-        points.push([x, y, gameData.players.team1.includes(playerId) ? 1 : 2]);
+        points.push([x, y, gameData.players.team1.includes(String(playerId)) ? 1 : 2]);
     }
 
     return points;
@@ -90,8 +110,8 @@ function getGamePoints(frame, team) {
     var teamIds = team === 1 ? gameData.players.team1 : gameData.players.team2;
 
     for (var playerId in dataLine.objects) {
-        if (!teamIds.includes(playerId)) continue;
-        if (gameData.players.goalKeepers.includes(playerId)) continue;
+        if (!teamIds.includes(String(playerId))) continue;
+        if (isGoalkeeperPlayer(playerId)) continue;
 
         var object1 = dataLine.objects[playerId];
         var object2 = dataLine2.objects[playerId] ?? object1;
@@ -119,8 +139,8 @@ function drawPlayerLabels(frame) {
     for (var playerId in dataLine.objects) {
         if (playerId === gameData.ballId) continue;
 
-        var isHome = gameData.players.team1.includes(playerId);
-        var isAway = gameData.players.team2.includes(playerId);
+        var isHome = gameData.players.team1.includes(String(playerId));
+        var isAway = gameData.players.team2.includes(String(playerId));
         if (!isHome && !isAway) continue;
 
         var object1 = dataLine.objects[playerId];
@@ -128,7 +148,7 @@ function drawPlayerLabels(frame) {
         var [h, v] = getCoordinates(object1, object2);
         var [x, y] = pt(h, v);
 
-        if (gameData.players.goalKeepers.includes(playerId)) {
+        if (isGoalkeeperPlayer(playerId)) {
             gameCanvas.ctx.fillStyle = "#FFF";
         } else {
             gameCanvas.ctx.fillStyle = isHome ? gameData.homeTeam.colorNumber : gameData.awayTeam.colorNumber;
@@ -138,7 +158,7 @@ function drawPlayerLabels(frame) {
     }
 }
 
-function drawBall(frame) {
+function drawBall(frame, ballLive) {
     var dataLine = gameData.tracking[frame];
     var object1 = dataLine.objects[gameData.ballId];
     if (!object1) return;
@@ -146,7 +166,7 @@ function drawBall(frame) {
     var object2 = (gameData.tracking[frame + 1] ?? dataLine).objects[gameData.ballId] ?? object1;
     var [h, v] = getCoordinates(object1, object2);
     var [x, y] = pt(h, v);
-    gameCanvas.ctx.fillStyle = "#575757";
+    gameCanvas.ctx.fillStyle = ballLive === false ? "#B0B0B0" : "#575757";
     gameCanvas.drawDot(x, y, 4);
 }
 
@@ -240,18 +260,23 @@ function getPitchDirectionHtml(frame) {
     var awayH = getGoalkeeperH(startFrame, 2);
     frameDelta = savedDelta;
 
-    var homeAttacksRight = awayH != null && homeH != null && awayH < homeH;
-    var awayAttacksRight = homeH != null && awayH != null && homeH < awayH;
     var homeColor = gameData.homeTeam.colorShirt || "#B73B92";
     var awayColor = gameData.awayTeam.colorShirt || "#3395AB";
-    var leftLabel = "";
-    var rightLabel = "";
+    var homeName = gameData.homeTeam.name || "Home";
+    var awayName = gameData.awayTeam.name || "Away";
+    var homeAttacksRight;
+    if (homeH != null && awayH != null && homeH !== awayH) {
+        homeAttacksRight = awayH < homeH;
+    } else {
+        homeAttacksRight = true;
+    }
 
-    if (homeAttacksRight) leftLabel = dirLabel(gameData.homeTeam.name || "Home", homeColor, true);
-    else rightLabel = dirLabel(gameData.homeTeam.name || "Home", homeColor, false);
-
-    if (awayAttacksRight) leftLabel = dirLabel(gameData.awayTeam.name || "Away", awayColor, true);
-    else rightLabel = dirLabel(gameData.awayTeam.name || "Away", awayColor, false);
+    var leftLabel = homeAttacksRight
+        ? dirLabel(homeName, homeColor, true)
+        : dirLabel(awayName, awayColor, true);
+    var rightLabel = homeAttacksRight
+        ? dirLabel(awayName, awayColor, false)
+        : dirLabel(homeName, homeColor, false);
 
     pitchDirectionCache[period] =
         '<div class="pitch-direction-inner">' +

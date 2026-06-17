@@ -55,12 +55,19 @@ function drawPitchFrame(pitchIndex) {
     }
 
     var defendingTeam = (pitchIndex < 3 || pitchIndex === 5) ? getDefendingTeam(frameNr) : null;
+    var ballLive = isBallLive(frameNr);
+
+    gameCanvas.ctx.save();
+    if (!ballLive) {
+        gameCanvas.ctx.globalAlpha = 0.45;
+    }
 
     drawTeam(1, defendingTeam);
     drawTeam(2, defendingTeam);
     drawGoalKeepers(getGoalKeepers(frameNr), defendingTeam);
     drawPlayerLabels(frameNr);
-    drawBall(frameNr);
+    drawBall(frameNr, ballLive);
+    gameCanvas.ctx.restore();
 }
 
 const DEFENDING_PLAYER_BORDER_COLOR = "#1a1a1a";

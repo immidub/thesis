@@ -25,35 +25,45 @@ function applyMatchMetadata(gameData, meta) {
 	}
 }
 
-//merges the team metadata with the tracking data
 function mergeTeamMetadata(trackingTeam, metaTeam) {
-	if (!trackingTeam) trackingTeam = { players: [] };
-	if (!metaTeam) return trackingTeam;
+	if (!metaTeam) return trackingTeam || { players: [] };
 
-	var metaByFspId = {};
-	if (metaTeam.players) {
-		for (var i = 0; i < metaTeam.players.length; i++) {
-			var metaPlayer = metaTeam.players[i];
-			metaByFspId[metaPlayer.id] = metaPlayer;
+	var trackingById = {};
+	if (trackingTeam && trackingTeam.players) {
+		for (var i = 0; i < trackingTeam.players.length; i++) {
+			var trackingPlayer = trackingTeam.players[i];
+			trackingById[String(trackingPlayer.id)] = trackingPlayer;
 		}
 	}
 
 	var players = [];
-	for (var j = 0; j < trackingTeam.players.length; j++) {
-		var player = trackingTeam.players[j];
-		var matched = player.fspId ? metaByFspId[player.fspId] : null;
+	if (metaTeam.players) {
+		for (var j = 0; j < metaTeam.players.length; j++) {
+			var metaPlayer = metaTeam.players[j];
+			var fromTracking = trackingById[String(metaPlayer.id)] || null;
+			players.push({
+				id: String(metaPlayer.id),
+				shirtNumber: metaPlayer.shirtNumber != null ? metaPlayer.shirtNumber : (fromTracking && fromTracking.shirtNumber),
+				isGoalie: metaPlayer.isGoalie != null ? metaPlayer.isGoalie : (fromTracking && fromTracking.isGoalie === true),
+			});
+			delete trackingById[metaPlayer.id];
+			delete trackingById[String(metaPlayer.id)];
+		}
+	}
+
+	for (var id in trackingById) {
+		var extra = trackingById[id];
 		players.push({
-			id: player.id,
-			fspId: player.fspId,
-			shirtNumber: matched != null ? matched.shirtNumber : player.shirtNumber,
-			isGoalie: matched != null ? matched.isGoalie : player.isGoalie,
+			id: String(extra.id),
+			shirtNumber: extra.shirtNumber,
+			isGoalie: extra.isGoalie === true,
 		});
 	}
 
 	return {
-		name: metaTeam.name != null ? metaTeam.name : trackingTeam.name,
-		colorShirt: metaTeam.colorShirt != null ? metaTeam.colorShirt : trackingTeam.colorShirt,
-		colorNumber: metaTeam.colorNumber != null ? metaTeam.colorNumber : trackingTeam.colorNumber,
+		name: metaTeam.name != null ? metaTeam.name : (trackingTeam && trackingTeam.name),
+		colorShirt: metaTeam.colorShirt != null ? metaTeam.colorShirt : (trackingTeam && trackingTeam.colorShirt),
+		colorNumber: metaTeam.colorNumber != null ? metaTeam.colorNumber : (trackingTeam && trackingTeam.colorNumber),
 		players: players,
 	};
 }

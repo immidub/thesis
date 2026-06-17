@@ -1,7 +1,7 @@
 var hungarianAttackerCount = 10;
 
 function getHungarianMarkingEdges(frame, attackerCount) {
-    if (!isBallTracked(frame)) return [];
+    if (!isBallLive(frame)) return [];
 
     var defendingTeam = getDefendingTeam(frame);
     if (defendingTeam == null) return [];
@@ -12,8 +12,7 @@ function getHungarianMarkingEdges(frame, attackerCount) {
     if (defenders.length === 0 || opponents.length === 0) return [];
 
     var count = attackerCount != null ? attackerCount : hungarianAttackerCount;
-    var [ballH, ballV] = getBallPitchPosition(frame);
-    var selectedAttackers = getClosestAttackers(opponents, ballH, ballV, count);
+    var selectedAttackers = getClosestAttackers(opponents, frame, count);
 
     if (selectedAttackers.length === 0) return [];
 
@@ -22,21 +21,13 @@ function getHungarianMarkingEdges(frame, attackerCount) {
     return indicesToMarkingEdges(indices, defenders, selectedAttackers);
 }
 
-function getBallPitchPosition(frame) {
-    var dataLine = gameData.tracking[frame];
-    var dataLine2 = gameData.tracking[frame + 1];
-    var object1 = dataLine.objects[gameData.ballId];
-    var object2 = dataLine2.objects[gameData.ballId] ?? object1;
-    return getCoordinates(object1, object2);
-}
-
-function getClosestAttackers(attackers, h, v, count) {
+function getClosestAttackers(attackers, frame, count) {
     var ranked = [];
     for (var i = 0; i < attackers.length; i++) {
         var attacker = attackers[i];
         ranked.push({
             player: attacker,
-            distSq: getPitchDistanceSquared(h, v, attacker.h, attacker.v),
+            distSq: attackerDistToBallSquared(attacker, frame),
         });
     }
 
@@ -50,6 +41,17 @@ function getClosestAttackers(attackers, h, v, count) {
         selected.push(ranked[j].player);
     }
     return selected;
+}
+
+function attackerDistToBallSquared(attacker, frame) {
+    if (attacker.distToBall != null) {
+        return attacker.distToBall * attacker.distToBall;
+    }
+
+    var dataLine = gameData.tracking[frame];
+    var ball = dataLine.objects[gameData.ballId];
+    if (!ball) return Infinity;
+    return getPitchDistanceSquared(ball.h, ball.v, attacker.h, attacker.v);
 }
 
 function buildDefenderOpponentCostMatrix(defenders, opponents) {

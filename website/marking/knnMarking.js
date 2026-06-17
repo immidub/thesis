@@ -1,7 +1,7 @@
 var knnK = 1;
 
 function getKnnMarkingEdges(frame, k) {
-    if (!isBallTracked(frame)) return [];
+    if (!isBallLive(frame)) return [];
 
     var defendingTeam = getDefendingTeam(frame);
     if (defendingTeam == null) return [];

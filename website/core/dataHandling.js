@@ -140,20 +140,29 @@ function getPlayers() {
 	gameData.players.goalKeepers = [];
 
 	for(var player of gameData.homeTeam.players) {
-		gameData.players.team1.push(player.id)
-		playerShirtNumbers[player.id] = player.shirtNumber;
+		gameData.players.team1.push(String(player.id))
+		playerShirtNumbers[String(player.id)] = player.shirtNumber;
 		if(player.isGoalie == true) {
-			gameData.players.goalKeepers.push(player.id);
+			gameData.players.goalKeepers.push(String(player.id));
 		}
 	}
 
 	for(var player of gameData.awayTeam.players) {
-		gameData.players.team2.push(player.id)
-		playerShirtNumbers[player.id] = player.shirtNumber;
+		gameData.players.team2.push(String(player.id))
+		playerShirtNumbers[String(player.id)] = player.shirtNumber;
 		if(player.isGoalie == true) {
-			gameData.players.goalKeepers.push(player.id);
+			gameData.players.goalKeepers.push(String(player.id));
 		}
 	}
+}
+
+function isGoalkeeperPlayer(playerId) {
+	if (!gameData || !gameData.players) return false;
+	var id = String(playerId);
+	for (var i = 0; i < gameData.players.goalKeepers.length; i++) {
+		if (String(gameData.players.goalKeepers[i]) === id) return true;
+	}
+	return false;
 }
 
 function updateTitle() {

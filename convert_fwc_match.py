@@ -14,7 +14,6 @@ import argparse
 import json
 import re
 import sys
-import uuid
 from collections import defaultdict
 from pathlib import Path
 
@@ -40,8 +39,12 @@ def title_case_team(name: str) -> str:
     return " ".join(part.capitalize() for part in name.strip().split())
 
 
-def player_uuid(player_id: int) -> str:
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"fwc-player:{player_id}"))
+def build_player_id_map(match_metadata: dict) -> dict[int, str]:
+    """Map enriched numeric playerId to metadata player_id strings."""
+    player_ids: dict[int, str] = {}
+    for player in match_metadata["home_team_players"] + match_metadata["away_team_players"]:
+        player_ids[player["player_id"]] = str(player["player_id"])
+    return player_ids
 
 
 def convert_coords(x_cm: float, y_cm: float, z_cm: float) -> list[float]:
@@ -109,15 +112,22 @@ def scan_enriched_files(enriched_files: list[Path]) -> tuple[dict[int, tuple[Pat
     return frame_refs, goalkeepers, period_two_start
 
 
-def build_player_entry(entity: dict) -> dict:
-    player_id = entity["playerId"]
+def build_player_entry(entity: dict, player_id_map: dict[int, str]) -> dict | None:
+    enriched_id = entity["playerId"]
+    player_id = player_id_map.get(enriched_id)
+    if player_id is None:
+        return None
+
     speed = entity.get("speed")
+    direction = entity.get("direction")
+    dist_to_ball = entity.get("distToBall")
     return {
-        "playerId": player_uuid(player_id),
+        "playerId": player_id,
         "number": entity["jerseyNumber"],
         "xyz": convert_coords(entity["x"], entity["y"], entity["z"]),
         "speed": round(float(speed), 1) if speed is not None else 0.0,
-        "playerExternalIds": {"fspId": str(player_id)},
+        "direction": round(float(direction), 2) if direction is not None else 0.0,
+        "distToBall": round(float(dist_to_ball) / 100.0, 2) if dist_to_ball is not None else 0.0,
     }
 
 
@@ -158,6 +168,7 @@ def sample_to_frame(
     home_team_id: int,
     away_team_id: int,
     period_two_start: int,
+    player_id_map: dict[int, str],
 ) -> dict:
     period = 1 if frame_count < period_two_start else 2
     period_start = 1 if period == 1 else period_two_start
@@ -166,18 +177,26 @@ def sample_to_frame(
     home_players: list[dict] = []
     away_players: list[dict] = []
     ball_xyz: list[float] | None = None
+    ball_direction: float | None = None
+    ball_speed: float | None = None
     enriched_model = sample["enrichedModel"]
 
     for entity in enriched_model:
         position = entity.get("position")
         if position == "BALL":
             ball_xyz = convert_coords(entity["x"], entity["y"], entity["z"])
+            direction = entity.get("direction")
+            speed = entity.get("speed")
+            ball_direction = round(float(direction), 2) if direction is not None else None
+            ball_speed = round(float(speed), 1) if speed is not None else None
             continue
         if position not in PLAYER_POSITIONS:
             continue
 
         team_id = entity.get("teamId")
-        player_entry = build_player_entry(entity)
+        player_entry = build_player_entry(entity, player_id_map)
+        if player_entry is None:
+            continue
         if team_id == home_team_id:
             home_players.append(player_entry)
         elif team_id == away_team_id:
@@ -200,7 +219,12 @@ def sample_to_frame(
         frame["lastTouch"] = last_touch
 
     if ball_xyz is not None:
-        frame["ball"] = {"xyz": ball_xyz}
+        ball: dict = {"xyz": ball_xyz}
+        if ball_direction is not None:
+            ball["direction"] = ball_direction
+        if ball_speed is not None:
+            ball["speed"] = ball_speed
+        frame["ball"] = ball
     return frame
 
 
@@ -213,6 +237,7 @@ def write_tracking_jsonl(
 ) -> int:
     home_team_id = match_metadata["home_team_id"]
     away_team_id = match_metadata["away_team_id"]
+    player_id_map = build_player_id_map(match_metadata)
     samples_by_file: dict[Path, list[tuple[int, int]]] = defaultdict(list)
 
     for frame_count in sorted(frame_refs):
@@ -240,6 +265,7 @@ def write_tracking_jsonl(
                     home_team_id=home_team_id,
                     away_team_id=away_team_id,
                     period_two_start=period_two_start,
+                    player_id_map=player_id_map,
                 )
                 output_handle.write(json.dumps(frame, separators=(",", ":")))
                 output_handle.write("\n")

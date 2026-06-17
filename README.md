@@ -28,7 +28,7 @@ data/
 
 ### 2. Prepare `metaData.json`
 
-The JSONL does not include team names, kit colors, or goalkeeper flags. Create `data/metaData.json` separately (see the [metaData.json example](#example-metadatajson) below). Player rows are joined using `playerExternalIds.fspId` in the JSONL and `players[].id` in the metadata — those id strings must match.
+The JSONL does not include team names, kit colors, or goalkeeper flags. Create `data/metaData.json` separately (see the [metaData.json example](#example-metadatajson) below). Player rows are joined using `playerId` in the JSONL and `players[].id` in the metadata — those id strings must match.
 
 If you omit `metaData.json`, playback still works with generic defaults (teams “Home” / “Away”, default colors, goalkeepers inferred from positions).
 
@@ -102,7 +102,7 @@ data/
   metaData.json             # optional — team names, colors, goalkeepers
 ```
 
-The viewer loads tracking from the JSONL file and merges metadata when `metaData.json` is present. Player rows are joined using `playerExternalIds.fspId` in the JSONL and `players[].id` in the metadata (same id string). Half-time boundaries for the clock come from the `period` field in the JSONL; the pitch view uses a fixed orientation in both periods.
+The viewer loads tracking from the JSONL file and merges metadata when `metaData.json` is present. Player rows are joined using `playerId` in the JSONL and `players[].id` in the metadata (same id string). Half-time boundaries for the clock come from the `period` field in the JSONL; the pitch view uses a fixed orientation in both periods.
 
 ---
 
@@ -111,8 +111,8 @@ The viewer loads tracking from the JSONL file and merges metadata when `metaData
 One JSON object per line (JSON Lines). Each line is one frame.
 
 ```jsonl
-{"period":1,"frameIdx":0,"gameClock":0.0,"homePlayers":[{"playerId":"a1b2c3d4-0001-4000-8000-000000000001","number":9,"xyz":[12.5,-8.0,0.0],"playerExternalIds":{"fspId":"10001"}},{"playerId":"a1b2c3d4-0001-4000-8000-000000000002","number":1,"xyz":[-40.0,0.0,0.0],"playerExternalIds":{"fspId":"10002"}}],"awayPlayers":[{"playerId":"b2c3d4e5-0002-4000-8000-000000000010","number":7,"xyz":[-10.2,15.3,0.0],"playerExternalIds":{"fspId":"20001"}}],"ball":{"xyz":[0.5,0.0,0.0]}}
-{"period":1,"frameIdx":1,"gameClock":0.04,"homePlayers":[{"playerId":"a1b2c3d4-0001-4000-8000-000000000001","number":9,"xyz":[12.6,-7.9,0.0],"playerExternalIds":{"fspId":"10001"}}],"awayPlayers":[{"playerId":"b2c3d4e5-0002-4000-8000-000000000010","number":7,"xyz":[-10.0,15.5,0.0],"playerExternalIds":{"fspId":"20001"}}],"ball":{"xyz":[0.6,0.1,0.0]}}
+{"period":1,"frameIdx":0,"gameClock":0.0,"homePlayers":[{"playerId":"10001","number":9,"xyz":[12.5,-8.0,0.0]},{"playerId":"10002","number":1,"xyz":[-40.0,0.0,0.0]}],"awayPlayers":[{"playerId":"20001","number":7,"xyz":[-10.2,15.3,0.0]}],"ball":{"xyz":[0.5,0.0,0.0]}}
+{"period":1,"frameIdx":1,"gameClock":0.04,"homePlayers":[{"playerId":"10001","number":9,"xyz":[12.6,-7.9,0.0]}],"awayPlayers":[{"playerId":"20001","number":7,"xyz":[-10.0,15.5,0.0]}],"ball":{"xyz":[0.6,0.1,0.0]}}
 ```
 
 Expanded view of a single frame (pretty-printed for readability; the file itself is one line per frame):
@@ -124,24 +124,21 @@ Expanded view of a single frame (pretty-printed for readability; the file itself
   "gameClock": 0.0,
   "homePlayers": [
     {
-      "playerId": "a1b2c3d4-0001-4000-8000-000000000001",
+      "playerId": "10001",
       "number": 9,
-      "xyz": [12.5, -8.0, 0.0],
-      "playerExternalIds": { "fspId": "10001" }
+      "xyz": [12.5, -8.0, 0.0]
     },
     {
-      "playerId": "a1b2c3d4-0001-4000-8000-000000000002",
+      "playerId": "10002",
       "number": 1,
-      "xyz": [-40.0, 0.0, 0.0],
-      "playerExternalIds": { "fspId": "10002" }
+      "xyz": [-40.0, 0.0, 0.0]
     }
   ],
   "awayPlayers": [
     {
-      "playerId": "b2c3d4e5-0002-4000-8000-000000000010",
+      "playerId": "20001",
       "number": 7,
-      "xyz": [-10.2, 15.3, 0.0],
-      "playerExternalIds": { "fspId": "20001" }
+      "xyz": [-10.2, 15.3, 0.0]
     }
   ],
   "ball": { "xyz": [0.5, 0.0, 0.0] }

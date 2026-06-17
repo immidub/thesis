@@ -1,4 +1,5 @@
 const BALL_TRACKING_ID = "__ball__";
+const TRACKING_FRAME_RATE = 50;
 
 async function parseTrackingJsonl(source) {
     var tracking = [];
@@ -7,8 +8,6 @@ async function parseTrackingJsonl(source) {
     var periods = [];
     var periodStartIndex = 0;
     var currentPeriod = null;
-    var frameRateEstimate = null;
-    var prevGameClock = null;
 
     function addLine(trimmed) {
         if (!trimmed) return;
@@ -17,12 +16,6 @@ async function parseTrackingJsonl(source) {
         var frameIdx = frame.frameIdx != null ? frame.frameIdx : tracking.length;
         var period = frame.period != null ? frame.period : 1;
         var gameClock = frame.gameClock != null ? frame.gameClock : 0;
-
-        if (prevGameClock != null && frameRateEstimate == null) {
-            var dt = gameClock - prevGameClock;
-            if (dt > 0) frameRateEstimate = Math.round(1 / dt);
-        }
-        prevGameClock = gameClock;
 
         if (currentPeriod == null) {
             currentPeriod = period;
@@ -37,7 +30,7 @@ async function parseTrackingJsonl(source) {
         addTeam(frame.homePlayers, objects, homePlayerMeta);
         addTeam(frame.awayPlayers, objects, awayPlayerMeta);
         if (frame.ball && frame.ball.xyz) {
-            objects[BALL_TRACKING_ID] = { h: +frame.ball.xyz[0], v: +frame.ball.xyz[1], z: +frame.ball.xyz[2] || 0 };
+            objects[BALL_TRACKING_ID] = buildObject(frame.ball);
         }
 
         tracking.push({
@@ -85,9 +78,9 @@ async function parseTrackingJsonl(source) {
 
     return {
         version: "1.0",
-        frameRate: frameRateEstimate || 25, //always 25??
+        frameRate: TRACKING_FRAME_RATE,
         periods: periods,
-        pitch: { width: 68, length: 105 }, //mabye change to the actual pitch dimensions
+        pitch: { width: 68, length: 105 },
         homeTeam: { name: "Home", players: Object.values(homePlayerMeta) },
         awayTeam: { name: "Away", players: Object.values(awayPlayerMeta) },
         ballId: BALL_TRACKING_ID,
@@ -95,15 +88,26 @@ async function parseTrackingJsonl(source) {
     };
 }
 
+function buildObject(entry) {
+    var obj = {
+        h: +entry.xyz[0],
+        v: +entry.xyz[1],
+        z: +entry.xyz[2] || 0,
+    };
+    if (entry.speed != null) obj.speed = +entry.speed;
+    if (entry.direction != null) obj.direction = +entry.direction;
+    if (entry.distToBall != null) obj.distToBall = +entry.distToBall;
+    return obj;
+}
+
 function addTeam(players, objects, metaMap) {
     if (!players) return;
     for (var i = 0; i < players.length; i++) {
         var p = players[i];
         if (!p.playerId) continue;
-        objects[p.playerId] = { h: +p.xyz[0], v: +p.xyz[1], z: +p.xyz[2] || 0 };
+        objects[p.playerId] = buildObject(p);
         if (!metaMap[p.playerId]) {
-            var fspId = p.playerExternalIds && p.playerExternalIds.fspId ? p.playerExternalIds.fspId : null;
-            metaMap[p.playerId] = { id: p.playerId, fspId: fspId, shirtNumber: p.number, isGoalie: false };
+            metaMap[p.playerId] = { id: String(p.playerId), shirtNumber: p.number, isGoalie: false };
         }
     }
 }

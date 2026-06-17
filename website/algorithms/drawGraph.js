@@ -1,11 +1,5 @@
 const GRAPH_EDGE_COLOR = "#9333EA";
 
-function getAttackingTeam(frame) {
-    var defendingTeam = getDefendingTeam(frame);
-    if (defendingTeam == null) return null;
-    return defendingTeam === 1 ? 2 : 1;
-}
-
 function buildDelaunayFromPlayers(players) {
     if (players.length < 2) return null;
 
@@ -21,7 +15,7 @@ function buildDelaunayFromPlayers(players) {
 }
 
 function buildAttackingDelaunay(frame) {
-    if (!isBallTracked(frame)) return null;
+    if (!isBallLive(frame)) return null;
 
     var attackingTeam = getAttackingTeam(frame);
     if (attackingTeam == null) return null;
@@ -50,6 +44,8 @@ function getAttackingShapeGraphEdges(frame) {
 }
 
 function getAllOutfieldShapeGraphEdges(frame) {
+    if (!isBallLive(frame)) return [];
+
     var team1Players = getTeamPlayerPositions(frame, 1);
     var team2Players = getTeamPlayerPositions(frame, 2);
 
