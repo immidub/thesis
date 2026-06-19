@@ -1,17 +1,16 @@
 const BALL_AIR_Z = 1.0;
 const CARRIER_MAX_BALL_DIST = 6;
-const PRESS_MAX_TARGET_DIST = 20;
-const PRESS_ENGAGED_DIST = 2.5;
+const PRESS_MAX_TARGET_DIST = 15;
+const PRESS_ENGAGED_DIST = 3;
 const PRESS_MIN_SPEED = 1.0;
-const PRESS_MIN_ALIGNMENT = 0.55;
-const PRESS_MIN_CLOSING_NEAR = 1.2;
-const PRESS_MIN_CLOSING_FAR = 5.0;
+const PRESS_MIN_CLOSING_NEAR = 0.0;
+const PRESS_MIN_CLOSING_FAR = 6.0;
 const CHASE_CARRIER_SPEED_MIN = 2.0;
-const CHASE_CARRIER_OPENING_MIN = 1.2;
 const NET_CLOSING_MIN = 0.4;
 const TRAP_MAX_DIST = 7;
 const TRAP_DEFENDER_MAX_SPEED = 1.5;
 const TRAP_MIN_INCOMING = 2.0;
+const PRESS_CANDIDATE_COUNT = 3;
 
 function directionToUnitVector(directionDeg) {
     var rad = (directionDeg * Math.PI) / 180;
@@ -46,6 +45,24 @@ function minClosingSpeedRequired(distToTarget) {
     return PRESS_MIN_CLOSING_NEAR + t * (PRESS_MIN_CLOSING_FAR - PRESS_MIN_CLOSING_NEAR);
 }
 
+function geometricClosingSpeed(defender, carrier) {
+    var dh = carrier.h - defender.h;
+    var dv = carrier.v - defender.v;
+    var dist = Math.sqrt(dh * dh + dv * dv);
+    if (dist < 0.01) return Infinity;
+
+    var defMove = directionToUnitVector(defender.direction || 0);
+    var carMove = directionToUnitVector(carrier.direction || 0);
+    var defH = defMove.h * (defender.speed || 0);
+    var defV = defMove.v * (defender.speed || 0);
+    var carH = carMove.h * (carrier.speed || 0);
+    var carV = carMove.v * (carrier.speed || 0);
+    var rx = dh / dist;
+    var rv = dv / dist;
+
+    return (defH - carH) * rx + (defV - carV) * rv;
+}
+
 function closingSpeedToward(defender, carrier) {
     var alignment = alignmentToward(
         defender.h,
@@ -54,7 +71,9 @@ function closingSpeedToward(defender, carrier) {
         carrier.h,
         carrier.v
     );
-    return Math.max(0, alignment) * (defender.speed || 0);
+    var direct = Math.max(0, alignment) * (defender.speed || 0);
+    var geometric = geometricClosingSpeed(defender, carrier);
+    return Math.max(direct, Math.max(0, geometric));
 }
 
 function incomingSpeedToward(from, toH, toV) {
@@ -72,49 +91,17 @@ function isTrapPress(defender, carrier, distToTarget) {
     return incomingSpeedToward(carrier, defender.h, defender.v) >= TRAP_MIN_INCOMING;
 }
 
-function carrierOpeningSpeed(carrier, defender) {
-    if (carrier.speed == null || carrier.direction == null) return 0;
-
-    var dh = carrier.h - defender.h;
-    var dv = carrier.v - defender.v;
-    var dist = Math.sqrt(dh * dh + dv * dv);
-    if (dist < 0.01) return 0;
-
-    var align = alignmentToward(
-        carrier.h,
-        carrier.v,
-        carrier.direction,
-        carrier.h + dh / dist,
-        carrier.v + dv / dist
-    );
-    return Math.max(0, align) * carrier.speed;
-}
-
 function isChaseNotPress(defender, carrier) {
     if ((carrier.speed || 0) < CHASE_CARRIER_SPEED_MIN) return false;
 
-    var opening = carrierOpeningSpeed(carrier, defender);
-    if (opening < CHASE_CARRIER_OPENING_MIN) return false;
-
-    var netClosing = closingSpeedToward(defender, carrier) - opening;
-    return netClosing < NET_CLOSING_MIN;
+    return geometricClosingSpeed(defender, carrier) < NET_CLOSING_MIN;
 }
 
 function isApproachingCarrier(defender, carrier, distToTarget) {
     if (defender.speed == null || defender.speed < PRESS_MIN_SPEED) return false;
     if (defender.direction == null) return false;
 
-    var alignment = alignmentToward(
-        defender.h,
-        defender.v,
-        defender.direction,
-        carrier.h,
-        carrier.v
-    );
-
-    if (alignment < PRESS_MIN_ALIGNMENT) return false;
-
-    var closing = Math.max(0, alignment) * defender.speed;
+    var closing = closingSpeedToward(defender, carrier);
     if (closing < minClosingSpeedRequired(distToTarget)) return false;
 
     if (isChaseNotPress(defender, carrier)) return false;
@@ -235,13 +222,38 @@ function buildPresserExplanation(presser) {
     );
 }
 
-function findPressers(defenders, carrier) {
-    var pressers = [];
+function getNearestDefendersToCarrier(defenders, carrier, count) {
+    var candidates = [];
 
     for (var i = 0; i < defenders.length; i++) {
         if (isGoalkeeperPlayer(defenders[i].id)) continue;
 
-        var scored = scorePresser(defenders[i], carrier);
+        var defender = defenders[i];
+        candidates.push({
+            defender: defender,
+            distSq: getPitchDistanceSquared(defender.h, defender.v, carrier.h, carrier.v),
+        });
+    }
+
+    candidates.sort(function (a, b) {
+        return a.distSq - b.distSq;
+    });
+
+    var nearest = [];
+    var limit = Math.min(count, candidates.length);
+    for (var j = 0; j < limit; j++) {
+        nearest.push(candidates[j].defender);
+    }
+
+    return nearest;
+}
+
+function findPressers(defenders, carrier) {
+    var pressers = [];
+    var candidatePool = getNearestDefendersToCarrier(defenders, carrier, PRESS_CANDIDATE_COUNT);
+
+    for (var i = 0; i < candidatePool.length; i++) {
+        var scored = scorePresser(candidatePool[i], carrier);
         if (scored == null) continue;
         scored.explanation = buildPresserExplanation(scored);
         pressers.push(scored);

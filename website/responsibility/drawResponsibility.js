@@ -10,7 +10,7 @@ function drawResponsibilityOverlay(frame, analysis) {
 
     if (analysis.pressers.length === 0) return;
 
-    var drawCount = Math.min(analysis.pressers.length, 2);
+    var drawCount = analysis.pressers.length;
     gameCanvas.ctx.strokeStyle = RESPONSIBILITY_EDGE_COLOR;
     gameCanvas.ctx.lineWidth = 2.5;
 
@@ -23,16 +23,7 @@ function drawResponsibilityOverlay(frame, analysis) {
         if (defenderPos == null) continue;
 
         gameCanvas.drawLine(defenderPos.x, defenderPos.y, target.x, target.y);
-
-        if (i === 0) {
-            gameCanvas.drawDotWithStroke(
-                defenderPos.x,
-                defenderPos.y,
-                PLAYER_DOT_RADIUS,
-                RESPONSIBILITY_EDGE_COLOR,
-                3
-            );
-        }
+        drawPlayerRing(defenderPos.x, defenderPos.y, PLAYER_DOT_RADIUS + 3, RESPONSIBILITY_EDGE_COLOR, 2.5);
     }
 
     gameCanvas.ctx.lineWidth = 1;
@@ -79,10 +70,13 @@ function updateResponsibilityInfo(analysis) {
         " (" + (Math.round(analysis.carrier.distToBall * 10) / 10) + " m to ball)"
     );
 
-    if (analysis.primaryPresser != null) {
-        lines.push("Press: " + analysis.primaryPresser.explanation);
-    } else {
+    var presserCount = analysis.pressers.length;
+    if (presserCount === 0) {
         lines.push("Press: none detected");
+    } else {
+        for (var i = 0; i < presserCount; i++) {
+            lines.push("Press: " + analysis.pressers[i].explanation);
+        }
     }
 
     element.textContent = lines.join(" · ");
