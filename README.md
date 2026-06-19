@@ -1,48 +1,14 @@
 # Defensive Responsibility in Football
 
-Browser-based tracking playback with three pitch views for defensive marking experiments (distance threshold and k-nearest neighbors).
+Browser-based tracking playback with multiple pitch views for defensive marking experiments.
 
-There are two ways to prepare data, depending on what you have:
-
-| Source | What you need | Steps |
-|---|---|---|
-| **UEFA / pre-formatted tracking** | `tracking-produced.jsonl` already in the correct format | Copy files into `data/` → start server |
-| **FIFA enriched tracking** | Raw `.enriched` folder + unified metadata JSON | Put in `input/` → run `convert_fwc_match.py` → start server |
-
-Both paths end with the same two files in `data/`. See [Local development](#local-development) for how to open the viewer.
+Raw FIFA enriched tracking is converted into the viewer format before playback. Put match files in `input/`, run the converter, then open the website with the generated files in `data/`.
 
 ---
 
-## Using UEFA / pre-formatted tracking
+## Prepare match data
 
-Many UEFA (and similar) feeds already provide `tracking-produced.jsonl` in the format this viewer expects. **No conversion step is required.**
-
-### 1. Copy tracking into `data/`
-
-Place the tracking file in `data/` at the repo root:
-
-```
-data/
-  tracking-produced.jsonl
-```
-
-### 2. Prepare `metaData.json`
-
-The JSONL does not include team names, kit colors, or goalkeeper flags. Create `data/metaData.json` separately (see the [metaData.json example](#example-metadatajson) below). Player rows are joined using `playerId` in the JSONL and `players[].id` in the metadata — those id strings must match.
-
-If you omit `metaData.json`, playback still works with generic defaults (teams “Home” / “Away”, default colors, goalkeepers inferred from positions).
-
-### 3. Open the viewer
-
-Start a local server from the repo root and open the website — see [Local development](#local-development). The app auto-loads both files from `data/`.
-
-**Alternative:** you can upload a `.jsonl` file from the entry screen instead of relying on auto-load, but `metaData.json` must still be present in `data/` (it is loaded via HTTP, not through the upload button).
-
----
-
-## Using FIFA data
-
-If you have FIFA World Cup enriched tracking, convert it before opening the viewer. Raw FIFA files are **not** loaded directly by the website.
+Raw FIFA files are **not** loaded directly by the website.
 
 ### 1. Add files to `input/`
 
@@ -102,7 +68,7 @@ data/
   metaData.json             # optional — team names, colors, goalkeepers
 ```
 
-The viewer loads tracking from the JSONL file and merges metadata when `metaData.json` is present. Player rows are joined using `playerId` in the JSONL and `players[].id` in the metadata (same id string). Half-time boundaries for the clock come from the `period` field in the JSONL; the pitch view uses a fixed orientation in both periods.
+The viewer loads tracking from the JSONL file and merges metadata when `metaData.json` is present. Player rows are joined using `playerId` in the JSONL and `players[].id` in the metadata (same id string). Each frame includes `period`, `gameClock`, `live`, and optionally `lastTouch` (`"home"` or `"away"`). Half-time boundaries for the clock come from the `period` field; the pitch view uses a fixed orientation in both periods.
 
 ---
 
@@ -111,8 +77,8 @@ The viewer loads tracking from the JSONL file and merges metadata when `metaData
 One JSON object per line (JSON Lines). Each line is one frame.
 
 ```jsonl
-{"period":1,"frameIdx":0,"gameClock":0.0,"homePlayers":[{"playerId":"10001","number":9,"xyz":[12.5,-8.0,0.0]},{"playerId":"10002","number":1,"xyz":[-40.0,0.0,0.0]}],"awayPlayers":[{"playerId":"20001","number":7,"xyz":[-10.2,15.3,0.0]}],"ball":{"xyz":[0.5,0.0,0.0]}}
-{"period":1,"frameIdx":1,"gameClock":0.04,"homePlayers":[{"playerId":"10001","number":9,"xyz":[12.6,-7.9,0.0]}],"awayPlayers":[{"playerId":"20001","number":7,"xyz":[-10.0,15.5,0.0]}],"ball":{"xyz":[0.6,0.1,0.0]}}
+{"period":1,"frameIdx":0,"gameClock":0.0,"live":true,"lastTouch":"home","homePlayers":[{"playerId":"10001","number":9,"xyz":[12.5,-8.0,0.0],"speed":2.5,"direction":62.8,"distToBall":18.51},{"playerId":"10002","number":1,"xyz":[-40.0,0.0,0.0],"speed":0.6,"direction":15.22,"distToBall":42.97}],"awayPlayers":[{"playerId":"20001","number":7,"xyz":[-10.2,15.3,0.0],"speed":1.9,"direction":33.27,"distToBall":29.55}],"ball":{"xyz":[0.5,0.0,0.0],"speed":9.3,"direction":20.21}}
+{"period":1,"frameIdx":1,"gameClock":0.02,"live":true,"lastTouch":"home","homePlayers":[{"playerId":"10001","number":9,"xyz":[12.6,-7.9,0.0],"speed":2.5,"direction":63.1,"distToBall":18.4}],"awayPlayers":[{"playerId":"20001","number":7,"xyz":[-10.0,15.5,0.0],"speed":1.9,"direction":33.5,"distToBall":29.3}],"ball":{"xyz":[0.6,0.1,0.0],"speed":9.3,"direction":20.21}}
 ```
 
 Expanded view of a single frame (pretty-printed for readability; the file itself is one line per frame):
@@ -122,26 +88,41 @@ Expanded view of a single frame (pretty-printed for readability; the file itself
   "period": 1,
   "frameIdx": 0,
   "gameClock": 0.0,
+  "live": true,
+  "lastTouch": "home",
   "homePlayers": [
     {
       "playerId": "10001",
       "number": 9,
-      "xyz": [12.5, -8.0, 0.0]
+      "xyz": [12.5, -8.0, 0.0],
+      "speed": 2.5,
+      "direction": 62.8,
+      "distToBall": 18.51
     },
     {
       "playerId": "10002",
       "number": 1,
-      "xyz": [-40.0, 0.0, 0.0]
+      "xyz": [-40.0, 0.0, 0.0],
+      "speed": 0.6,
+      "direction": 15.22,
+      "distToBall": 42.97
     }
   ],
   "awayPlayers": [
     {
       "playerId": "20001",
       "number": 7,
-      "xyz": [-10.2, 15.3, 0.0]
+      "xyz": [-10.2, 15.3, 0.0],
+      "speed": 1.9,
+      "direction": 33.27,
+      "distToBall": 29.55
     }
   ],
-  "ball": { "xyz": [0.5, 0.0, 0.0] }
+  "ball": {
+    "xyz": [0.5, 0.0, 0.0],
+    "speed": 9.3,
+    "direction": 20.21
+  }
 }
 ```
 
@@ -181,9 +162,7 @@ If `metaData.json` is omitted, playback still works with defaults: teams “Home
 
 ## Local development
 
-1. Ensure `data/tracking-produced.jsonl` exists, and add `data/metaData.json` if you have it:
-   - **UEFA / pre-formatted:** copy both files into `data/` (see [Using UEFA / pre-formatted tracking](#using-uefa--pre-formatted-tracking)).
-   - **FIFA enriched:** run `convert_fwc_match.py` to generate both files in `data/` (see [Using FIFA data](#using-fifa-data)).
+1. Run `convert_fwc_match.py` to generate `data/tracking-produced.jsonl` and `data/metaData.json` (see [Prepare match data](#prepare-match-data)).
 
 2. From the **repo root**, start a static server. Do **not** open `index.html` directly from Finder — the app uses `fetch()` to load data files:
 

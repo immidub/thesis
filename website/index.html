@@ -21,6 +21,8 @@
         <script src="marking/distanceMarking.js"></script>
         <script src="marking/knnMarking.js"></script>
         <script src="marking/hungarianMarking.js"></script>
+        <script src="responsibility/frameAnalysis.js"></script>
+        <script src="responsibility/drawResponsibility.js"></script>
         <script src="core/timeline.js"></script>
         <script src="core/uiElements.js"></script>
         <script src="pitch/drawPitch.js"></script>
@@ -239,6 +241,17 @@
                                             <input type="checkbox" id="shape_graph_opponents_only">
                                             <span>Opponents only</span>
                                         </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pitches-row pitches-row--single">
+                                <div class="pitch-panel">
+                                    <div class="pitch-title">Ball pressure</div>
+                                    <div class="pitch-subtitle">Carrier &amp; pressers</div>
+                                    <div class="pitch-direction" id="pitch_direction_7"></div>
+                                    <canvas id="canvas7"></canvas>
+                                    <div class="pitch-control pitch-control--info">
+                                        <div class="responsibility-info" id="responsibility_info">—</div>
                                     </div>
                                 </div>
                             </div>

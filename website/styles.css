@@ -112,6 +112,28 @@ body {
   pointer-events: none;
 }
 
+.pitches-row--single {
+  justify-content: center;
+}
+
+.pitches-row--single .pitch-panel {
+  max-width: calc(50% - 6px);
+}
+
+.responsibility-info {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #374151;
+  text-align: center;
+  min-height: 2.5rem;
+}
+
+.pitch-control--info {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
 .pitch-panel canvas {
   display: block;
 }

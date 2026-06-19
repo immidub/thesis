@@ -1,11 +1,11 @@
-function getTeamPlayerPositions(frame, team) {
+function getTeamPlayerPositions(frame, team, includeGoalkeepers) {
     var players = [];
     var dataLine = gameData.tracking[frame];
 
     for (var playerId in dataLine.objects) {
         if (team == 1 && !gameData.players.team1.includes(String(playerId))) continue;
         if (team == 2 && !gameData.players.team2.includes(String(playerId))) continue;
-        if (isGoalkeeperPlayer(playerId)) continue;
+        if (!includeGoalkeepers && isGoalkeeperPlayer(playerId)) continue;
 
         var object = dataLine.objects[playerId];
         var [h, v] = getCoordinates(object, object);

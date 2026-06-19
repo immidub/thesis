@@ -54,6 +54,11 @@ function drawPitchFrame(pitchIndex) {
         drawGraphEdges(allOutfieldShapeGraphEdges, GRAPH_EDGE_COLOR);
     }
 
+    var responsibilityAnalysis = null;
+    if (pitchIndex === 6) {
+        responsibilityAnalysis = analyzeResponsibility(frameNr);
+    }
+
     var defendingTeam = (pitchIndex < 3 || pitchIndex === 5) ? getDefendingTeam(frameNr) : null;
     var ballLive = isBallLive(frameNr);
 
@@ -68,6 +73,11 @@ function drawPitchFrame(pitchIndex) {
     drawPlayerLabels(frameNr);
     drawBall(frameNr, ballLive);
     gameCanvas.ctx.restore();
+
+    if (pitchIndex === 6 && responsibilityAnalysis != null) {
+        drawResponsibilityOverlay(frameNr, responsibilityAnalysis);
+        updateResponsibilityInfo(responsibilityAnalysis);
+    }
 }
 
 const DEFENDING_PLAYER_BORDER_COLOR = "#1a1a1a";
