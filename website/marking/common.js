@@ -36,6 +36,36 @@ function getPitchDistanceSquared(h1, v1, h2, v2) {
     return dh * dh + dv * dv;
 }
 
+function getKnnEdges(source, neighbors, k) {
+    var distances = [];
+
+    for (var j = 0; j < neighbors.length; j++) {
+        var neighbor = neighbors[j];
+        distances.push({
+            neighbor: neighbor,
+            distSq: getPitchDistanceSquared(source.h, source.v, neighbor.h, neighbor.v),
+        });
+    }
+
+    distances.sort(function (a, b) {
+        return a.distSq - b.distSq;
+    });
+
+    var edges = [];
+    var count = Math.min(k, distances.length);
+    for (var n = 0; n < count; n++) {
+        var match = distances[n].neighbor;
+        edges.push({
+            x1: source.x,
+            y1: source.y,
+            x2: match.x,
+            y2: match.y,
+        });
+    }
+
+    return edges;
+}
+
 function drawMarkingEdges(edges, color) {
     gameCanvas.ctx.strokeStyle = color;
     gameCanvas.ctx.lineWidth = 2;

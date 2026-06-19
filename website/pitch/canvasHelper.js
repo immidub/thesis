@@ -2,7 +2,7 @@ var gameCanvases = [];
 var gameCanvas;
 var drawLoopStarted = false;
 
-const PITCH_COUNT = 6;
+const PITCH_COUNT = 7;
 const PITCHES_PER_ROW = 2;
 
 class CanvasHelper {

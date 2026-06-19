@@ -20,6 +20,7 @@
         <script src="algorithms/drawGraph.js"></script>
         <script src="marking/distanceMarking.js"></script>
         <script src="marking/knnMarking.js"></script>
+        <script src="marking/ballCarrierMarking.js"></script>
         <script src="marking/hungarianMarking.js"></script>
         <script src="core/timeline.js"></script>
         <script src="core/uiElements.js"></script>
@@ -240,6 +241,15 @@
                                             <span>Opponents only</span>
                                         </label>
                                     </div>
+                                </div>
+                            </div>
+                            <div class="pitches-row">
+                                <div class="pitch-panel">
+                                    <div class="pitch-title">Ball carrier defenders</div>
+                                    <div class="pitch-subtitle">3-nearest defenders to carrier (within 6 m of ball)</div>
+                                    <div class="pitch-direction" id="pitch_direction_7"></div>
+                                    <canvas id="canvas7"></canvas>
+                                    <div class="pitch-control pitch-control-spacer" aria-hidden="true"></div>
                                 </div>
                             </div>
                         </div>

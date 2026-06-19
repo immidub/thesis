@@ -54,7 +54,13 @@ function drawPitchFrame(pitchIndex) {
         drawGraphEdges(allOutfieldShapeGraphEdges, GRAPH_EDGE_COLOR);
     }
 
-    var defendingTeam = (pitchIndex < 3 || pitchIndex === 5) ? getDefendingTeam(frameNr) : null;
+    var ballCarrierResult = null;
+    if (pitchIndex === 6) {
+        ballCarrierResult = getBallCarrierDefenderEdges(frameNr, BALL_CARRIER_DEFENDER_K);
+        drawMarkingEdges(ballCarrierResult.edges, MARKING_EDGE_COLOR);
+    }
+
+    var defendingTeam = (pitchIndex < 3 || pitchIndex === 5 || pitchIndex === 6) ? getDefendingTeam(frameNr) : null;
     var ballLive = isBallLive(frameNr);
 
     gameCanvas.ctx.save();
@@ -67,6 +73,11 @@ function drawPitchFrame(pitchIndex) {
     drawGoalKeepers(getGoalKeepers(frameNr), defendingTeam);
     drawPlayerLabels(frameNr);
     drawBall(frameNr, ballLive);
+
+    if (pitchIndex === 6 && ballCarrierResult != null) {
+        drawBallCarrierHighlight(ballCarrierResult.carrier);
+    }
+
     gameCanvas.ctx.restore();
 }
 
