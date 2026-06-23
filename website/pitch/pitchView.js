@@ -176,6 +176,8 @@ function pitchLine(h1, v1, h2, v2) {
     gameCanvas.drawLine(a[0], a[1], b[0], b[1]);
 }
 
+const PENALTY_ARC_HALF_ANGLE = Math.acos(5.5 / 9.15);
+
 function drawPitch() {
     gameCanvas.ctx.lineWidth = 1;
     gameCanvas.ctx.strokeStyle = "#8C8C8C";
@@ -204,8 +206,8 @@ function drawPitch() {
     gameCanvas.drawDot(leftSpot[0], leftSpot[1], 2);
     gameCanvas.drawDot(rightSpot[0], rightSpot[1], 2);
 
-    drawPenaltyArc(-hl + 11, convertDist(9.15), -1);
-    drawPenaltyArc(hl - 11, convertDist(9.15), 1);
+    drawPenaltyArc(-hl + 11, -1);
+    drawPenaltyArc(hl - 11, 1);
 }
 
 function drawGoalArea(goalH, dir) {
@@ -220,10 +222,12 @@ function drawGoalArea(goalH, dir) {
     pitchLine(goalH, 20.16, penH, 20.16);
 }
 
-function drawPenaltyArc(spotH, radius, dir) {
+function drawPenaltyArc(spotH, dir) {
     var spot = pt(spotH, 0);
-    var start = dir > 0 ? -Math.PI / 2 : Math.PI / 2;
-    var end = dir > 0 ? Math.PI / 2 : (3 * Math.PI) / 2;
+    var radius = convertDist(9.15);
+    var centerAngle = dir > 0 ? 0 : Math.PI;
+    var start = centerAngle - PENALTY_ARC_HALF_ANGLE;
+    var end = centerAngle + PENALTY_ARC_HALF_ANGLE;
 
     gameCanvas.ctx.beginPath();
     gameCanvas.ctx.arc(spot[0], spot[1], radius, start, end);
