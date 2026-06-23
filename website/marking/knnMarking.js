@@ -1,4 +1,5 @@
 var knnK = 1;
+var knnAttackerToDefender = false;
 
 function getKnnMarkingEdges(frame, k) {
     if (!isBallLive(frame)) return [];
@@ -6,11 +7,13 @@ function getKnnMarkingEdges(frame, k) {
     var defendingTeam = getDefendingTeam(frame);
     if (defendingTeam == null) return [];
 
-    var opponents = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
+    var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
     var defenders = getTeamPlayerPositions(frame, defendingTeam);
+    var sources = knnAttackerToDefender ? attackers : defenders;
+    var targets = knnAttackerToDefender ? defenders : attackers;
     var edges = [];
 
-    addKnnEdgesForDefenders(defenders, opponents, k, edges);
+    addKnnEdgesForDefenders(sources, targets, k, edges);
 
     return edges;
 }
@@ -62,4 +65,12 @@ function setupKnnMarking() {
     select.addEventListener("change", function () {
         setKnnK(+select.value);
     });
+
+    var checkbox = document.getElementById("knn_attacker_to_defender");
+    if (checkbox) {
+        knnAttackerToDefender = checkbox.checked;
+        checkbox.addEventListener("change", function () {
+            knnAttackerToDefender = checkbox.checked;
+        });
+    }
 }
