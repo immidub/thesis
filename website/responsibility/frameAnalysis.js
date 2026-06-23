@@ -2,14 +2,8 @@ const BALL_AIR_Z = 1.0;
 const CARRIER_MAX_BALL_DIST = 6;
 const PRESS_MAX_TARGET_DIST = 15;
 const PRESS_ENGAGED_DIST = 3;
-const PRESS_MIN_SPEED = 0.5;
 const PRESS_MIN_CLOSING_NEAR = 0.5;
 const PRESS_MIN_CLOSING_FAR = 6.0;
-const CHASE_CARRIER_SPEED_MIN = 2.0;
-const NET_CLOSING_MIN = 0.4;
-const TRAP_MAX_DIST = 7;
-const TRAP_DEFENDER_MAX_SPEED = 1.5;
-const TRAP_MIN_INCOMING = 2.0;
 const PRESS_CANDIDATE_COUNT = 3;
 
 function directionToUnitVector(directionDeg) {
@@ -20,18 +14,6 @@ function directionToUnitVector(directionDeg) {
 
 function pitchDistance(h1, v1, h2, v2) {
     return Math.sqrt(getPitchDistanceSquared(h1, v1, h2, v2));
-}
-
-function alignmentToward(fromH, fromV, directionDeg, toH, toV) {
-    var dh = toH - fromH;
-    var dv = toV - fromV;
-    var dist = Math.sqrt(dh * dh + dv * dv);
-    if (dist < 0.01) return 1;
-
-    var move = directionToUnitVector(directionDeg);
-    var towardH = dh / dist;
-    var towardV = dv / dist;
-    return move.h * towardH + move.v * towardV;
 }
 
 function minClosingSpeedRequired(distToTarget) {
@@ -63,50 +45,11 @@ function geometricClosingSpeed(defender, carrier) {
     return (defH - carH) * rx + (defV - carV) * rv;
 }
 
-function closingSpeedToward(defender, carrier) {
-    var alignment = alignmentToward(
-        defender.h,
-        defender.v,
-        defender.direction,
-        carrier.h,
-        carrier.v
-    );
-    var direct = Math.max(0, alignment) * (defender.speed || 0);
-    var geometric = geometricClosingSpeed(defender, carrier);
-    return Math.max(direct, Math.max(0, geometric));
-}
+function isActivelyPressing(defender, carrier, distToTarget) {
+    if (distToTarget <= PRESS_ENGAGED_DIST) return true;
+    if (distToTarget > PRESS_MAX_TARGET_DIST) return false;
 
-function incomingSpeedToward(from, toH, toV) {
-    if (from.speed == null || from.direction == null) return 0;
-
-    var alignment = alignmentToward(from.h, from.v, from.direction, toH, toV);
-    return Math.max(0, alignment) * from.speed;
-}
-
-function isTrapPress(defender, carrier, distToTarget) {
-    if (distToTarget > TRAP_MAX_DIST || distToTarget <= PRESS_ENGAGED_DIST) return false;
-    if ((defender.speed || 0) > TRAP_DEFENDER_MAX_SPEED) return false;
-    if ((carrier.speed || 0) < CHASE_CARRIER_SPEED_MIN) return false;
-
-    return incomingSpeedToward(carrier, defender.h, defender.v) >= TRAP_MIN_INCOMING;
-}
-
-function isChaseNotPress(defender, carrier) {
-    if ((carrier.speed || 0) < CHASE_CARRIER_SPEED_MIN) return false;
-
-    return geometricClosingSpeed(defender, carrier) < NET_CLOSING_MIN;
-}
-
-function isApproachingCarrier(defender, carrier, distToTarget) {
-    if (defender.speed == null || defender.speed < PRESS_MIN_SPEED) return false;
-    if (defender.direction == null) return false;
-
-    var closing = closingSpeedToward(defender, carrier);
-    if (closing < minClosingSpeedRequired(distToTarget)) return false;
-
-    if (isChaseNotPress(defender, carrier)) return false;
-
-    return true;
+    return geometricClosingSpeed(defender, carrier) >= minClosingSpeedRequired(distToTarget);
 }
 
 function getAttackingPlayers(frame) {
@@ -178,15 +121,8 @@ function pickCarrier(attackers) {
 function evaluatePressCandidate(defender, carrier) {
     var distToTarget = pitchDistance(defender.h, defender.v, carrier.h, carrier.v);
     var engaged = distToTarget <= PRESS_ENGAGED_DIST;
-    var closing = closingSpeedToward(defender, carrier);
-    var trap = isTrapPress(defender, carrier, distToTarget);
-    var pressing = engaged;
-
-    if (!pressing) {
-        if (distToTarget <= PRESS_MAX_TARGET_DIST) {
-            pressing = isApproachingCarrier(defender, carrier, distToTarget) || trap;
-        }
-    }
+    var closing = geometricClosingSpeed(defender, carrier);
+    var pressing = isActivelyPressing(defender, carrier, distToTarget);
 
     return {
         defenderId: defender.id,
@@ -215,7 +151,7 @@ function buildPresserExplanation(presser) {
         "#" + presser.defenderShirt +
         " pressing #" + presser.targetShirt +
         ": " +
-        presser.closing + " m/s toward carrier, " +
+        presser.closing + " m/s closing, " +
         presser.distToTarget + " m away"
     );
 }
