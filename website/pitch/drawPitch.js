@@ -75,7 +75,7 @@ function drawPitchFrame(pitchIndex) {
     gameCanvas.ctx.restore();
 
     if (pitchIndex === 6 && responsibilityAnalysis != null) {
-        drawResponsibilityOverlay(frameNr, responsibilityAnalysis);
+        drawResponsibilityOverlay(responsibilityAnalysis);
         updateResponsibilityInfo(responsibilityAnalysis);
     }
 }

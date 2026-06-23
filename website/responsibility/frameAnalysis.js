@@ -2,8 +2,8 @@ const BALL_AIR_Z = 1.0;
 const CARRIER_MAX_BALL_DIST = 6;
 const PRESS_MAX_TARGET_DIST = 15;
 const PRESS_ENGAGED_DIST = 3;
-const PRESS_MIN_SPEED = 1.0;
-const PRESS_MIN_CLOSING_NEAR = 0.0;
+const PRESS_MIN_SPEED = 0.5;
+const PRESS_MIN_CLOSING_NEAR = 0.5;
 const PRESS_MIN_CLOSING_FAR = 6.0;
 const CHASE_CARRIER_SPEED_MIN = 2.0;
 const NET_CLOSING_MIN = 0.4;
@@ -167,7 +167,7 @@ function pickCarrier(attackers) {
         }
     }
 
-    if (best == null || best.distToBall === Infinity || best.distToBall > CARRIER_MAX_BALL_DIST) {
+    if (best.distToBall === Infinity || best.distToBall > CARRIER_MAX_BALL_DIST) {
         return null;
     }
 
@@ -175,31 +175,29 @@ function pickCarrier(attackers) {
     return best;
 }
 
-function scorePresser(defender, carrier) {
+function evaluatePressCandidate(defender, carrier) {
     var distToTarget = pitchDistance(defender.h, defender.v, carrier.h, carrier.v);
     var engaged = distToTarget <= PRESS_ENGAGED_DIST;
     var closing = closingSpeedToward(defender, carrier);
     var trap = isTrapPress(defender, carrier, distToTarget);
+    var pressing = engaged;
 
-    if (!engaged) {
-        if (distToTarget > PRESS_MAX_TARGET_DIST) return null;
-        if (!isApproachingCarrier(defender, carrier, distToTarget) && !trap) return null;
+    if (!pressing) {
+        if (distToTarget <= PRESS_MAX_TARGET_DIST) {
+            pressing = isApproachingCarrier(defender, carrier, distToTarget) || trap;
+        }
     }
-
-    var incoming = incomingSpeedToward(carrier, defender.h, defender.v);
 
     return {
         defenderId: defender.id,
+        x: defender.x,
+        y: defender.y,
         defenderShirt: getShirtNumberLabel(defender.id),
-        targetId: carrier.id,
         targetShirt: carrier.shirtNumber || getShirtNumberLabel(carrier.id),
         distToTarget: Math.round(distToTarget * 10) / 10,
-        speed: Math.round((defender.speed || 0) * 10) / 10,
         closing: Math.round(closing * 10) / 10,
         engaged: engaged,
-        score: engaged
-            ? 10 + 1 / Math.max(distToTarget, 0.1)
-            : (trap ? incoming : closing) + 2 / Math.max(distToTarget, 0.5),
+        pressing: pressing,
     };
 }
 
@@ -250,18 +248,16 @@ function getNearestDefendersToCarrier(defenders, carrier, count) {
 
 function findPressers(defenders, carrier) {
     var pressers = [];
-    var candidatePool = getNearestDefendersToCarrier(defenders, carrier, PRESS_CANDIDATE_COUNT);
+    var nearestDefenders = getNearestDefendersToCarrier(defenders, carrier, PRESS_CANDIDATE_COUNT);
 
-    for (var i = 0; i < candidatePool.length; i++) {
-        var scored = scorePresser(candidatePool[i], carrier);
-        if (scored == null) continue;
-        scored.explanation = buildPresserExplanation(scored);
-        pressers.push(scored);
+    for (var i = 0; i < nearestDefenders.length; i++) {
+        var evaluated = evaluatePressCandidate(nearestDefenders[i], carrier);
+        if (!evaluated.pressing) continue;
+
+        evaluated.explanation = buildPresserExplanation(evaluated);
+        delete evaluated.pressing;
+        pressers.push(evaluated);
     }
-
-    pressers.sort(function (a, b) {
-        return b.score - a.score;
-    });
 
     return pressers;
 }
@@ -295,9 +291,7 @@ function analyzeResponsibility(frame) {
 
     return {
         active: true,
-        reason: null,
         carrier: carrier,
         pressers: pressers,
-        primaryPresser: pressers.length > 0 ? pressers[0] : null,
     };
 }
