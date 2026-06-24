@@ -25,6 +25,63 @@ body {
   margin-right: auto;
 }
 
+.clip-export-panel {
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 12px 16px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #f8f9fa;
+  text-align: left;
+}
+
+.clip-export-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.clip-export-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.clip-export-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  min-width: 140px;
+}
+
+.clip-export-time {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.clip-export-time input {
+  width: 90px;
+}
+
+.clip-export-hint {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.clip-export-status {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #198754;
+}
+
+.clip-export-status--error {
+  color: #dc3545;
+}
+
 .pitches-container {
   display: flex;
   flex-direction: column;

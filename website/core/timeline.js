@@ -164,3 +164,52 @@ function frameToTime(frame) {
 
     return minText + ":" + secondsText;
 }
+
+function getMatchClockSeconds(frame) {
+    var ts = (+gameData.tracking[frame].timestamp || 0) / 1000;
+    if (!gameData.periods || gameData.periods.length === 0) {
+        return ts;
+    }
+
+    var offset = 0;
+    var p = getPeriod(frame);
+    if (p >= 1) offset += 45 * 60;
+    if (p >= 2) offset += 45 * 60;
+    if (p >= 3) offset += 15 * 60;
+    return offset + ts;
+}
+
+function parseGameTime(str) {
+    str = (str || "").trim();
+    if (!str) return null;
+
+    var plus = str.indexOf("+");
+    if (plus >= 0) {
+        var baseMin = parseInt(str.slice(0, plus), 10);
+        var rest = str.slice(plus + 1);
+        var colon = rest.indexOf(":");
+        if (colon < 0 || isNaN(baseMin)) return null;
+        var stoppageMin = parseInt(rest.slice(0, colon), 10);
+        var sec = parseInt(rest.slice(colon + 1), 10);
+        if (isNaN(stoppageMin) || isNaN(sec)) return null;
+        return baseMin * 60 + stoppageMin * 60 + sec;
+    }
+
+    var colon = str.indexOf(":");
+    if (colon < 0) return null;
+    var min = parseInt(str.slice(0, colon), 10);
+    var sec = parseInt(str.slice(colon + 1), 10);
+    if (isNaN(min) || isNaN(sec)) return null;
+    return min * 60 + sec;
+}
+
+function timeToFrame(seconds) {
+    var lo = 0;
+    var hi = maxFrame;
+    while (lo < hi) {
+        var mid = Math.floor((lo + hi) / 2);
+        if (getMatchClockSeconds(mid) < seconds) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo;
+}

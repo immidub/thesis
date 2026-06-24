@@ -164,11 +164,13 @@ If `metaData.json` is omitted, playback still works with defaults: teams “Home
 
 1. Run `convert_fwc_match.py` to generate `data/tracking-produced.jsonl` and `data/metaData.json` (see [Prepare match data](#prepare-match-data)).
 
-2. From the **repo root**, start a static server. Do **not** open `index.html` directly from Finder — the app uses `fetch()` to load data files:
+2. From the **repo root**, start the dev server. Do **not** open `index.html` directly from Finder — the app uses `fetch()` to load data files:
 
    ```bash
-   python3 -m http.server 8000
+   python3 serve.py
    ```
+
+   This also enables **Export WebM** in the viewer (clips are saved to `clips/`).
 
 3. Open [http://localhost:8000/website/index.html](http://localhost:8000/website/index.html).
 

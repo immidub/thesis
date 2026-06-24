@@ -24,6 +24,7 @@
         <script src="responsibility/ballCarrier.js"></script>
         <script src="responsibility/drawResponsibility.js"></script>
         <script src="core/timeline.js"></script>
+        <script src="core/clipExport.js"></script>
         <script src="core/uiElements.js"></script>
         <script src="pitch/drawPitch.js"></script>
 
@@ -160,6 +161,33 @@
                                     <div id="time_label_text"></div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="clip-export-panel mb-4">
+                            <div class="clip-export-title">Export clip</div>
+                            <div class="clip-export-row">
+                                <label class="clip-export-field">
+                                    Pitch
+                                    <select class="form-select form-select-sm" id="clip_pitch_select"></select>
+                                </label>
+                                <label class="clip-export-field">
+                                    Start
+                                    <div class="clip-export-time">
+                                        <input type="text" class="form-control form-control-sm" id="clip_start_time" placeholder="23:45">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_start_btn" title="Use current playback time">Now</button>
+                                    </div>
+                                </label>
+                                <label class="clip-export-field">
+                                    End
+                                    <div class="clip-export-time">
+                                        <input type="text" class="form-control form-control-sm" id="clip_end_time" placeholder="24:30">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_end_btn" title="Use current playback time">Now</button>
+                                    </div>
+                                </label>
+                                <button type="button" class="btn btn-secondary btn-sm" id="clip_export_btn">Export WebM</button>
+                            </div>
+                            <div class="clip-export-hint">Game time (same as playback clock), e.g. 23:45 or 90+2:15. Run <code>python3 serve.py</code> to save into <code>clips/</code>.</div>
+                            <div class="clip-export-status" id="clip_export_status"></div>
                         </div>
 
                         <div id="pitches_container" class="pitches-container">

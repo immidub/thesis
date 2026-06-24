@@ -3,3 +3,5 @@ data/*
 !data/.gitkeep
 input/*
 !input/.gitkeep
+clips/*
+!clips/.gitkeep

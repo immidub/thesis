@@ -36,6 +36,7 @@ function setupUIElements() {
     });
 
     setupPlaybackKeyboard();
+    setupClipExport();
 
     tryLoadLocalData();
 }

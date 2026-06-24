@@ -1,6 +1,7 @@
 function draw() {
     if (gameCanvases.length === 0) return;
     if (gameData == null) return;
+    if (isExporting) return;
 
     handleFrameNr();
 
