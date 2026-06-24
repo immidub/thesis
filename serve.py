@@ -11,7 +11,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent
 CLIPS_DIR = REPO_ROOT / "clips"
 CLIP_PLAYBACK_SPEED = 1.0
-DURATION_TOLERANCE_SEC = 0.05
+DURATION_TOLERANCE_SEC = 0.01
 
 
 def find_source_video():
@@ -51,7 +51,7 @@ def probe_duration(path):
     return float(result.stdout.strip())
 
 
-def normalize_video_duration(input_path, output_path, target_duration_sec):
+def force_normalize_video_duration(input_path, output_path, target_duration_sec):
     if target_duration_sec <= 0:
         raise ValueError("Target duration must be positive")
 
@@ -62,7 +62,7 @@ def normalize_video_duration(input_path, output_path, target_duration_sec):
     if abs(input_duration - target_duration_sec) <= DURATION_TOLERANCE_SEC:
         if input_path.resolve() != output_path.resolve():
             shutil.copy(input_path, output_path)
-        return
+        return input_duration
 
     scale = target_duration_sec / input_duration
     subprocess.run(
@@ -79,12 +79,18 @@ def normalize_video_duration(input_path, output_path, target_duration_sec):
         check=True,
         capture_output=True,
     )
+    return target_duration_sec
 
 
-def normalize_pitch_webm(input_path, output_path, num_frames, frame_rate):
-    if num_frames <= 0 or frame_rate <= 0:
-        raise ValueError("Frame count and frame rate must be positive")
+def normalize_video_duration(input_path, output_path, target_duration_sec):
+    force_normalize_video_duration(input_path, output_path, target_duration_sec)
 
+
+def normalize_pitch_webm(input_path, output_path, num_frames, target_duration_sec):
+    if num_frames <= 0 or target_duration_sec <= 0:
+        raise ValueError("Frame count and target duration must be positive")
+
+    output_fps = num_frames / target_duration_sec
     subprocess.run(
         [
             "ffmpeg",
@@ -92,7 +98,7 @@ def normalize_pitch_webm(input_path, output_path, num_frames, frame_rate):
             "-i",
             str(input_path),
             "-vf",
-            f"fps={frame_rate}",
+            f"fps={output_fps}",
             "-frames:v",
             str(num_frames),
             "-an",
@@ -102,13 +108,17 @@ def normalize_pitch_webm(input_path, output_path, num_frames, frame_rate):
         capture_output=True,
     )
 
+    actual_duration = probe_duration(output_path)
+    if abs(actual_duration - target_duration_sec) > DURATION_TOLERANCE_SEC:
+        temp_path = output_path.with_suffix(".tmp.webm")
+        normalize_video_duration(output_path, temp_path, target_duration_sec)
+        temp_path.replace(output_path)
 
-def extract_game_clip(source, output, start_sec, end_sec, playback_speed=CLIP_PLAYBACK_SPEED):
-    source_duration = end_sec - start_sec
-    if source_duration <= 0:
+
+def extract_game_clip(source, output, start_sec, end_sec, playback_speed=CLIP_PLAYBACK_SPEED, target_duration_sec=None):
+    if end_sec <= start_sec:
         raise ValueError("Clip end must be after clip start in the source video")
 
-    target_duration = source_duration / playback_speed
     temp_path = output.with_suffix(".segment.mp4")
 
     try:
@@ -116,23 +126,33 @@ def extract_game_clip(source, output, start_sec, end_sec, playback_speed=CLIP_PL
             [
                 "ffmpeg",
                 "-y",
-                "-ss",
-                f"{start_sec:.3f}",
                 "-i",
                 str(source),
-                "-t",
-                f"{source_duration:.3f}",
-                "-c",
-                "copy",
+                "-ss",
+                f"{start_sec:.6f}",
+                "-to",
+                f"{end_sec:.6f}",
+                "-avoid_negative_ts",
+                "make_zero",
+                "-an",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "20",
                 str(temp_path),
             ],
             check=True,
             capture_output=True,
         )
 
-        if abs(playback_speed - 1.0) < 1e-6:
-            normalize_video_duration(temp_path, output, target_duration)
-        else:
+        target_duration = target_duration_sec
+        if target_duration is None:
+            cut_duration = probe_duration(temp_path)
+            target_duration = cut_duration / playback_speed
+
+        if abs(playback_speed - 1.0) >= 1e-6:
             slowed_path = output.with_suffix(".slowed.mp4")
             setpts = 1.0 / playback_speed
             subprocess.run(
@@ -149,9 +169,11 @@ def extract_game_clip(source, output, start_sec, end_sec, playback_speed=CLIP_PL
                 check=True,
                 capture_output=True,
             )
-            normalize_video_duration(slowed_path, output, target_duration)
+            force_normalize_video_duration(slowed_path, output, target_duration)
             if slowed_path.exists():
                 slowed_path.unlink()
+        else:
+            force_normalize_video_duration(temp_path, output, target_duration)
     finally:
         if temp_path.exists():
             temp_path.unlink()
@@ -160,30 +182,52 @@ def extract_game_clip(source, output, start_sec, end_sec, playback_speed=CLIP_PL
 COMBINE_STACK_WIDTH = 1280
 
 
-def combine_clips(game_path, pitch_path, output_path, stack_width=COMBINE_STACK_WIDTH):
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(game_path),
-            "-i",
-            str(pitch_path),
-            "-filter_complex",
-            (
-                f"[0:v]scale={stack_width}:-2[top];"
-                f"[1:v]scale={stack_width}:-2[bottom];"
-                "[top][bottom]vstack=inputs=2[v]"
-            ),
-            "-map",
-            "[v]",
-            "-shortest",
-            "-an",
-            str(output_path),
-        ],
-        check=True,
-        capture_output=True,
-    )
+def combine_clips(game_path, pitch_path, output_path, target_duration_sec=None, stack_width=COMBINE_STACK_WIDTH):
+    master_duration = probe_duration(pitch_path)
+
+    game_synced = game_path
+    game_synced_tmp = None
+    game_duration = probe_duration(game_path)
+    if abs(game_duration - master_duration) > DURATION_TOLERANCE_SEC:
+        game_synced_tmp = game_path.with_suffix(".synced.mp4")
+        force_normalize_video_duration(game_path, game_synced_tmp, master_duration)
+        game_synced = game_synced_tmp
+
+    trim = f"trim=duration={master_duration:.6f},setpts=PTS-STARTPTS"
+    try:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(game_synced),
+                "-i",
+                str(pitch_path),
+                "-filter_complex",
+                (
+                    f"[0:v]scale={stack_width}:-2,{trim}[top];"
+                    f"[1:v]scale={stack_width}:-2,{trim}[bottom];"
+                    "[top][bottom]vstack=inputs=2[v]"
+                ),
+                "-map",
+                "[v]",
+                "-t",
+                f"{master_duration:.6f}",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "20",
+                "-an",
+                str(output_path),
+            ],
+            check=True,
+            capture_output=True,
+        )
+    finally:
+        if game_synced_tmp is not None and game_synced_tmp.exists():
+            game_synced_tmp.unlink()
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -214,12 +258,11 @@ class Handler(SimpleHTTPRequestHandler):
 
         target_duration = self.headers.get("X-Target-Duration")
         num_frames = self.headers.get("X-Num-Frames")
-        frame_rate = self.headers.get("X-Frame-Rate")
         data = self._read_body()
         CLIPS_DIR.mkdir(parents=True, exist_ok=True)
         out_path = CLIPS_DIR / filename
 
-        if num_frames is not None and frame_rate is not None:
+        if num_frames is not None and target_duration is not None:
             raw_path = out_path.with_suffix(".raw.webm")
             raw_path.write_bytes(data)
             try:
@@ -227,7 +270,7 @@ class Handler(SimpleHTTPRequestHandler):
                     raw_path,
                     out_path,
                     int(num_frames),
-                    float(frame_rate) * CLIP_PLAYBACK_SPEED,
+                    float(target_duration),
                 )
             except (TypeError, ValueError) as err:
                 self.send_error(400, str(err))
@@ -288,12 +331,14 @@ class Handler(SimpleHTTPRequestHandler):
         out_path = CLIPS_DIR / filename
 
         try:
-            extract_game_clip(source, out_path, video_start, video_end, playback_speed)
-            actual_duration = probe_duration(out_path)
-            if abs(actual_duration - target_duration) > DURATION_TOLERANCE_SEC:
-                temp_path = out_path.with_suffix(".tmp.mp4")
-                normalize_video_duration(out_path, temp_path, target_duration)
-                temp_path.replace(out_path)
+            extract_game_clip(
+                source,
+                out_path,
+                video_start,
+                video_end,
+                playback_speed,
+                target_duration_sec=target_duration,
+            )
         except subprocess.CalledProcessError as err:
             message = err.stderr.decode("utf-8", errors="replace") if err.stderr else str(err)
             self.send_error(500, f"ffmpeg failed: {message[:300]}")
@@ -321,6 +366,7 @@ class Handler(SimpleHTTPRequestHandler):
             output_filename = Path(re.sub(r"[^\w.\-]", "_", payload["outputFilename"])).name
             if not output_filename.endswith(".mp4"):
                 output_filename += ".mp4"
+            target_duration = float(payload["targetDurationSec"])
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             self.send_error(400, "Invalid request body")
             return
@@ -337,7 +383,13 @@ class Handler(SimpleHTTPRequestHandler):
             return
 
         try:
-            combine_clips(game_path, pitch_path, out_path)
+            pitch_duration = probe_duration(pitch_path)
+            combine_clips(
+                game_path,
+                pitch_path,
+                out_path,
+                target_duration_sec=pitch_duration,
+            )
         except subprocess.CalledProcessError as err:
             message = err.stderr.decode("utf-8", errors="replace") if err.stderr else str(err)
             self.send_error(500, f"ffmpeg failed: {message[:300]}")

@@ -216,8 +216,17 @@ function timeToFrame(seconds) {
 
 var VIDEO_FIRST_HALF_START_SEC = 23 * 60 + 39;
 var VIDEO_SECOND_HALF_START_SEC = 91 * 60;
-// Game clip was ~1s behind pitch viz; start MP4 1s later in the broadcast to align.
-var VIDEO_SYNC_OFFSET_SEC = 1;
+var VIDEO_SYNC_OFFSET_FIRST_HALF_SEC = 0.7;
+var VIDEO_SYNC_OFFSET_SECOND_HALF_SEC = 1;
+
+function getVideoSyncOffsetSec(frame) {
+    if (!gameData.periods || gameData.periods.length === 0) {
+        return VIDEO_SYNC_OFFSET_FIRST_HALF_SEC;
+    }
+    return getPeriod(frame) === 0
+        ? VIDEO_SYNC_OFFSET_FIRST_HALF_SEC
+        : VIDEO_SYNC_OFFSET_SECOND_HALF_SEC;
+}
 
 function frameToVideoSeconds(frame) {
     var ts = (+gameData.tracking[frame].timestamp || 0) / 1000;
@@ -238,5 +247,5 @@ function frameToVideoSeconds(frame) {
             videoSec += ts;
         }
     }
-    return Math.max(0, videoSec + VIDEO_SYNC_OFFSET_SEC);
+    return Math.max(0, videoSec + getVideoSyncOffsetSec(frame));
 }
