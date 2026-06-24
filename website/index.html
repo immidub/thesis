@@ -184,9 +184,15 @@
                                         <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_end_btn" title="Use current playback time">Now</button>
                                     </div>
                                 </label>
-                                <button type="button" class="btn btn-secondary btn-sm" id="clip_export_btn">Export WebM</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="clip_export_btn">Export clips</button>
                             </div>
-                            <div class="clip-export-hint">Game time (same as playback clock), e.g. 23:45 or 90+2:15. Run <code>python3 serve.py</code> to save into <code>clips/</code>.</div>
+                            <div class="clip-export-hint">Game time (same as playback clock), e.g. 23:45 or 90+2:15. Saves one stacked MP4 (game on top, pitch below) into <code>clips/</code>. Requires <code>python3 serve.py</code> and ffmpeg.</div>
+                            <div id="clip_export_progress_wrap" class="clip-export-progress" hidden>
+                                <div class="clip-export-progress-label" id="clip_export_progress_label">Preparing clip…</div>
+                                <div class="progress" id="clip_export_progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="clip_export_progress_bar" style="width: 0%"></div>
+                                </div>
+                            </div>
                             <div class="clip-export-status" id="clip_export_status"></div>
                         </div>
 

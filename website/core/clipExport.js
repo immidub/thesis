@@ -1,4 +1,5 @@
 var isExporting = false;
+var CLIP_EXPORT_PLAYBACK_SPEED = 1;
 
 var PITCH_EXPORT_OPTIONS = [
     { index: 0, label: "Distance threshold" },
@@ -17,6 +18,11 @@ function getClipMimeType() {
     return null;
 }
 
+function getClipTargetDurationSec(startFrame, endFrame) {
+    var numFrames = endFrame - startFrame + 1;
+    return numFrames / (gameData.frameRate * CLIP_EXPORT_PLAYBACK_SPEED);
+}
+
 function sanitizeClipFilenamePart(str) {
     return (str || "").trim().replace(/[^\w.\-+]/g, "_");
 }
@@ -27,11 +33,41 @@ function buildClipFilename(pitchIndex, startTime, endTime) {
     return slug + "_" + sanitizeClipFilenamePart(startTime) + "_to_" + sanitizeClipFilenamePart(endTime) + ".webm";
 }
 
+function buildGameClipFilename(pitchIndex, startTime, endTime) {
+    return buildClipFilename(pitchIndex, startTime, endTime).replace(/\.webm$/, "_game.mp4");
+}
+
+function buildCombinedClipFilename(pitchIndex, startTime, endTime) {
+    return buildClipFilename(pitchIndex, startTime, endTime).replace(/\.webm$/, ".mp4");
+}
+
 function setClipExportStatus(message, isError) {
     var el = document.getElementById("clip_export_status");
     if (!el) return;
     el.textContent = message || "";
     el.className = "clip-export-status" + (isError ? " clip-export-status--error" : "");
+}
+
+function setClipExportProgress(percent, stepMessage) {
+    var wrap = document.getElementById("clip_export_progress_wrap");
+    var bar = document.getElementById("clip_export_progress_bar");
+    var progress = document.getElementById("clip_export_progress");
+    var label = document.getElementById("clip_export_progress_label");
+    var clamped = Math.min(100, Math.max(0, percent));
+
+    if (wrap) wrap.hidden = false;
+    if (bar) bar.style.width = clamped + "%";
+    if (progress) progress.setAttribute("aria-valuenow", String(Math.round(clamped)));
+    if (label && stepMessage) label.textContent = stepMessage;
+}
+
+function hideClipExportProgress() {
+    var wrap = document.getElementById("clip_export_progress_wrap");
+    var bar = document.getElementById("clip_export_progress_bar");
+    var progress = document.getElementById("clip_export_progress");
+    if (wrap) wrap.hidden = true;
+    if (bar) bar.style.width = "0%";
+    if (progress) progress.setAttribute("aria-valuenow", "0");
 }
 
 function renderPitchForExport(pitchIndex, frame) {
@@ -45,14 +81,60 @@ function renderPitchForExport(pitchIndex, frame) {
     drawPitchFrame(pitchIndex);
 }
 
-async function saveClipToServer(blob, filename) {
+async function savePitchClipToServer(blob, filename, targetDurationSec, numFrames) {
     var response = await fetch("/api/clips", {
         method: "POST",
-        headers: { "X-Filename": filename },
+        headers: {
+            "X-Filename": filename,
+            "X-Target-Duration": String(targetDurationSec),
+            "X-Num-Frames": String(numFrames),
+            "X-Frame-Rate": String(gameData.frameRate),
+        },
         body: blob,
     });
     if (!response.ok) {
         throw new Error("Server returned " + response.status);
+    }
+    return response.json();
+}
+
+async function extractGameVideoClip(startFrame, endFrame, outputFilename, targetDurationSec) {
+    var videoStart = frameToVideoSeconds(startFrame);
+    var videoEnd = frameToVideoSeconds(endFrame) + 1 / gameData.frameRate;
+
+    var response = await fetch("/api/clips/extract-game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            videoStartSec: videoStart,
+            videoEndSec: videoEnd,
+            outputFilename: outputFilename,
+            playbackSpeed: CLIP_EXPORT_PLAYBACK_SPEED,
+            targetDurationSec: targetDurationSec,
+        }),
+    });
+
+    if (!response.ok) {
+        var detail = await response.text();
+        throw new Error(detail || "Server returned " + response.status);
+    }
+    return response.json();
+}
+
+async function combineClipsOnServer(gameFilename, pitchFilename, outputFilename) {
+    var response = await fetch("/api/clips/combine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            gameFilename: gameFilename,
+            pitchFilename: pitchFilename,
+            outputFilename: outputFilename,
+        }),
+    });
+
+    if (!response.ok) {
+        var detail = await response.text();
+        throw new Error(detail || "Server returned " + response.status);
     }
     return response.json();
 }
@@ -108,6 +190,9 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
         return;
     }
 
+    var targetDurationSec = getClipTargetDurationSec(startFrame, endFrame);
+    var numFrames = endFrame - startFrame + 1;
+
     isExporting = true;
     var savedFrame = frameNr;
     var savedDelta = frameDelta;
@@ -116,9 +201,20 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
 
     var exportBtn = document.getElementById("clip_export_btn");
     if (exportBtn) exportBtn.disabled = true;
-    setClipExportStatus("Exporting… (runs in real time)");
+
+    var pitchFilename = buildClipFilename(pitchIndex, startTimeStr, endTimeStr);
+    var gameFilename = buildGameClipFilename(pitchIndex, startTimeStr, endTimeStr);
+    var combinedFilename = buildCombinedClipFilename(pitchIndex, startTimeStr, endTimeStr);
+    var pitchSavedPath = null;
+    var gameSavedPath = null;
+    var combinedSavedPath = null;
+    var gameError = null;
+    var combineError = null;
 
     try {
+        setClipExportStatus("");
+        setClipExportProgress(0, "Recording pitch frames…");
+
         var stream = canvasEl.captureStream(0);
         var track = stream.getVideoTracks()[0];
         var recorder = new MediaRecorder(stream, { mimeType: mimeType });
@@ -134,26 +230,58 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
 
         recorder.start();
 
-        var frameDelayMs = 1000 / gameData.frameRate;
+        var frameIndex = 0;
         for (var f = startFrame; f <= endFrame; f++) {
             renderPitchForExport(pitchIndex, f);
             track.requestFrame();
             await new Promise(function (r) { requestAnimationFrame(r); });
-            await new Promise(function (r) { setTimeout(r, frameDelayMs); });
+            frameIndex++;
+            setClipExportProgress(
+                5 + (frameIndex / numFrames) * 55,
+                "Recording pitch frames… " + frameIndex + " / " + numFrames
+            );
         }
 
         recorder.stop();
         await stopped;
 
         var blob = new Blob(chunks, { type: mimeType });
-        var filename = buildClipFilename(pitchIndex, startTimeStr, endTimeStr);
-
+        setClipExportProgress(62, "Normalizing pitch clip…");
         try {
-            var result = await saveClipToServer(blob, filename);
-            setClipExportStatus("Saved to " + result.path);
+            var pitchResult = await savePitchClipToServer(blob, pitchFilename, targetDurationSec, numFrames);
+            pitchSavedPath = pitchResult.path;
         } catch (err) {
-            downloadClipFallback(blob, filename);
-            setClipExportStatus("Saved via download (start serve.py to save into clips/).", true);
+            downloadClipFallback(blob, pitchFilename);
+            pitchSavedPath = pitchFilename + " (downloaded, not normalized)";
+        }
+
+        setClipExportProgress(75, "Extracting game video…");
+        try {
+            var gameResult = await extractGameVideoClip(startFrame, endFrame, gameFilename, targetDurationSec);
+            gameSavedPath = gameResult.path;
+        } catch (err) {
+            gameError = err.message;
+        }
+
+        if (pitchSavedPath && gameSavedPath && !pitchSavedPath.includes("(downloaded")) {
+            setClipExportProgress(90, "Combining clips…");
+            try {
+                var combineResult = await combineClipsOnServer(gameFilename, pitchFilename, combinedFilename);
+                combinedSavedPath = combineResult.path;
+            } catch (err) {
+                combineError = err.message;
+            }
+        }
+
+        if (combinedSavedPath) {
+            setClipExportProgress(100, "Done");
+            setClipExportStatus("Saved " + combinedSavedPath);
+        } else if (pitchSavedPath && gameSavedPath) {
+            setClipExportStatus("Combine failed: " + combineError, true);
+        } else if (pitchSavedPath && gameError) {
+            setClipExportStatus("Game clip failed: " + gameError, true);
+        } else if (pitchSavedPath) {
+            setClipExportStatus("Pitch recorded but game clip failed: " + (gameError || "unknown error"), true);
         }
     } catch (err) {
         setClipExportStatus("Export failed: " + err.message, true);
@@ -163,6 +291,7 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
         setFrameNr(savedFrame);
         isExporting = false;
         if (exportBtn) exportBtn.disabled = false;
+        hideClipExportProgress();
         if (wasPlaying) playPlayback();
     }
 }

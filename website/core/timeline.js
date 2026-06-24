@@ -213,3 +213,30 @@ function timeToFrame(seconds) {
     }
     return lo;
 }
+
+var VIDEO_FIRST_HALF_START_SEC = 23 * 60 + 39;
+var VIDEO_SECOND_HALF_START_SEC = 91 * 60;
+// Game clip was ~1s behind pitch viz; start MP4 1s later in the broadcast to align.
+var VIDEO_SYNC_OFFSET_SEC = 1;
+
+function frameToVideoSeconds(frame) {
+    var ts = (+gameData.tracking[frame].timestamp || 0) / 1000;
+    var videoSec;
+    if (!gameData.periods || gameData.periods.length === 0) {
+        videoSec = VIDEO_FIRST_HALF_START_SEC + ts;
+    } else {
+        var period = getPeriod(frame);
+        if (period === 0) {
+            videoSec = VIDEO_FIRST_HALF_START_SEC + ts;
+        } else if (period === 1) {
+            videoSec = VIDEO_SECOND_HALF_START_SEC + ts;
+        } else {
+            videoSec = VIDEO_SECOND_HALF_START_SEC + 45 * 60;
+            for (var i = 2; i < period; i++) {
+                videoSec += (i > 2 ? 15 : 45) * 60;
+            }
+            videoSec += ts;
+        }
+    }
+    return Math.max(0, videoSec + VIDEO_SYNC_OFFSET_SEC);
+}

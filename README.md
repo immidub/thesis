@@ -170,7 +170,7 @@ If `metaData.json` is omitted, playback still works with defaults: teams “Home
    python3 serve.py
    ```
 
-   This also enables **Export WebM** in the viewer (clips are saved to `clips/`).
+   This also enables **Export clips** in the viewer (stacked MP4 saved to `clips/`). Put the full-match broadcast MP4 in `clips/`; ffmpeg must be installed.
 
 3. Open [http://localhost:8000/website/index.html](http://localhost:8000/website/index.html).
 

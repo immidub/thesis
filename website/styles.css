@@ -72,6 +72,20 @@ body {
   color: #6c757d;
 }
 
+.clip-export-progress {
+  margin-top: 10px;
+}
+
+.clip-export-progress-label {
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+  color: #495057;
+}
+
+.clip-export-progress .progress {
+  height: 8px;
+}
+
 .clip-export-status {
   margin-top: 6px;
   font-size: 0.85rem;
