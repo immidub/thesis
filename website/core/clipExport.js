@@ -29,18 +29,10 @@ function sanitizeClipFilenamePart(str) {
     return (str || "").trim().replace(/[^\w.\-+]/g, "_");
 }
 
-function buildClipFilename(pitchIndex, startTime, endTime) {
+function buildClipFilename(pitchIndex, startTime, endTime, ext) {
     var pitch = PITCH_EXPORT_OPTIONS.find(function (p) { return p.index === pitchIndex; });
     var slug = pitch ? pitch.label.toLowerCase().replace(/[^a-z0-9]+/g, "_") : "pitch_" + pitchIndex;
-    return slug + "_" + sanitizeClipFilenamePart(startTime) + "_to_" + sanitizeClipFilenamePart(endTime) + ".webm";
-}
-
-function buildGameClipFilename(pitchIndex, startTime, endTime) {
-    return buildClipFilename(pitchIndex, startTime, endTime).replace(/\.webm$/, "_game.mp4");
-}
-
-function buildCombinedClipFilename(pitchIndex, startTime, endTime) {
-    return buildClipFilename(pitchIndex, startTime, endTime).replace(/\.webm$/, ".mp4");
+    return slug + "_" + sanitizeClipFilenamePart(startTime) + "_to_" + sanitizeClipFilenamePart(endTime) + ext;
 }
 
 function setClipExportStatus(message, isError) {
@@ -83,62 +75,21 @@ function renderPitchForExport(pitchIndex, frame) {
     drawPitchFrame(pitchIndex);
 }
 
-async function savePitchClipToServer(blob, filename, targetDurationSec, numFrames) {
-    var response = await fetch("/api/clips", {
-        method: "POST",
-        headers: {
-            "X-Filename": filename,
-            "X-Target-Duration": String(targetDurationSec),
-            "X-Num-Frames": String(numFrames),
-        },
-        body: blob,
-    });
-    if (!response.ok) {
-        throw new Error("Server returned " + response.status);
-    }
-    return response.json();
-}
+async function exportClipOnServer(blob, metadata) {
+    var form = new FormData();
+    form.append("metadata", JSON.stringify(metadata));
+    form.append("pitch", blob, "pitch.webm");
 
-async function extractGameVideoClip(startFrame, endFrame, outputFilename, targetDurationSec) {
-    var videoStart = frameToVideoSeconds(startFrame);
-    var videoEnd = frameToVideoSeconds(endFrame) + 1 / gameData.frameRate;
-
-    var response = await fetch("/api/clips/extract-game", {
+    var response = await fetch("/api/clips/export", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            videoStartSec: videoStart,
-            videoEndSec: videoEnd,
-            outputFilename: outputFilename,
-            playbackSpeed: CLIP_EXPORT_PLAYBACK_SPEED,
-            targetDurationSec: targetDurationSec,
-        }),
+        body: form,
     });
 
+    var payload = await response.json();
     if (!response.ok) {
-        var detail = await response.text();
-        throw new Error(detail || "Server returned " + response.status);
+        throw new Error(payload.error || "Server returned " + response.status);
     }
-    return response.json();
-}
-
-async function combineClipsOnServer(gameFilename, pitchFilename, outputFilename, targetDurationSec) {
-    var response = await fetch("/api/clips/combine", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            gameFilename: gameFilename,
-            pitchFilename: pitchFilename,
-            outputFilename: outputFilename,
-            targetDurationSec: targetDurationSec,
-        }),
-    });
-
-    if (!response.ok) {
-        var detail = await response.text();
-        throw new Error(detail || "Server returned " + response.status);
-    }
-    return response.json();
+    return payload;
 }
 
 function downloadClipFallback(blob, filename) {
@@ -194,6 +145,7 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
 
     var targetDurationSec = getClipTargetDurationSec(startFrame, endFrame);
     var numFrames = endFrame - startFrame + 1;
+    var outputFilename = buildClipFilename(pitchIndex, startTimeStr, endTimeStr, ".mp4");
 
     isExporting = true;
     var savedFrame = frameNr;
@@ -203,15 +155,6 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
 
     var exportBtn = document.getElementById("clip_export_btn");
     if (exportBtn) exportBtn.disabled = true;
-
-    var pitchFilename = buildClipFilename(pitchIndex, startTimeStr, endTimeStr);
-    var gameFilename = buildGameClipFilename(pitchIndex, startTimeStr, endTimeStr);
-    var combinedFilename = buildCombinedClipFilename(pitchIndex, startTimeStr, endTimeStr);
-    var pitchSavedPath = null;
-    var gameSavedPath = null;
-    var combinedSavedPath = null;
-    var gameError = null;
-    var combineError = null;
 
     try {
         setClipExportStatus("");
@@ -239,7 +182,7 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
             await new Promise(function (r) { requestAnimationFrame(r); });
             frameIndex++;
             setClipExportProgress(
-                5 + (frameIndex / numFrames) * 55,
+                5 + (frameIndex / numFrames) * 70,
                 "Recording pitch frames… " + frameIndex + " / " + numFrames
             );
         }
@@ -248,48 +191,21 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
         await stopped;
 
         var blob = new Blob(chunks, { type: mimeType });
-        var pitchResult = null;
-        setClipExportProgress(62, "Normalizing pitch clip…");
+        setClipExportProgress(80, "Building combined clip…");
+
         try {
-            pitchResult = await savePitchClipToServer(blob, pitchFilename, targetDurationSec, numFrames);
-            pitchSavedPath = pitchResult.path;
-        } catch (err) {
-            downloadClipFallback(blob, pitchFilename);
-            pitchSavedPath = pitchFilename + " (downloaded, not normalized)";
-        }
-
-        var masterDuration = (pitchResult && pitchResult.durationSec) || targetDurationSec;
-        setClipExportProgress(75, "Extracting game video…");
-        try {
-            var gameResult = await extractGameVideoClip(
-                startFrame, endFrame, gameFilename, masterDuration
-            );
-            gameSavedPath = gameResult.path;
-        } catch (err) {
-            gameError = err.message;
-        }
-
-        if (pitchSavedPath && gameSavedPath && !pitchSavedPath.includes("(downloaded")) {
-            setClipExportProgress(90, "Combining clips…");
-            try {
-                var combineResult = await combineClipsOnServer(
-                    gameFilename, pitchFilename, combinedFilename, masterDuration
-                );
-                combinedSavedPath = combineResult.path;
-            } catch (err) {
-                combineError = err.message;
-            }
-        }
-
-        if (combinedSavedPath) {
+            var result = await exportClipOnServer(blob, {
+                outputFilename: outputFilename,
+                numFrames: numFrames,
+                targetDurationSec: targetDurationSec,
+                videoStartSec: frameToVideoSeconds(startFrame),
+                videoEndSec: frameToVideoSeconds(endFrame),
+            });
             setClipExportProgress(100, "Done");
-            setClipExportStatus("Saved " + combinedSavedPath);
-        } else if (pitchSavedPath && gameSavedPath) {
-            setClipExportStatus("Combine failed: " + combineError, true);
-        } else if (pitchSavedPath && gameError) {
-            setClipExportStatus("Game clip failed: " + gameError, true);
-        } else if (pitchSavedPath) {
-            setClipExportStatus("Pitch recorded but game clip failed: " + (gameError || "unknown error"), true);
+            setClipExportStatus("Saved " + result.path);
+        } catch (err) {
+            downloadClipFallback(blob, outputFilename.replace(/\.mp4$/, ".webm"));
+            setClipExportStatus("Export failed: " + err.message, true);
         }
     } catch (err) {
         setClipExportStatus("Export failed: " + err.message, true);
