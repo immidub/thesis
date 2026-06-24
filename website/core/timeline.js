@@ -214,38 +214,97 @@ function timeToFrame(seconds) {
     return lo;
 }
 
-var VIDEO_FIRST_HALF_START_SEC = 23 * 60 + 39;
-var VIDEO_SECOND_HALF_START_SEC = 91 * 60;
-var VIDEO_SYNC_OFFSET_FIRST_HALF_SEC = 0.7;
-var VIDEO_SYNC_OFFSET_SECOND_HALF_SEC = 1;
+// Broadcast wall-clock anchors in the MP4 (halftime break excluded between halves).
+var VIDEO_FIRST_HALF_START_SEC = 23 * 60 + 39; // 23:39
+var VIDEO_FIRST_HALF_END_SEC = 1 * 3600 + 14 * 60 + 45; // 1:14:45
+var VIDEO_SECOND_HALF_START_SEC = 91 * 60; // 1:31:00
+var VIDEO_SECOND_HALF_END_SEC = 2 * 3600 + 23 * 60 + 18; // 2:23:18
 
-function getVideoSyncOffsetSec(frame) {
-    if (!gameData.periods || gameData.periods.length === 0) {
-        return VIDEO_SYNC_OFFSET_FIRST_HALF_SEC;
+var periodEndGameClockCache = null;
+
+function getPeriodEndGameClockSec(period) {
+    if (!gameData || !gameData.periods || period >= gameData.periods.length) {
+        return 45 * 60;
     }
-    return getPeriod(frame) === 0
-        ? VIDEO_SYNC_OFFSET_FIRST_HALF_SEC
-        : VIDEO_SYNC_OFFSET_SECOND_HALF_SEC;
+    if (periodEndGameClockCache == null || periodEndGameClockCache.source !== gameData) {
+        var values = [];
+        for (var i = 0; i < gameData.periods.length; i++) {
+            var endFrame = gameData.periods[i].endFrame;
+            values[i] = (+gameData.tracking[endFrame].timestamp || 0) / 1000;
+        }
+        periodEndGameClockCache = { source: gameData, values: values };
+    }
+    return periodEndGameClockCache.values[period] || 45 * 60;
+}
+
+function getVideoWallRangeForPeriod(period) {
+    if (period === 0) {
+        return {
+            start: VIDEO_FIRST_HALF_START_SEC,
+            end: VIDEO_FIRST_HALF_END_SEC,
+        };
+    }
+    if (period === 1) {
+        return {
+            start: VIDEO_SECOND_HALF_START_SEC,
+            end: VIDEO_SECOND_HALF_END_SEC,
+        };
+    }
+    var extraWallSpan = 15 * 60;
+    var start = VIDEO_SECOND_HALF_END_SEC + (period - 2) * extraWallSpan;
+    return { start: start, end: start + extraWallSpan };
+}
+
+function mapGameClockToVideoSeconds(period, gameClockSec) {
+    var range = getVideoWallRangeForPeriod(period);
+    var periodEnd = getPeriodEndGameClockSec(period);
+    if (periodEnd <= 0) periodEnd = 1;
+    var fraction = Math.min(1, Math.max(0, gameClockSec / periodEnd));
+    return range.start + fraction * (range.end - range.start);
 }
 
 function frameToVideoSeconds(frame) {
     var ts = (+gameData.tracking[frame].timestamp || 0) / 1000;
     var videoSec;
     if (!gameData.periods || gameData.periods.length === 0) {
-        videoSec = VIDEO_FIRST_HALF_START_SEC + ts;
-    } else {
-        var period = getPeriod(frame);
-        if (period === 0) {
-            videoSec = VIDEO_FIRST_HALF_START_SEC + ts;
-        } else if (period === 1) {
-            videoSec = VIDEO_SECOND_HALF_START_SEC + ts;
-        } else {
-            videoSec = VIDEO_SECOND_HALF_START_SEC + 45 * 60;
-            for (var i = 2; i < period; i++) {
-                videoSec += (i > 2 ? 15 : 45) * 60;
-            }
-            videoSec += ts;
-        }
+        return Math.max(0, mapGameClockToVideoSeconds(0, ts));
     }
-    return Math.max(0, videoSec + getVideoSyncOffsetSec(frame));
+    return Math.max(0, mapGameClockToVideoSeconds(getPeriod(frame), ts));
+}
+
+function formatVideoWallTime(seconds) {
+    seconds = Math.max(0, Math.floor(seconds));
+    var h = Math.floor(seconds / 3600);
+    var m = Math.floor((seconds % 3600) / 60);
+    var s = seconds % 60;
+    var mStr = m < 10 ? "0" + m : "" + m;
+    var sStr = s < 10 ? "0" + s : "" + s;
+    if (h > 0) {
+        return h + ":" + mStr + ":" + sStr;
+    }
+    return mStr + ":" + sStr;
+}
+
+function frameToVideoTime(frame) {
+    if (gameData == null) return "--:--";
+    return formatVideoWallTime(frameToVideoSeconds(frame));
+}
+
+function updateTimeLabels(frame) {
+    var gameEl = document.getElementById("time_label_text");
+    var videoEl = document.getElementById("video_time_label_text");
+    if (!gameEl) return;
+
+    gameEl.textContent = frameToTime(frame);
+    gameEl.title = "Game clock";
+
+    if (videoEl) {
+        videoEl.textContent = frameToVideoTime(frame);
+        videoEl.title = "MP4 time";
+    }
+
+    var wrap = document.getElementById("time_label_wrap");
+    if (wrap && gameData != null) {
+        wrap.title = "frame: " + gameData.tracking[frame].frame;
+    }
 }

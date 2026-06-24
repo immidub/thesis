@@ -5,8 +5,7 @@ function draw() {
 
     handleFrameNr();
 
-    document.getElementById("time_label_text").innerHTML = frameToTime(frameNr);
-    document.getElementById("time_label_text").setAttribute("title", "frame: " + gameData.tracking[frameNr].frame);
+    updateTimeLabels(frameNr);
 
     gameCanvas = gameCanvases[0];
     if (pitchOffsetX == -1) {
