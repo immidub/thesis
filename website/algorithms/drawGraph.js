@@ -43,8 +43,8 @@ function getAttackingShapeGraphEdges(frame) {
     return graphToCanvasEdges(graph, built.players);
 }
 
-function getAllOutfieldShapeGraphEdges(frame) {
-    if (!isBallLive(frame)) return [];
+function buildAllOutfieldShapeGraph(frame) {
+    if (!isBallLive(frame)) return null;
 
     var team1Players = getTeamPlayerPositions(frame, 1);
     var team2Players = getTeamPlayerPositions(frame, 2);
@@ -58,14 +58,24 @@ function getAllOutfieldShapeGraphEdges(frame) {
 
     var players = team1Players.concat(team2Players);
     var built = buildDelaunayFromPlayers(players);
-    if (!built) return [];
+    if (!built) return null;
 
     var graph = computeBaseGraph(built.delaunay);
     if (built.players.length >= 4) {
         computeShapeGraph(built.delaunay, graph);
     }
 
-    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly);
+    return {
+        graph: graph,
+        players: built.players,
+    };
+}
+
+function getAllOutfieldShapeGraphEdges(frame) {
+    var built = buildAllOutfieldShapeGraph(frame);
+    if (!built) return [];
+
+    return graphToCanvasEdges(built.graph, built.players, shapeGraphOpponentsOnly);
 }
 
 function graphToCanvasEdges(graph, players, opponentsOnly) {

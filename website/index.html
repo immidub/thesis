@@ -13,6 +13,7 @@
         <script src="core/dataHandling.js"></script>
         <script src="algorithms/priorityQueue.js"></script>
         <script src="algorithms/munkres.js"></script>
+        <script>window.PITCH_VIEW_COUNT = 6;</script>
         <script src="pitch/canvasHelper.js"></script>
         <script src="algorithms/shapeGraph.js"></script>
         <script src="pitch/pitchView.js"></script>
@@ -21,8 +22,6 @@
         <script src="marking/distanceMarking.js"></script>
         <script src="marking/knnMarking.js"></script>
         <script src="marking/hungarianMarking.js"></script>
-        <script src="responsibility/ballCarrier.js"></script>
-        <script src="responsibility/drawResponsibility.js"></script>
         <script src="core/timeline.js"></script>
         <script src="core/uiElements.js"></script>
         <script src="pitch/drawPitch.js"></script>
@@ -119,6 +118,9 @@
             <div id="website_view" style="display: none;">
 
                 <h1><div id="title_text">Home vs Away</div></h1>
+                <p class="text-muted mb-1 page-nav-link">
+                    <a href="responsibility.html">Defensive responsibility analysis →</a>
+                </p>
                 <hr>
 
                 <div class="row justify-content-center">
@@ -245,17 +247,6 @@
                                             <input type="checkbox" id="shape_graph_opponents_only">
                                             <span>Opponents only</span>
                                         </label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="pitches-row pitches-row--single">
-                                <div class="pitch-panel">
-                                    <div class="pitch-title">Ball pressure</div>
-                                    <div class="pitch-subtitle">Carrier &amp; pressers</div>
-                                    <div class="pitch-direction" id="pitch_direction_7"></div>
-                                    <canvas id="canvas7"></canvas>
-                                    <div class="pitch-control pitch-control--info">
-                                        <div class="responsibility-info" id="responsibility_info">—</div>
                                     </div>
                                 </div>
                             </div>

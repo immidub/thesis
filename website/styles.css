@@ -120,6 +120,54 @@ body {
   max-width: calc(50% - 6px);
 }
 
+.pitches-row--full .pitch-panel--full {
+  max-width: 100%;
+}
+
+.responsibility-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.legend-item--pool::before {
+  content: "";
+  display: inline-block;
+  width: 1.25rem;
+  height: 2px;
+  background: #9CA3AF;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+
+.legend-item--press::before {
+  content: "";
+  display: inline-block;
+  width: 1.25rem;
+  height: 2px;
+  background: #DC2626;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+
+.legend-item--carrier::before {
+  content: "";
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 2px solid #F59E0B;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+
+.page-nav-link {
+  font-size: 0.85rem;
+}
+
 .responsibility-info {
   font-size: 0.75rem;
   line-height: 1.35;

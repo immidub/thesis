@@ -28,6 +28,30 @@ function getTeamPlayerPositions(frame, team, includeGoalkeepers) {
     return players;
 }
 
+function getAttackingPlayers(frame, includeGoalkeepers) {
+    var team = getAttackingTeam(frame);
+    if (team == null) return [];
+    return getTeamPlayerPositions(frame, team, includeGoalkeepers === true);
+}
+
+function getDefendingPlayers(frame, includeGoalkeepers) {
+    var team = getDefendingTeam(frame);
+    if (team == null) return [];
+    return getTeamPlayerPositions(frame, team, includeGoalkeepers === true);
+}
+
+function getOutfieldAttackers(frame) {
+    return getAttackingPlayers(frame, false);
+}
+
+function getOutfieldDefenders(frame) {
+    return getDefendingPlayers(frame, false);
+}
+
+function getPitchDistance(h1, v1, h2, v2) {
+    return Math.sqrt(getPitchDistanceSquared(h1, v1, h2, v2));
+}
+
 const MARKING_EDGE_COLOR = "#2563EB";
 
 function getPitchDistanceSquared(h1, v1, h2, v2) {

@@ -2,7 +2,7 @@ var gameCanvases = [];
 var gameCanvas;
 var drawLoopStarted = false;
 
-const PITCH_COUNT = 7;
+const PITCH_COUNT = typeof window.PITCH_VIEW_COUNT !== "undefined" ? window.PITCH_VIEW_COUNT : 6;
 const PITCHES_PER_ROW = 2;
 
 class CanvasHelper {
@@ -91,7 +91,9 @@ function setupCanvases() {
     }
 
     var gap = 12;
-    var pitchWidth = Math.floor((availableWidth - gap * (PITCHES_PER_ROW - 1)) / PITCHES_PER_ROW);
+    var pitchWidth = PITCH_COUNT === 1
+        ? availableWidth
+        : Math.floor((availableWidth - gap * (PITCHES_PER_ROW - 1)) / PITCHES_PER_ROW);
     // Landscape pitch: length (105 m) horizontal, width (68 m) vertical.
     var pitchHeight = Math.floor(pitchWidth * (68 / 105));
 
