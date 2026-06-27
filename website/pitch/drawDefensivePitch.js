@@ -19,6 +19,7 @@ function draw() {
 }
 
 function drawDefensivePitchFrame() {
+    drawXtThreatGrid(frameNr);
     drawPitch();
 
     var analysis = analyzeDefensiveFrame(frameNr);

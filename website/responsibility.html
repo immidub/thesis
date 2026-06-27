@@ -17,6 +17,7 @@
         <script src="pitch/canvasHelper.js"></script>
         <script src="pitch/pitchView.js"></script>
         <script src="core/common.js"></script>
+        <script src="pitch/xtThreatGrid.js"></script>
         <script src="algorithms/drawGraph.js"></script>
         <script src="responsibility/ballPressureAnalysis.js"></script>
         <script src="responsibility/drawBallPressure.js"></script>
@@ -143,7 +144,12 @@
                                     <div class="pitch-direction" id="pitch_direction_1"></div>
                                     <canvas id="canvas1"></canvas>
                                     <div class="pitch-control pitch-control--info">
+                                        <label class="pitch-checkbox mb-2" for="xt_threat_grid_toggle">
+                                            <input type="checkbox" id="xt_threat_grid_toggle" checked>
+                                            <span>Show xT threat grid (team in possession)</span>
+                                        </label>
                                         <div class="responsibility-legend">
+                                            <span class="legend-item legend-item--xt">Light → dark red — expected threat</span>
                                             <span class="legend-item legend-item--pool">Gray — shape graph pool</span>
                                             <span class="legend-item legend-item--press">Red — ball pressure</span>
                                             <span class="legend-item legend-item--carrier">Amber — ball carrier</span>
@@ -159,6 +165,7 @@
         </div>
         <script>
             setupUIElements();
+            setupXtThreatGrid();
         </script>
     </body>
 </html>
