@@ -1,5 +1,5 @@
 const PASSING_OPTION_EDGE_COLOR = "#059669";
-const PASSING_OPTION_EDGE_WIDTH = 2;
+const PASSING_OPTION_EDGE_WIDTH = 3;
 
 function drawPassingOptionsOverlay(passingOptions) {
     if (passingOptions == null || !passingOptions.active) return;

@@ -120,6 +120,72 @@ function getPeriod(frame) {
     return gameData.periods.length - 1;
 }
 
+var VIDEO_PLAYBACK_SYNC = [
+    { startSec: 23 * 60 + 39, endSec: 60 * 60 + 14 * 60 + 46 },
+    { startSec: 60 * 60 + 31 * 60, endSec: 2 * 60 * 60 + 23 * 60 + 18 },
+];
+
+function padTimePart(value) {
+    return value < 10 ? "0" + value : "" + value;
+}
+
+function formatPlaybackClock(totalSeconds) {
+    var seconds = Math.floor(totalSeconds % 60);
+    var minutes = Math.floor((totalSeconds / 60) % 60);
+    var hours = Math.floor(totalSeconds / 3600);
+
+    if (hours > 0) {
+        return hours + ":" + padTimePart(minutes) + ":" + padTimePart(seconds);
+    }
+
+    return minutes + ":" + padTimePart(seconds);
+}
+
+function frameToVideoPlaybackTime(frame) {
+    if (gameData == null || !gameData.periods || gameData.periods.length === 0) {
+        return null;
+    }
+
+    var period = getPeriod(frame);
+    if (period >= VIDEO_PLAYBACK_SYNC.length) {
+        return null;
+    }
+
+    var periodInfo = gameData.periods[period];
+    var span = periodInfo.endFrame - periodInfo.startFrame;
+    if (span <= 0) span = 1;
+
+    var t = (frame - periodInfo.startFrame) / span;
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+
+    var sync = VIDEO_PLAYBACK_SYNC[period];
+    var videoSeconds = sync.startSec + t * (sync.endSec - sync.startSec);
+    return formatPlaybackClock(videoSeconds);
+}
+
+function formatTimeLabel(frame) {
+    var gameTime = frameToTime(frame);
+    var videoTime = frameToVideoPlaybackTime(frame);
+    if (videoTime == null) {
+        return gameTime;
+    }
+
+    return (
+        gameTime +
+        ' <span class="video-playback-time">(' +
+        videoTime +
+        ")</span>"
+    );
+}
+
+function updateTimeLabel(frame) {
+    document.getElementById("time_label_text").innerHTML = formatTimeLabel(frame);
+    document
+        .getElementById("time_label_text")
+        .setAttribute("title", "frame: " + gameData.tracking[frame].frame);
+}
+
 function frameToTime(frame) {
     if (!gameData.periods || gameData.periods.length === 0) {
         var s = Math.floor((+gameData.tracking[frame].timestamp || 0) / 1000);
