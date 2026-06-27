@@ -44,6 +44,24 @@ function drawDefensivePitchFrame() {
     if (analysis.active && analysis.ballPressure != null) {
         drawBallPressureOverlay(analysis.ballPressure);
     }
+}
 
-    updateDefensiveFrameInfo(analysis);
+const OFF_BALL_POOL_EDGE_COLOR = "#9CA3AF";
+const OFF_BALL_POOL_EDGE_WIDTH = 1.5;
+
+function drawOffBallPoolEdges(pools) {
+    if (!pools || pools.length === 0) return;
+
+    gameCanvas.ctx.strokeStyle = OFF_BALL_POOL_EDGE_COLOR;
+    gameCanvas.ctx.lineWidth = OFF_BALL_POOL_EDGE_WIDTH;
+
+    for (var i = 0; i < pools.length; i++) {
+        var pool = pools[i];
+        for (var j = 0; j < pool.targets.length; j++) {
+            var target = pool.targets[j];
+            gameCanvas.drawLine(pool.x, pool.y, target.x, target.y);
+        }
+    }
+
+    gameCanvas.ctx.lineWidth = 1;
 }

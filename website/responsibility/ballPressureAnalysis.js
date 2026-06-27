@@ -112,32 +112,8 @@ function evaluatePressCandidate(defender, carrier) {
         defenderId: defender.id,
         x: defender.x,
         y: defender.y,
-        defenderShirt: getShirtNumberLabel(defender.id),
-        targetShirt: carrier.shirtNumber || getShirtNumberLabel(carrier.id),
-        distToTarget: Math.round(distToTarget * 10) / 10,
-        closing: Math.round(closing * 10) / 10,
-        engaged: engaged,
         pressing: pressing,
     };
-}
-
-function buildPresserExplanation(presser) {
-    if (presser.engaged) {
-        return (
-            "#" + presser.defenderShirt +
-            " pressing #" + presser.targetShirt +
-            " (engaged): " +
-            presser.distToTarget + " m to carrier"
-        );
-    }
-
-    return (
-        "#" + presser.defenderShirt +
-        " pressing #" + presser.targetShirt +
-        ": " +
-        presser.closing + " m/s closing, " +
-        presser.distToTarget + " m away"
-    );
 }
 
 function getNearestDefendersToCarrier(defenders, carrier, count) {
@@ -174,7 +150,6 @@ function findBallPressers(defenders, carrier) {
         var evaluated = evaluatePressCandidate(nearestDefenders[i], carrier);
         if (!evaluated.pressing) continue;
 
-        evaluated.explanation = buildPresserExplanation(evaluated);
         delete evaluated.pressing;
         pressers.push(evaluated);
     }
