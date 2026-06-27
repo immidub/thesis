@@ -2,6 +2,7 @@ const XT_GRID_PATH = "../xtGrid.json";
 const XT_GRID_FILL_ALPHA = 0.42;
 const XT_GRID_LINE_COLOR = "rgba(255, 255, 255, 0.25)";
 const XT_GRID_LINE_WIDTH = 0.5;
+const XT_LABEL_COLOR = "rgba(30, 30, 30, 0.85)";
 
 var showXtThreatGrid = true;
 var xtGridMeta = null;
@@ -86,48 +87,19 @@ function attackingTeamAttacksTowardNegativeH(frame) {
     return team === 1 ? homeAttacksRight : !homeAttacksRight;
 }
 
-function pitchHToZoneX(h, frame) {
-    var hl = gameData.pitch.length / 2;
-    var cellLen = gameData.pitch.length / xtGridMeta.gridX;
-    var attacksTowardNegativeH = attackingTeamAttacksTowardNegativeH(frame);
-
-    var zoneX = attacksTowardNegativeH
-        ? Math.floor((hl - h) / cellLen)
-        : Math.floor((h + hl) / cellLen);
-
-    if (zoneX < 0) zoneX = 0;
-    if (zoneX >= xtGridMeta.gridX) zoneX = xtGridMeta.gridX - 1;
-
-    return zoneX;
+function getGridCellLength() {
+    return gameData.pitch.length / xtGridMeta.gridX;
 }
 
-function pitchVToZoneY(v) {
-    var hw = gameData.pitch.width / 2;
-    var cellW = gameData.pitch.width / xtGridMeta.gridY;
-
-    var zoneY = Math.floor((v + hw) / cellW);
-
-    if (zoneY < 0) zoneY = 0;
-    if (zoneY >= xtGridMeta.gridY) zoneY = xtGridMeta.gridY - 1;
-
-    return zoneY;
+function getGridCellWidth() {
+    return gameData.pitch.width / xtGridMeta.gridY;
 }
 
-function getXtAtPitchPos(h, v, frame) {
-    if (xtLookup == null || xtGridMeta == null) return null;
-
-    var zoneX = pitchHToZoneX(h, frame);
-    var zoneY = pitchVToZoneY(v);
-    var value = xtLookup[zoneX][zoneY];
-
-    return value != null ? value : 0;
-}
-
-function getZonePitchBounds(zoneX, zoneY, frame) {
+function getGridCellBounds(zoneX, zoneY, frame) {
     var hl = gameData.pitch.length / 2;
     var hw = gameData.pitch.width / 2;
-    var cellLen = gameData.pitch.length / xtGridMeta.gridX;
-    var cellW = gameData.pitch.width / xtGridMeta.gridY;
+    var cellLen = getGridCellLength();
+    var cellW = getGridCellWidth();
     var attacksTowardNegativeH = attackingTeamAttacksTowardNegativeH(frame);
 
     var hLow;
@@ -147,6 +119,42 @@ function getZonePitchBounds(zoneX, zoneY, frame) {
     return { hLow: hLow, hHigh: hHigh, vLow: vLow, vHigh: vHigh };
 }
 
+function pitchHToZoneX(h, frame) {
+    var hl = gameData.pitch.length / 2;
+    var cellLen = getGridCellLength();
+    var attacksTowardNegativeH = attackingTeamAttacksTowardNegativeH(frame);
+
+    var zoneX = attacksTowardNegativeH
+        ? Math.floor((hl - h) / cellLen)
+        : Math.floor((h + hl) / cellLen);
+
+    if (zoneX < 0) zoneX = 0;
+    if (zoneX >= xtGridMeta.gridX) zoneX = xtGridMeta.gridX - 1;
+
+    return zoneX;
+}
+
+function pitchVToZoneY(v) {
+    var hw = gameData.pitch.width / 2;
+    var cellW = getGridCellWidth();
+    var zoneY = Math.floor((v + hw) / cellW);
+
+    if (zoneY < 0) zoneY = 0;
+    if (zoneY >= xtGridMeta.gridY) zoneY = xtGridMeta.gridY - 1;
+
+    return zoneY;
+}
+
+function getXtAtPitchPos(h, v, frame) {
+    if (xtLookup == null || xtGridMeta == null) return null;
+
+    var zoneX = pitchHToZoneX(h, frame);
+    var zoneY = pitchVToZoneY(v);
+    var value = xtLookup[zoneX][zoneY];
+
+    return value != null ? value : 0;
+}
+
 function xtToFillColor(xt) {
     if (xtMaxValue <= 0) return "rgba(240, 249, 232, " + XT_GRID_FILL_ALPHA + ")";
 
@@ -161,14 +169,49 @@ function xtToFillColor(xt) {
     return "rgba(" + r + ", " + g + ", " + b + ", " + XT_GRID_FILL_ALPHA + ")";
 }
 
+function formatXtLabel(xt) {
+    if (xt >= 0.1) return xt.toFixed(2);
+    if (xt >= 0.01) return xt.toFixed(3);
+    return xt.toFixed(4);
+}
+
+function getCellCanvasRect(bounds) {
+    var topLeft = pt(bounds.hHigh, bounds.vLow);
+    var bottomRight = pt(bounds.hLow, bounds.vHigh);
+
+    return {
+        x: Math.min(topLeft[0], bottomRight[0]),
+        y: Math.min(topLeft[1], bottomRight[1]),
+        w: Math.abs(bottomRight[0] - topLeft[0]),
+        h: Math.abs(bottomRight[1] - topLeft[1]),
+    };
+}
+
+function drawXtCellLabel(ctx, rect, xt) {
+    var fontSize = Math.max(7, Math.min(11, Math.floor(Math.min(rect.w, rect.h) * 0.38)));
+    var label = formatXtLabel(xt);
+
+    ctx.font = fontSize + "px sans-serif";
+    ctx.fillStyle = xt >= xtMaxValue * 0.55 ? "rgba(255, 255, 255, 0.92)" : XT_LABEL_COLOR;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2);
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
+}
+
 function drawXtThreatGrid(frame) {
     if (!showXtThreatGrid || xtLookup == null || xtGridMeta == null) return;
     if (!isBallLive(frame)) return;
 
-    var attackingTeam = getAttackingTeam(frame);
-    if (attackingTeam == null) return;
+    if (getAttackingTeam(frame) == null) return;
 
     var ctx = gameCanvas.ctx;
+    var hl = gameData.pitch.length / 2;
+    var hw = gameData.pitch.width / 2;
+    var cellLen = getGridCellLength();
+    var cellW = getGridCellWidth();
+    var attacksTowardNegativeH = attackingTeamAttacksTowardNegativeH(frame);
 
     ctx.save();
 
@@ -177,28 +220,17 @@ function drawXtThreatGrid(frame) {
             var xt = xtLookup[zoneX][zoneY];
             if (xt == null) continue;
 
-            var bounds = getZonePitchBounds(zoneX, zoneY, frame);
-            var topLeft = pt(bounds.hHigh, bounds.vLow);
-            var bottomRight = pt(bounds.hLow, bounds.vHigh);
-
-            var x = Math.min(topLeft[0], bottomRight[0]);
-            var y = Math.min(topLeft[1], bottomRight[1]);
-            var w = Math.abs(bottomRight[0] - topLeft[0]);
-            var h = Math.abs(bottomRight[1] - topLeft[1]);
+            var bounds = getGridCellBounds(zoneX, zoneY, frame);
+            var rect = getCellCanvasRect(bounds);
 
             ctx.fillStyle = xtToFillColor(xt);
-            ctx.fillRect(x, y, w, h);
+            ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+            drawXtCellLabel(ctx, rect, xt);
         }
     }
 
     ctx.strokeStyle = XT_GRID_LINE_COLOR;
     ctx.lineWidth = XT_GRID_LINE_WIDTH;
-
-    var hl = gameData.pitch.length / 2;
-    var hw = gameData.pitch.width / 2;
-    var cellLen = gameData.pitch.length / xtGridMeta.gridX;
-    var cellW = gameData.pitch.width / xtGridMeta.gridY;
-    var attacksTowardNegativeH = attackingTeamAttacksTowardNegativeH(frame);
 
     for (var gx = 0; gx <= xtGridMeta.gridX; gx++) {
         var hLine = attacksTowardNegativeH
