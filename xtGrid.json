@@ -1,0 +1,490 @@
+{
+  "source": "Karun Singh (2018), open_xt_12x8_v1 \u2014 https://karun.in/blog/data/open_xt_12x8_v1.json",
+  "pitchLength": 105,
+  "pitchWidth": 68,
+  "gridX": 12,
+  "gridY": 8,
+  "coordinateNote": "12x8 grid spanning the full pitch (105x68 m). zoneX 0 = own goal line, zoneX 11 = opponent goal line (oriented to team in possession). zoneY 0-7 = width. xT values from Karun open_xt_12x8_v1, stretched over full length.",
+  "cells": [
+    {
+      "zoneX": 0,
+      "zoneY": 0,
+      "xt": 0.00638303
+    },
+    {
+      "zoneX": 1,
+      "zoneY": 0,
+      "xt": 0.00779616
+    },
+    {
+      "zoneX": 2,
+      "zoneY": 0,
+      "xt": 0.00844854
+    },
+    {
+      "zoneX": 3,
+      "zoneY": 0,
+      "xt": 0.00977659
+    },
+    {
+      "zoneX": 4,
+      "zoneY": 0,
+      "xt": 0.01126267
+    },
+    {
+      "zoneX": 5,
+      "zoneY": 0,
+      "xt": 0.01248344
+    },
+    {
+      "zoneX": 6,
+      "zoneY": 0,
+      "xt": 0.01473596
+    },
+    {
+      "zoneX": 7,
+      "zoneY": 0,
+      "xt": 0.0174506
+    },
+    {
+      "zoneX": 8,
+      "zoneY": 0,
+      "xt": 0.02122129
+    },
+    {
+      "zoneX": 9,
+      "zoneY": 0,
+      "xt": 0.02756312
+    },
+    {
+      "zoneX": 10,
+      "zoneY": 0,
+      "xt": 0.03485072
+    },
+    {
+      "zoneX": 11,
+      "zoneY": 0,
+      "xt": 0.0379259
+    },
+    {
+      "zoneX": 0,
+      "zoneY": 1,
+      "xt": 0.00750072
+    },
+    {
+      "zoneX": 1,
+      "zoneY": 1,
+      "xt": 0.00878589
+    },
+    {
+      "zoneX": 2,
+      "zoneY": 1,
+      "xt": 0.00942382
+    },
+    {
+      "zoneX": 3,
+      "zoneY": 1,
+      "xt": 0.0105949
+    },
+    {
+      "zoneX": 4,
+      "zoneY": 1,
+      "xt": 0.01214719
+    },
+    {
+      "zoneX": 5,
+      "zoneY": 1,
+      "xt": 0.0138454
+    },
+    {
+      "zoneX": 6,
+      "zoneY": 1,
+      "xt": 0.01611813
+    },
+    {
+      "zoneX": 7,
+      "zoneY": 1,
+      "xt": 0.01870347
+    },
+    {
+      "zoneX": 8,
+      "zoneY": 1,
+      "xt": 0.02401521
+    },
+    {
+      "zoneX": 9,
+      "zoneY": 1,
+      "xt": 0.02953272
+    },
+    {
+      "zoneX": 10,
+      "zoneY": 1,
+      "xt": 0.04066992
+    },
+    {
+      "zoneX": 11,
+      "zoneY": 1,
+      "xt": 0.04647721
+    },
+    {
+      "zoneX": 0,
+      "zoneY": 2,
+      "xt": 0.0088799
+    },
+    {
+      "zoneX": 1,
+      "zoneY": 2,
+      "xt": 0.00977745
+    },
+    {
+      "zoneX": 2,
+      "zoneY": 2,
+      "xt": 0.01001304
+    },
+    {
+      "zoneX": 3,
+      "zoneY": 2,
+      "xt": 0.01110462
+    },
+    {
+      "zoneX": 4,
+      "zoneY": 2,
+      "xt": 0.01269174
+    },
+    {
+      "zoneX": 5,
+      "zoneY": 2,
+      "xt": 0.01429128
+    },
+    {
+      "zoneX": 6,
+      "zoneY": 2,
+      "xt": 0.01685596
+    },
+    {
+      "zoneX": 7,
+      "zoneY": 2,
+      "xt": 0.01935132
+    },
+    {
+      "zoneX": 8,
+      "zoneY": 2,
+      "xt": 0.0241224
+    },
+    {
+      "zoneX": 9,
+      "zoneY": 2,
+      "xt": 0.02855202
+    },
+    {
+      "zoneX": 10,
+      "zoneY": 2,
+      "xt": 0.05491138
+    },
+    {
+      "zoneX": 11,
+      "zoneY": 2,
+      "xt": 0.06442595
+    },
+    {
+      "zoneX": 0,
+      "zoneY": 3,
+      "xt": 0.00941056
+    },
+    {
+      "zoneX": 1,
+      "zoneY": 3,
+      "xt": 0.01082722
+    },
+    {
+      "zoneX": 2,
+      "zoneY": 3,
+      "xt": 0.01016549
+    },
+    {
+      "zoneX": 3,
+      "zoneY": 3,
+      "xt": 0.01132376
+    },
+    {
+      "zoneX": 4,
+      "zoneY": 3,
+      "xt": 0.01262646
+    },
+    {
+      "zoneX": 5,
+      "zoneY": 3,
+      "xt": 0.01484598
+    },
+    {
+      "zoneX": 6,
+      "zoneY": 3,
+      "xt": 0.01689528
+    },
+    {
+      "zoneX": 7,
+      "zoneY": 3,
+      "xt": 0.0199707
+    },
+    {
+      "zoneX": 8,
+      "zoneY": 3,
+      "xt": 0.02385149
+    },
+    {
+      "zoneX": 9,
+      "zoneY": 3,
+      "xt": 0.03511326
+    },
+    {
+      "zoneX": 10,
+      "zoneY": 3,
+      "xt": 0.10805102
+    },
+    {
+      "zoneX": 11,
+      "zoneY": 3,
+      "xt": 0.25745362
+    },
+    {
+      "zoneX": 0,
+      "zoneY": 4,
+      "xt": 0.00941056
+    },
+    {
+      "zoneX": 1,
+      "zoneY": 4,
+      "xt": 0.01082722
+    },
+    {
+      "zoneX": 2,
+      "zoneY": 4,
+      "xt": 0.01016549
+    },
+    {
+      "zoneX": 3,
+      "zoneY": 4,
+      "xt": 0.01132376
+    },
+    {
+      "zoneX": 4,
+      "zoneY": 4,
+      "xt": 0.01262646
+    },
+    {
+      "zoneX": 5,
+      "zoneY": 4,
+      "xt": 0.01484598
+    },
+    {
+      "zoneX": 6,
+      "zoneY": 4,
+      "xt": 0.01689528
+    },
+    {
+      "zoneX": 7,
+      "zoneY": 4,
+      "xt": 0.0199707
+    },
+    {
+      "zoneX": 8,
+      "zoneY": 4,
+      "xt": 0.02385149
+    },
+    {
+      "zoneX": 9,
+      "zoneY": 4,
+      "xt": 0.03511326
+    },
+    {
+      "zoneX": 10,
+      "zoneY": 4,
+      "xt": 0.10805102
+    },
+    {
+      "zoneX": 11,
+      "zoneY": 4,
+      "xt": 0.25745362
+    },
+    {
+      "zoneX": 0,
+      "zoneY": 5,
+      "xt": 0.0088799
+    },
+    {
+      "zoneX": 1,
+      "zoneY": 5,
+      "xt": 0.00977745
+    },
+    {
+      "zoneX": 2,
+      "zoneY": 5,
+      "xt": 0.01001304
+    },
+    {
+      "zoneX": 3,
+      "zoneY": 5,
+      "xt": 0.01110462
+    },
+    {
+      "zoneX": 4,
+      "zoneY": 5,
+      "xt": 0.01269174
+    },
+    {
+      "zoneX": 5,
+      "zoneY": 5,
+      "xt": 0.01429128
+    },
+    {
+      "zoneX": 6,
+      "zoneY": 5,
+      "xt": 0.01685596
+    },
+    {
+      "zoneX": 7,
+      "zoneY": 5,
+      "xt": 0.01935132
+    },
+    {
+      "zoneX": 8,
+      "zoneY": 5,
+      "xt": 0.0241224
+    },
+    {
+      "zoneX": 9,
+      "zoneY": 5,
+      "xt": 0.02855202
+    },
+    {
+      "zoneX": 10,
+      "zoneY": 5,
+      "xt": 0.05491138
+    },
+    {
+      "zoneX": 11,
+      "zoneY": 5,
+      "xt": 0.06442595
+    },
+    {
+      "zoneX": 0,
+      "zoneY": 6,
+      "xt": 0.00750072
+    },
+    {
+      "zoneX": 1,
+      "zoneY": 6,
+      "xt": 0.00878589
+    },
+    {
+      "zoneX": 2,
+      "zoneY": 6,
+      "xt": 0.00942382
+    },
+    {
+      "zoneX": 3,
+      "zoneY": 6,
+      "xt": 0.0105949
+    },
+    {
+      "zoneX": 4,
+      "zoneY": 6,
+      "xt": 0.01214719
+    },
+    {
+      "zoneX": 5,
+      "zoneY": 6,
+      "xt": 0.0138454
+    },
+    {
+      "zoneX": 6,
+      "zoneY": 6,
+      "xt": 0.01611813
+    },
+    {
+      "zoneX": 7,
+      "zoneY": 6,
+      "xt": 0.01870347
+    },
+    {
+      "zoneX": 8,
+      "zoneY": 6,
+      "xt": 0.02401521
+    },
+    {
+      "zoneX": 9,
+      "zoneY": 6,
+      "xt": 0.02953272
+    },
+    {
+      "zoneX": 10,
+      "zoneY": 6,
+      "xt": 0.04066992
+    },
+    {
+      "zoneX": 11,
+      "zoneY": 6,
+      "xt": 0.04647721
+    },
+    {
+      "zoneX": 0,
+      "zoneY": 7,
+      "xt": 0.00638303
+    },
+    {
+      "zoneX": 1,
+      "zoneY": 7,
+      "xt": 0.00779616
+    },
+    {
+      "zoneX": 2,
+      "zoneY": 7,
+      "xt": 0.00844854
+    },
+    {
+      "zoneX": 3,
+      "zoneY": 7,
+      "xt": 0.00977659
+    },
+    {
+      "zoneX": 4,
+      "zoneY": 7,
+      "xt": 0.01126267
+    },
+    {
+      "zoneX": 5,
+      "zoneY": 7,
+      "xt": 0.01248344
+    },
+    {
+      "zoneX": 6,
+      "zoneY": 7,
+      "xt": 0.01473596
+    },
+    {
+      "zoneX": 7,
+      "zoneY": 7,
+      "xt": 0.0174506
+    },
+    {
+      "zoneX": 8,
+      "zoneY": 7,
+      "xt": 0.02122129
+    },
+    {
+      "zoneX": 9,
+      "zoneY": 7,
+      "xt": 0.02756312
+    },
+    {
+      "zoneX": 10,
+      "zoneY": 7,
+      "xt": 0.03485072
+    },
+    {
+      "zoneX": 11,
+      "zoneY": 7,
+      "xt": 0.0379259
+    }
+  ]
+}
