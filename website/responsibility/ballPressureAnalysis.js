@@ -12,10 +12,6 @@ function directionToUnitVector(directionDeg) {
     return { h: -Math.cos(rad), v: Math.sin(rad) };
 }
 
-function pitchDistance(h1, v1, h2, v2) {
-    return Math.sqrt(getPitchDistanceSquared(h1, v1, h2, v2));
-}
-
 function minClosingSpeedRequired(distToTarget) {
     if (distToTarget <= PRESS_ENGAGED_DIST) return 0;
 
@@ -52,18 +48,6 @@ function isActivelyPressing(defender, carrier, distToTarget) {
     return geometricClosingSpeed(defender, carrier) >= minClosingSpeedRequired(distToTarget);
 }
 
-function getAttackingPlayers(frame) {
-    var team = getAttackingTeam(frame);
-    if (team == null) return [];
-    return getTeamPlayerPositions(frame, team, true);
-}
-
-function getDefendingPlayers(frame) {
-    var team = getDefendingTeam(frame);
-    if (team == null) return [];
-    return getTeamPlayerPositions(frame, team);
-}
-
 function getBallPitchPos(frame) {
     var dataLine = gameData.tracking[frame];
     if (!dataLine || !dataLine.objects) return null;
@@ -86,7 +70,7 @@ function isBallInAir(ball) {
     return ball != null && ball.z != null && ball.z > BALL_AIR_Z;
 }
 
-function pickCarrier(attackers) {
+function pickBallCarrier(attackers) {
     if (attackers.length === 0) return null;
 
     var best = null;
@@ -119,7 +103,7 @@ function pickCarrier(attackers) {
 }
 
 function evaluatePressCandidate(defender, carrier) {
-    var distToTarget = pitchDistance(defender.h, defender.v, carrier.h, carrier.v);
+    var distToTarget = getPitchDistance(defender.h, defender.v, carrier.h, carrier.v);
     var engaged = distToTarget <= PRESS_ENGAGED_DIST;
     var closing = geometricClosingSpeed(defender, carrier);
     var pressing = isActivelyPressing(defender, carrier, distToTarget);
@@ -182,7 +166,7 @@ function getNearestDefendersToCarrier(defenders, carrier, count) {
     return nearest;
 }
 
-function findPressers(defenders, carrier) {
+function findBallPressers(defenders, carrier) {
     var pressers = [];
     var nearestDefenders = getNearestDefendersToCarrier(defenders, carrier, PRESS_CANDIDATE_COUNT);
 
@@ -198,7 +182,7 @@ function findPressers(defenders, carrier) {
     return pressers;
 }
 
-function analyzeResponsibility(frame) {
+function analyzeBallPressure(frame) {
     if (!isBallLive(frame)) {
         return { active: false, reason: "Ball not live" };
     }
@@ -215,15 +199,15 @@ function analyzeResponsibility(frame) {
         };
     }
 
-    var attackers = getAttackingPlayers(frame);
-    var defenders = getDefendingPlayers(frame);
-    var carrier = pickCarrier(attackers);
+    var attackers = getOutfieldAttackers(frame);
+    var defenders = getOutfieldDefenders(frame);
+    var carrier = pickBallCarrier(attackers);
 
     if (carrier == null) {
         return { active: false, reason: "No clear ball carrier" };
     }
 
-    var pressers = findPressers(defenders, carrier);
+    var pressers = findBallPressers(defenders, carrier);
 
     return {
         active: true,
