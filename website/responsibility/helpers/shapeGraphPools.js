@@ -25,7 +25,7 @@ function getNearestPoolTargets(source, targets, count) {
 }
 
 function formatPoolTarget(player, distSq, inShapeGraph) {
-    return {
+    var target = {
         id: player.id,
         h: player.h,
         v: player.v,
@@ -35,6 +35,11 @@ function formatPoolTarget(player, distSq, inShapeGraph) {
         shirtNumber: getShirtNumberLabel(player.id),
         inShapeGraph: inShapeGraph,
     };
+
+    if (player.speed != null) target.speed = player.speed;
+    if (player.direction != null) target.direction = player.direction;
+
+    return target;
 }
 
 function getShapeGraphPoolTargets(defenderIndex, graph, players) {

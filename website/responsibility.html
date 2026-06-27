@@ -18,9 +18,22 @@
         <script src="pitch/pitchView.js"></script>
         <script src="core/common.js"></script>
         <script src="algorithms/drawGraph.js"></script>
-        <script src="responsibility/ballPressureAnalysis.js"></script>
-        <script src="responsibility/drawBallPressure.js"></script>
-        <script src="responsibility/shapeGraphPools.js"></script>
+        <script src="responsibility/helpers/ballPressureAnalysis.js"></script>
+        <script src="responsibility/draw/drawBallPressure.js"></script>
+        <script src="responsibility/draw/drawPassingOptions.js"></script>
+        <script src="responsibility/helpers/shapeGraphPools.js"></script>
+        <script src="responsibility/helpers/passingOptions.js"></script>
+        <script src="responsibility/helpers/behaviorConfig.js"></script>
+        <script src="responsibility/helpers/xtGrid.js"></script>
+        <script src="responsibility/helpers/behaviorGeometry.js"></script>
+        <script src="responsibility/pipelineSteps/step1Pressing.js"></script>
+        <script src="responsibility/pipelineSteps/step2TrackingRun.js"></script>
+        <script src="responsibility/pipelineSteps/step3ManMarking.js"></script>
+        <script src="responsibility/pipelineSteps/step4PassingLaneCover.js"></script>
+        <script src="responsibility/pipelineSteps/runDefenderPipeline.js"></script>
+        <script src="responsibility/draw/behaviorDescriptions.js"></script>
+        <script src="responsibility/classifyBehaviors.js"></script>
+        <script src="responsibility/draw/drawBehaviorLabels.js"></script>
         <script src="responsibility/defensiveFrameAnalysis.js"></script>
         <script src="core/timeline.js"></script>
         <script src="core/uiElements.js"></script>
@@ -139,15 +152,17 @@
                             <div class="pitches-row pitches-row--single pitches-row--full">
                                 <div class="pitch-panel pitch-panel--full">
                                     <div class="pitch-title">Defensive responsibilities</div>
-                                    <div class="pitch-subtitle">Ball pressure + off-ball shape graph pools</div>
+                                    <div class="pitch-subtitle">Ball pressure, shape graph pools, and behavior classification</div>
                                     <div class="pitch-direction" id="pitch_direction_1"></div>
                                     <canvas id="canvas1"></canvas>
                                     <div class="pitch-control pitch-control--info">
                                         <div class="responsibility-legend">
                                             <span class="legend-item legend-item--pool">Gray — shape graph pool</span>
+                                            <span class="legend-item legend-item--pass">Green — passing options</span>
                                             <span class="legend-item legend-item--press">Red — ball pressure</span>
                                             <span class="legend-item legend-item--carrier">Amber — ball carrier</span>
                                         </div>
+                                        <div id="behavior_explanations_panel" class="behavior-explanations"></div>
                                     </div>
                                 </div>
                             </div>
@@ -159,6 +174,7 @@
         </div>
         <script>
             setupUIElements();
+            loadXtGrid();
         </script>
     </body>
 </html>

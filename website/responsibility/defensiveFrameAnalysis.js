@@ -1,3 +1,6 @@
+//entry point for defensive responsibility analysis
+//initiates ball pressure analysis and behavior classification
+
 function buildBallPressurePresserIds(ballPressure) {
     var ids = {};
     if (ballPressure == null || !ballPressure.pressers) return ids;
@@ -22,10 +25,19 @@ function analyzeDefensiveFrame(frame) {
 
     var presserIds = buildBallPressurePresserIds(ballPressure);
     var offBallPools = getOffBallShapeGraphPools(frame, presserIds);
+    var passingOptions = getPassingOptions(frame, ballPressure.carrier);
+    var behaviors = classifyDefensiveBehaviors(frame, {
+        offBallPools: offBallPools,
+        ballPressure: ballPressure,
+        presserIds: presserIds,
+        passingOptions: passingOptions,
+    });
 
     return {
         active: true,
         ballPressure: ballPressure,
         offBallPools: offBallPools,
+        passingOptions: passingOptions,
+        behaviors: behaviors,
     };
 }

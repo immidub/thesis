@@ -24,6 +24,7 @@ function drawDefensivePitchFrame() {
     var analysis = analyzeDefensiveFrame(frameNr);
     if (analysis.active) {
         drawOffBallPoolEdges(analysis.offBallPools);
+        drawPassingOptionsOverlay(analysis.passingOptions);
     }
 
     var defendingTeam = getDefendingTeam(frameNr);
@@ -44,6 +45,12 @@ function drawDefensivePitchFrame() {
     if (analysis.active && analysis.ballPressure != null) {
         drawBallPressureOverlay(analysis.ballPressure);
     }
+
+    if (analysis.behaviors != null) {
+        drawBehaviorClassificationOverlay(analysis.behaviors);
+    }
+
+    updateBehaviorExplanationsPanel(analysis.behaviors, analysis);
 }
 
 const OFF_BALL_POOL_EDGE_COLOR = "#9CA3AF";

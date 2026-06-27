@@ -4,7 +4,7 @@
   "pitchWidth": 68,
   "gridX": 12,
   "gridY": 8,
-  "coordinateNote": "12x8 grid spanning the full pitch (105x68 m). zoneX 0 = own goal line, zoneX 11 = opponent goal line (oriented to team in possession). zoneY 0-7 = width. xT values from Karun open_xt_12x8_v1, stretched over full length.",
+  "coordinateNote": "12x8 grid spanning the full pitch (105x68 m). zoneX 0 = attacking team own goal area, zoneX 11 = defending team goal area (re-oriented per possession). zoneY 0-7 = width (symmetric). xT values from Karun open_xt_12x8_v1, stretched over full length.",
   "cells": [
     {
       "zoneX": 0,
