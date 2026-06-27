@@ -22,10 +22,16 @@ function analyzeDefensiveFrame(frame) {
 
     var presserIds = buildBallPressurePresserIds(ballPressure);
     var offBallPools = getOffBallShapeGraphPools(frame, presserIds);
+    var behaviors = classifyDefensiveBehaviors(frame, {
+        offBallPools: offBallPools,
+        ballPressure: ballPressure,
+        presserIds: presserIds,
+    });
 
     return {
         active: true,
         ballPressure: ballPressure,
         offBallPools: offBallPools,
+        behaviors: behaviors,
     };
 }

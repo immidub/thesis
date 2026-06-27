@@ -44,6 +44,12 @@ function drawDefensivePitchFrame() {
     if (analysis.active && analysis.ballPressure != null) {
         drawBallPressureOverlay(analysis.ballPressure);
     }
+
+    if (analysis.active && analysis.behaviors != null) {
+        drawBehaviorClassificationOverlay(analysis.behaviors);
+    }
+
+    updateBehaviorExplanationsPanel(analysis.behaviors, analysis);
 }
 
 const OFF_BALL_POOL_EDGE_COLOR = "#9CA3AF";

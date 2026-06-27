@@ -21,6 +21,11 @@
         <script src="responsibility/ballPressureAnalysis.js"></script>
         <script src="responsibility/drawBallPressure.js"></script>
         <script src="responsibility/shapeGraphPools.js"></script>
+        <script src="responsibility/behaviorClassification/behaviorConfig.js"></script>
+        <script src="responsibility/behaviorClassification/behaviorFeatures.js"></script>
+        <script src="responsibility/behaviorClassification/behaviorScores.js"></script>
+        <script src="responsibility/behaviorClassification/classifyBehaviors.js"></script>
+        <script src="responsibility/behaviorClassification/drawBehaviorLabels.js"></script>
         <script src="responsibility/defensiveFrameAnalysis.js"></script>
         <script src="core/timeline.js"></script>
         <script src="core/uiElements.js"></script>
@@ -139,7 +144,7 @@
                             <div class="pitches-row pitches-row--single pitches-row--full">
                                 <div class="pitch-panel pitch-panel--full">
                                     <div class="pitch-title">Defensive responsibilities</div>
-                                    <div class="pitch-subtitle">Ball pressure + off-ball shape graph pools</div>
+                                    <div class="pitch-subtitle">Ball pressure + shape graph pools + behavior classification</div>
                                     <div class="pitch-direction" id="pitch_direction_1"></div>
                                     <canvas id="canvas1"></canvas>
                                     <div class="pitch-control pitch-control--info">
@@ -147,8 +152,10 @@
                                             <span class="legend-item legend-item--pool">Gray — shape graph pool</span>
                                             <span class="legend-item legend-item--press">Red — ball pressure</span>
                                             <span class="legend-item legend-item--carrier">Amber — ball carrier</span>
+                                            <span class="legend-item">Badge — behavior (MAN / RUN / SPACE / LANE / HELP / PRESS)</span>
                                         </div>
                                     </div>
+                                    <div id="behavior_explanations_panel" class="behavior-explanations"></div>
                                 </div>
                             </div>
                         </div>
