@@ -71,7 +71,7 @@ function getOffBallShapeGraphPools(frame, excludedDefenderIds) {
     var built = buildAllOutfieldShapeGraph(frame);
     if (!built) return [];
 
-    var outfieldAttackers = getOutfieldAttackers(frame);
+    var attackers = getTeamPlayerPositions(frame, getAttackingTeam(frame), true);
     var pools = [];
 
     for (var d = 0; d < built.players.length; d++) {
@@ -82,7 +82,7 @@ function getOffBallShapeGraphPools(frame, excludedDefenderIds) {
 
         var targets = getShapeGraphPoolTargets(d, built.graph, built.players);
         if (targets.length === 0) {
-            targets = getNearestPoolTargets(defender, outfieldAttackers, 1);
+            targets = getNearestPoolTargets(defender, attackers, 1);
         }
 
         if (targets.length === 0) continue;

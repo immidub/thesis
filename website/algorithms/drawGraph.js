@@ -20,7 +20,7 @@ function buildAttackingDelaunay(frame) {
     var attackingTeam = getAttackingTeam(frame);
     if (attackingTeam == null) return null;
 
-    return buildDelaunayFromPlayers(getTeamPlayerPositions(frame, attackingTeam));
+    return buildDelaunayFromPlayers(getTeamPlayerPositions(frame, attackingTeam, true));
 }
 
 function getAttackingDelaunayEdges(frame) {
@@ -46,17 +46,21 @@ function getAttackingShapeGraphEdges(frame) {
 function buildAllOutfieldShapeGraph(frame) {
     if (!isBallLive(frame)) return null;
 
-    var team1Players = getTeamPlayerPositions(frame, 1);
-    var team2Players = getTeamPlayerPositions(frame, 2);
+    var defendingTeam = getDefendingTeam(frame);
+    var attackingTeam = getAttackingTeam(frame);
+    if (defendingTeam == null || attackingTeam == null) return null;
 
-    for (var i = 0; i < team1Players.length; i++) {
-        team1Players[i].team = 1;
+    var defendingPlayers = getTeamPlayerPositions(frame, defendingTeam, false);
+    var attackingPlayers = getTeamPlayerPositions(frame, attackingTeam, true);
+
+    for (var i = 0; i < defendingPlayers.length; i++) {
+        defendingPlayers[i].team = defendingTeam;
     }
-    for (var j = 0; j < team2Players.length; j++) {
-        team2Players[j].team = 2;
+    for (var j = 0; j < attackingPlayers.length; j++) {
+        attackingPlayers[j].team = attackingTeam;
     }
 
-    var players = team1Players.concat(team2Players);
+    var players = defendingPlayers.concat(attackingPlayers);
     var built = buildDelaunayFromPlayers(players);
     if (!built) return null;
 

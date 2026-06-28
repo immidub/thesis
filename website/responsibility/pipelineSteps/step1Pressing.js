@@ -14,6 +14,7 @@ function stepPressing(defender, context) {
             distance: dist,
             closingSpeed: closing,
             carrierSpeed: carrier.speed || 0,
+            engaged: dist <= PRESS_ENGAGED_DIST,
         },
     };
 }

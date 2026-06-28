@@ -23,24 +23,6 @@ function minClosingSpeedRequired(distToTarget) {
     return PRESS_MIN_CLOSING_NEAR + t * (PRESS_MIN_CLOSING_FAR - PRESS_MIN_CLOSING_NEAR);
 }
 
-function geometricClosingSpeed(defender, carrier) {
-    var dh = carrier.h - defender.h;
-    var dv = carrier.v - defender.v;
-    var dist = Math.sqrt(dh * dh + dv * dv);
-    if (dist < 0.01) return Infinity;
-
-    var defMove = directionToUnitVector(defender.direction || 0);
-    var carMove = directionToUnitVector(carrier.direction || 0);
-    var defH = defMove.h * (defender.speed || 0);
-    var defV = defMove.v * (defender.speed || 0);
-    var carH = carMove.h * (carrier.speed || 0);
-    var carV = carMove.v * (carrier.speed || 0);
-    var rx = dh / dist;
-    var rv = dv / dist;
-
-    return (defH - carH) * rx + (defV - carV) * rv;
-}
-
 function isActivelyPressing(defender, carrier, distToTarget) {
     if (distToTarget <= PRESS_ENGAGED_DIST) return true;
     if (distToTarget > PRESS_MAX_TARGET_DIST) return false;
@@ -174,8 +156,8 @@ function analyzeBallPressure(frame) {
         };
     }
 
-    var attackers = getOutfieldAttackers(frame);
-    var defenders = getOutfieldDefenders(frame);
+    var attackers = getTeamPlayerPositions(frame, getAttackingTeam(frame), true);
+    var defenders = getTeamPlayerPositions(frame, getDefendingTeam(frame), false);
     var carrier = pickBallCarrier(attackers);
 
     if (carrier == null) {

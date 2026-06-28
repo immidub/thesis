@@ -67,10 +67,7 @@ function isDefenderTrackingRun(defender, attacker) {
         return true;
     }
 
-    //check if defender is moving toward attacker
     var towardAttacker = isMovingTowardPoint(defender, attacker.h, attacker.v);
-    if (alignment >= BEHAVIOR_THRESHOLDS.trackingMinVelocityAlignment && towardAttacker) return true;
-
     var closing = geometricClosingSpeed(defender, attacker);
     //check if defender is closing on attacker and moving toward them
     return (
@@ -104,6 +101,24 @@ function velocityAlignment(playerA, playerB) {
 
     var dot = moveA.h * moveB.h + moveA.v * moveB.v;
     return clamp01((dot / (magA * magB) + 1) / 2);
+}
+
+function geometricClosingSpeed(defender, carrier) {
+    var dh = carrier.h - defender.h;
+    var dv = carrier.v - defender.v;
+    var dist = Math.sqrt(dh * dh + dv * dv);
+    if (dist < 0.01) return Infinity;
+
+    var defMove = directionToUnitVector(defender.direction || 0);
+    var carMove = directionToUnitVector(carrier.direction || 0);
+    var defH = defMove.h * (defender.speed || 0);
+    var defV = defMove.v * (defender.speed || 0);
+    var carH = carMove.h * (carrier.speed || 0);
+    var carV = carMove.v * (carrier.speed || 0);
+    var rx = dh / dist;
+    var rv = dv / dist;
+
+    return (defH - carH) * rx + (defV - carV) * rv;
 }
 
 function isMovingTowardPoint(player, targetH, targetV) {

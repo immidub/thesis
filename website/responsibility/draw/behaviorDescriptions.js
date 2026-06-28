@@ -16,9 +16,18 @@ function formatXt(value) {
 }
 
 function describePressing(evidence) {
-    var parts = ["Actively closing on the ball carrier"];
+    var parts = [];
+    if (evidence.engaged) {
+        parts.push("In a duel with the ball carrier");
+    } else {
+        parts.push("Actively closing on the ball carrier");
+    }
     parts.push(formatMeters(evidence.distance) + " away");
-    if (evidence.closingSpeed != null && isFinite(evidence.closingSpeed)) {
+    if (
+        !evidence.engaged &&
+        evidence.closingSpeed != null &&
+        isFinite(evidence.closingSpeed)
+    ) {
         parts.push("closing at " + formatSpeed(evidence.closingSpeed));
     }
     return parts.join(", ") + ".";

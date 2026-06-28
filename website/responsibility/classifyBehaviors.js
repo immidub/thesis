@@ -3,8 +3,8 @@
 function buildBehaviorContext(frame, input) {
     var ball = getBallPitchPos(frame);
     var carrier = input.ballPressure != null ? input.ballPressure.carrier : null;
-    var defenders = getOutfieldDefenders(frame);
-    var attackers = getOutfieldAttackers(frame);
+    var defenders = getTeamPlayerPositions(frame, getDefendingTeam(frame), false);
+    var attackers = getTeamPlayerPositions(frame, getAttackingTeam(frame), true);
 
     return {
         frame: frame,
