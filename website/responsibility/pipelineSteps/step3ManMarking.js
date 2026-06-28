@@ -3,6 +3,9 @@ function stepManMarking(defender, targets, context) {
         var attacker = targets[i];
         if (attacker.dist > BEHAVIOR_THRESHOLDS.manMarkMaxDistance) continue;
 
+        var distToBall = getPitchDistance(attacker.h, attacker.v, context.ball.h, context.ball.v);
+        if (distToBall > BEHAVIOR_THRESHOLDS.manMarkMaxBallDistance) continue;
+
         var velSim = velocityAlignment(defender, attacker);
         if (velSim < BEHAVIOR_THRESHOLDS.manMarkMinVelocitySimilarity) continue;
 

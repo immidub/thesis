@@ -28,6 +28,10 @@ function stepPassingLaneCover(defender, targets, context) {
         var maxLineDist = getPassingLaneMaxLineDist(recipient.distFromCarrier);
         if (projection.distance > maxLineDist) continue;
 
+        if (isPassingLaneCoverMovementDisqualified(defender, carrier.h, carrier.v, attacker.h, attacker.v)) {
+            continue;
+        }
+
         return {
             behavior: BEHAVIOR_TYPES.PASSING_LANE_COVER,
             step: PIPELINE_STEPS.PASSING_LANE_COVER,

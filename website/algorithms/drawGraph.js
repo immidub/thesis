@@ -51,7 +51,7 @@ function buildAllOutfieldShapeGraph(frame) {
     if (defendingTeam == null || attackingTeam == null) return null;
 
     var defendingPlayers = getTeamPlayerPositions(frame, defendingTeam, false);
-    var attackingPlayers = getTeamPlayerPositions(frame, attackingTeam, true);
+    var attackingPlayers = getTeamPlayerPositions(frame, attackingTeam, false);
 
     for (var i = 0; i < defendingPlayers.length; i++) {
         defendingPlayers[i].team = defendingTeam;

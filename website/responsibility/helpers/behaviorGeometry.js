@@ -165,6 +165,29 @@ function distancePointToSegment(px, py, x1, y1, x2, y2) {
     return projectPointOntoSegment(px, py, x1, y1, x2, y2).distance;
 }
 
+function isPassingLaneCoverMovementDisqualified(defender, laneH1, laneV1, laneH2, laneV2) {
+    var speed = defender.speed || 0;
+    if (speed > BEHAVIOR_THRESHOLDS.passingLaneMaxDefenderSpeed) return true;
+
+    var move = getMovementVector(defender);
+    if (move.magnitude < BEHAVIOR_THRESHOLDS.movementMinSpeed) return false;
+
+    var dh = laneH2 - laneH1;
+    var dv = laneV2 - laneV1;
+    var laneLen = Math.sqrt(dh * dh + dv * dv);
+    if (laneLen < 0.01) return false;
+
+    var laneH = dh / laneLen;
+    var laneV = dv / laneLen;
+    var parallel = Math.abs(move.h * laneH + move.v * laneV) / move.magnitude;
+
+    var minParallel = Math.cos(
+        (BEHAVIOR_THRESHOLDS.passingLaneMaxCrossAngle * Math.PI) / 180
+    );
+
+    return parallel <= minParallel;
+}
+
 function getPassingLaneMaxLineDist(passLengthMeters) {
     var minDist = BEHAVIOR_THRESHOLDS.passingLaneMinLineDist;
     var maxDist = BEHAVIOR_THRESHOLDS.passingLaneMaxLineDist;

@@ -50,6 +50,7 @@ function getShapeGraphPoolTargets(defenderIndex, graph, players) {
     for (var i = 0; i < neighbors.length; i++) {
         var neighbor = players[neighbors[i]];
         if (neighbor.team === defender.team) continue;
+        if (isGoalkeeperPlayer(neighbor.id)) continue;
 
         var distSq = getPitchDistanceSquared(defender.h, defender.v, neighbor.h, neighbor.v);
         targets.push(formatPoolTarget(neighbor, distSq, true));
@@ -71,7 +72,7 @@ function getOffBallShapeGraphPools(frame, excludedDefenderIds) {
     var built = buildAllOutfieldShapeGraph(frame);
     if (!built) return [];
 
-    var attackers = getTeamPlayerPositions(frame, getAttackingTeam(frame), true);
+    var attackers = getTeamPlayerPositions(frame, getAttackingTeam(frame), false);
     var pools = [];
 
     for (var d = 0; d < built.players.length; d++) {

@@ -39,13 +39,16 @@ const BEHAVIOR_THRESHOLDS = {
     trackingDestinationAlignment: 0.35,
 
     manMarkMaxDistance: 3,
+    manMarkMaxBallDistance: 35,
     manMarkMinVelocitySimilarity: 0.35,
 
     passingOptionMaxDistance: 30,
     passingLaneMinLineDist: 1,
     passingLaneMaxLineDist: 5,
+    passingLaneMaxDefenderSpeed: 5,
+    passingLaneMaxCrossAngle: 45,
 
-    movementMinSpeed: 0.3,
+    movementMinSpeed: 1.2,
     towardPointAlignment: 0.35,
 };
 
