@@ -37,6 +37,7 @@ function drawDefensivePitchFrame() {
     drawTeam(1, defendingTeam);
     drawTeam(2, defendingTeam);
     drawGoalKeepers(getGoalKeepers(frameNr), defendingTeam);
+    drawPlayerMovementArrows(frameNr);
     drawPlayerLabels(frameNr);
     drawBall(frameNr, ballLive);
     gameCanvas.ctx.restore();

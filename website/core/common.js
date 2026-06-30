@@ -42,6 +42,25 @@ function getPitchDistanceSquared(h1, v1, h2, v2) {
     return dh * dh + dv * dv;
 }
 
+function directionToUnitVector(directionDeg) {
+    var rad = (directionDeg * Math.PI) / 180;
+    // Match getCoordinates pitch space where h is negated.
+    return { h: -Math.cos(rad), v: Math.sin(rad) };
+}
+
+function predictBallPitchPos(ball, seconds) {
+    if (ball == null) return null;
+    if (seconds <= 0 || ball.direction == null || ball.speed == null) {
+        return { h: ball.h, v: ball.v };
+    }
+
+    var unit = directionToUnitVector(ball.direction);
+    return {
+        h: ball.h + unit.h * ball.speed * seconds,
+        v: ball.v + unit.v * ball.speed * seconds,
+    };
+}
+
 function drawMarkingEdges(edges, color) {
     gameCanvas.ctx.strokeStyle = color;
     gameCanvas.ctx.lineWidth = 2;

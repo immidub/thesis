@@ -65,6 +65,26 @@ class CanvasHelper {
         this.ctx.stroke();
     }
 
+    drawArrow(x1, y1, x2, y2, headSize) {
+        this.drawLine(x1, y1, x2, y2);
+
+        var angle = Math.atan2(y2 - y1, x2 - x1);
+        var headAngle = Math.PI / 7;
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(x2, y2);
+        this.ctx.lineTo(
+            x2 - headSize * Math.cos(angle - headAngle),
+            y2 - headSize * Math.sin(angle - headAngle)
+        );
+        this.ctx.moveTo(x2, y2);
+        this.ctx.lineTo(
+            x2 - headSize * Math.cos(angle + headAngle),
+            y2 - headSize * Math.sin(angle + headAngle)
+        );
+        this.ctx.stroke();
+    }
+
     fillTextCenter(text, x, y) {
         this.ctx.textAlign = "center";
         this.ctx.fillText(text, x, y);

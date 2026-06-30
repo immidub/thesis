@@ -166,8 +166,117 @@ function drawBall(frame, ballLive) {
     var object2 = (gameData.tracking[frame + 1] ?? dataLine).objects[gameData.ballId] ?? object1;
     var [h, v] = getCoordinates(object1, object2);
     var [x, y] = pt(h, v);
-    gameCanvas.ctx.fillStyle = ballLive === false ? "#B0B0B0" : "#575757";
+    var ballColor = ballLive === false ? "#B0B0B0" : "#575757";
+
+    gameCanvas.ctx.fillStyle = ballColor;
     gameCanvas.drawDot(x, y, 4);
+    drawBallMovementArrow(h, v, x, y, object1, ballColor);
+}
+
+const MOVEMENT_ARROW_PREVIEW_SECONDS = 0.5;
+
+const BALL_MOVEMENT_ARROW_MIN_METERS = 3;
+const BALL_MOVEMENT_ARROW_MAX_METERS = 20;
+
+const PLAYER_MOVEMENT_ARROW_MIN_METERS = 1;
+const PLAYER_MOVEMENT_ARROW_MAX_METERS = 10;
+const PLAYER_MOVEMENT_ARROW_MIN_SPEED = 0.5;
+
+function getMovementArrowLengthMeters(speed, minMeters, maxMeters) {
+    if (speed == null || speed <= 0) return minMeters;
+
+    var length = speed * MOVEMENT_ARROW_PREVIEW_SECONDS;
+    if (length < minMeters) return minMeters;
+    if (length > maxMeters) return maxMeters;
+    return length;
+}
+
+function drawObjectMovementArrow(
+    pitchH,
+    pitchV,
+    canvasX,
+    canvasY,
+    object,
+    color,
+    minMeters,
+    maxMeters,
+    headMeters,
+    minSpeed
+) {
+    if (object.direction == null) return;
+    if (minSpeed != null && object.speed != null && object.speed < minSpeed) return;
+
+    var unit = directionToUnitVector(object.direction);
+    var lengthMeters = getMovementArrowLengthMeters(object.speed, minMeters, maxMeters);
+    var endPitchH = pitchH + unit.h * lengthMeters;
+    var endPitchV = pitchV + unit.v * lengthMeters;
+    var endCanvas = pt(endPitchH, endPitchV);
+
+    var prevStroke = gameCanvas.ctx.strokeStyle;
+    var prevWidth = gameCanvas.ctx.lineWidth;
+
+    gameCanvas.ctx.strokeStyle = color;
+    gameCanvas.ctx.lineWidth = 2;
+    gameCanvas.drawArrow(canvasX, canvasY, endCanvas[0], endCanvas[1], convertDist(headMeters));
+    gameCanvas.ctx.strokeStyle = prevStroke;
+    gameCanvas.ctx.lineWidth = prevWidth;
+}
+
+function drawBallMovementArrow(pitchH, pitchV, canvasX, canvasY, ballObject, color) {
+    drawObjectMovementArrow(
+        pitchH,
+        pitchV,
+        canvasX,
+        canvasY,
+        ballObject,
+        color,
+        BALL_MOVEMENT_ARROW_MIN_METERS,
+        BALL_MOVEMENT_ARROW_MAX_METERS,
+        0.9,
+        null
+    );
+}
+
+function drawPlayerMovementArrows(frame) {
+    var dataLine = gameData.tracking[frame];
+    if (!dataLine || !dataLine.objects) return;
+
+    var dataLine2 = gameData.tracking[frame + 1] ?? dataLine;
+
+    for (var playerId in dataLine.objects) {
+        if (playerId === gameData.ballId) continue;
+
+        var isHome = gameData.players.team1.includes(String(playerId));
+        var isAway = gameData.players.team2.includes(String(playerId));
+        if (!isHome && !isAway) continue;
+
+        var object1 = dataLine.objects[playerId];
+        var object2 = dataLine2.objects[playerId] ?? object1;
+        var coords = getCoordinates(object1, object2);
+        var canvas = pt(coords[0], coords[1]);
+        var color;
+
+        if (isGoalkeeperPlayer(playerId)) {
+            color = "#575757";
+        } else if (isHome) {
+            color = gameData.homeTeam.colorShirt;
+        } else {
+            color = gameData.awayTeam.colorShirt;
+        }
+
+        drawObjectMovementArrow(
+            coords[0],
+            coords[1],
+            canvas[0],
+            canvas[1],
+            object1,
+            color,
+            PLAYER_MOVEMENT_ARROW_MIN_METERS,
+            PLAYER_MOVEMENT_ARROW_MAX_METERS,
+            0.6,
+            PLAYER_MOVEMENT_ARROW_MIN_SPEED
+        );
+    }
 }
 
 function pitchLine(h1, v1, h2, v2) {
