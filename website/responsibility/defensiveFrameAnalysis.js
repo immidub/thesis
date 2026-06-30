@@ -12,6 +12,28 @@ function buildBallPressurePresserIds(ballPressure) {
     return ids;
 }
 
+function buildHighPassChallengerIds(ballPressure) {
+    var ids = {};
+    if (ballPressure == null || !ballPressure.highPassChallengers) return ids;
+
+    for (var i = 0; i < ballPressure.highPassChallengers.length; i++) {
+        ids[ballPressure.highPassChallengers[i].defenderId] = true;
+    }
+
+    return ids;
+}
+
+function buildEngagedDefenderIds(ballPressure) {
+    var ids = buildBallPressurePresserIds(ballPressure);
+    var challengerIds = buildHighPassChallengerIds(ballPressure);
+
+    for (var defenderId in challengerIds) {
+        ids[defenderId] = true;
+    }
+
+    return ids;
+}
+
 function analyzeDefensiveFrame(frame) {
     var ballPressure = analyzeBallPressure(frame);
 
@@ -24,12 +46,15 @@ function analyzeDefensiveFrame(frame) {
     }
 
     var presserIds = buildBallPressurePresserIds(ballPressure);
-    var offBallPools = getOffBallShapeGraphPools(frame, presserIds);
+    var highPassChallengerIds = buildHighPassChallengerIds(ballPressure);
+    var engagedDefenderIds = buildEngagedDefenderIds(ballPressure);
+    var offBallPools = getOffBallShapeGraphPools(frame, engagedDefenderIds);
     var passingOptions = getPassingOptions(frame, ballPressure.carrier);
     var behaviors = classifyDefensiveBehaviors(frame, {
         offBallPools: offBallPools,
         ballPressure: ballPressure,
         presserIds: presserIds,
+        highPassChallengerIds: highPassChallengerIds,
         passingOptions: passingOptions,
     });
 

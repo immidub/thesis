@@ -1,5 +1,6 @@
 const BEHAVIOR_TYPES = {
     PRESSING: "PRESSING",
+    CHALLENGING_HIGH_PASS: "CHALLENGING_HIGH_PASS",
     TRACKING_RUN: "TRACKING_RUN",
     MAN_MARKING: "MAN_MARKING",
     PASSING_LANE_COVER: "PASSING_LANE_COVER",
@@ -8,6 +9,7 @@ const BEHAVIOR_TYPES = {
 
 const BEHAVIOR_LABELS = {
     PRESSING: "Pressing",
+    CHALLENGING_HIGH_PASS: "Challenging high pass",
     TRACKING_RUN: "Tracking run",
     MAN_MARKING: "Man marking",
     PASSING_LANE_COVER: "Passing lane cover",

@@ -179,12 +179,33 @@ body {
   margin-right: 0.35rem;
 }
 
+.legend-item--high-pass::before {
+  content: "";
+  display: inline-block;
+  width: 1.25rem;
+  height: 2px;
+  background: #EA580C;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+
 .legend-item--carrier::before {
   content: "";
   display: inline-block;
   width: 0.65rem;
   height: 0.65rem;
   border: 2px solid #F59E0B;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+
+.legend-item--intended-target::before {
+  content: "";
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 2px solid #8B5CF6;
   border-radius: 50%;
   vertical-align: middle;
   margin-right: 0.35rem;

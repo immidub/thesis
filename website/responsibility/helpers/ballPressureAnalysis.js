@@ -1,16 +1,8 @@
-const BALL_AIR_Z = 1.0;
-const CARRIER_MAX_BALL_DIST = 6;
 const PRESS_MAX_TARGET_DIST = 15;
 const PRESS_ENGAGED_DIST = 3;
 const PRESS_MIN_CLOSING_NEAR = 0.5;
 const PRESS_MIN_CLOSING_FAR = 6.0;
 const PRESS_CANDIDATE_COUNT = 3;
-
-function directionToUnitVector(directionDeg) {
-    var rad = (directionDeg * Math.PI) / 180;
-    // Match getCoordinates pitch space where h is negated.
-    return { h: -Math.cos(rad), v: Math.sin(rad) };
-}
 
 function minClosingSpeedRequired(distToTarget) {
     if (distToTarget <= PRESS_ENGAGED_DIST) return 0;
@@ -48,10 +40,6 @@ function getBallPitchPos(frame) {
     };
 }
 
-function isBallInAir(ball) {
-    return ball != null && ball.z != null && ball.z > BALL_AIR_Z;
-}
-
 function pickBallCarrier(attackers) {
     if (attackers.length === 0) return null;
 
@@ -76,8 +64,35 @@ function pickBallCarrier(attackers) {
         }
     }
 
-    if (best.distToBall === Infinity || best.distToBall > CARRIER_MAX_BALL_DIST) {
+    if (best.distToBall === Infinity) {
         return null;
+    }
+
+    best.shirtNumber = getShirtNumberLabel(best.id);
+    return best;
+}
+
+function pickBallCarrierAtPoint(attackers, targetH, targetV) {
+    if (attackers.length === 0) return null;
+
+    var best = null;
+    var bestDist = Infinity;
+    for (var i = 0; i < attackers.length; i++) {
+        var player = attackers[i];
+        var dist = getPitchDistance(player.h, player.v, targetH, targetV);
+        if (best == null || dist < bestDist) {
+            bestDist = dist;
+            best = {
+                id: player.id,
+                h: player.h,
+                v: player.v,
+                x: player.x,
+                y: player.y,
+                distToBall: dist,
+                speed: player.speed,
+                direction: player.direction,
+            };
+        }
     }
 
     best.shirtNumber = getShirtNumberLabel(best.id);
@@ -98,7 +113,7 @@ function evaluatePressCandidate(defender, carrier) {
     };
 }
 
-function getNearestDefendersToCarrier(defenders, carrier, count) {
+function getNearestDefendersToTarget(defenders, target, count) {
     var candidates = [];
 
     for (var i = 0; i < defenders.length; i++) {
@@ -107,7 +122,7 @@ function getNearestDefendersToCarrier(defenders, carrier, count) {
         var defender = defenders[i];
         candidates.push({
             defender: defender,
-            distSq: getPitchDistanceSquared(defender.h, defender.v, carrier.h, carrier.v),
+            distSq: getPitchDistanceSquared(defender.h, defender.v, target.h, target.v),
         });
     }
 
@@ -124,12 +139,16 @@ function getNearestDefendersToCarrier(defenders, carrier, count) {
     return nearest;
 }
 
-function findBallPressers(defenders, carrier) {
+function findPressureDefenders(defenders, target) {
     var pressers = [];
-    var nearestDefenders = getNearestDefendersToCarrier(defenders, carrier, PRESS_CANDIDATE_COUNT);
+    var nearestDefenders = getNearestDefendersToTarget(
+        defenders,
+        target,
+        PRESS_CANDIDATE_COUNT
+    );
 
     for (var i = 0; i < nearestDefenders.length; i++) {
-        var evaluated = evaluatePressCandidate(nearestDefenders[i], carrier);
+        var evaluated = evaluatePressCandidate(nearestDefenders[i], target);
         if (!evaluated.pressing) continue;
 
         delete evaluated.pressing;
@@ -149,26 +168,47 @@ function analyzeBallPressure(frame) {
         return { active: false, reason: "Ball not tracked" };
     }
 
-    if (isBallInAir(ballObj)) {
-        return {
-            active: false,
-            reason: "Ball in air (z=" + (Math.round(ballObj.z * 10) / 10) + " m)",
-        };
-    }
-
     var attackers = getTeamPlayerPositions(frame, getAttackingTeam(frame), true);
     var defenders = getTeamPlayerPositions(frame, getDefendingTeam(frame), false);
-    var carrier = pickBallCarrier(attackers);
 
-    if (carrier == null) {
-        return { active: false, reason: "No clear ball carrier" };
+    var inAir = isBallInAir(ballObj);
+    var ballLandingSpot = null;
+    var carrier = null;
+    var intendedTarget = null;
+    var pressers = [];
+    var highPassChallengers = [];
+
+    if (inAir) {
+        ballLandingSpot = getBallLandingSpot(frame, ballObj.h, ballObj.v, ballObj.speed);
+        if (ballLandingSpot != null) {
+            intendedTarget = pickBallCarrierAtPoint(
+                attackers,
+                ballLandingSpot.h,
+                ballLandingSpot.v
+            );
+        }
+        if (intendedTarget != null) {
+            highPassChallengers = findPressureDefenders(defenders, intendedTarget);
+        }
+    } else {
+        carrier = pickBallCarrier(attackers);
+        if (carrier == null) {
+            return { active: false, reason: "No clear ball carrier" };
+        }
+        pressers = findPressureDefenders(defenders, carrier);
     }
 
-    var pressers = findBallPressers(defenders, carrier);
+    if (inAir && intendedTarget == null) {
+        return { active: false, reason: "No intended pass target" };
+    }
 
     return {
         active: true,
         carrier: carrier,
+        intendedTarget: intendedTarget,
         pressers: pressers,
+        highPassChallengers: highPassChallengers,
+        ballInAir: inAir,
+        ballLandingSpot: ballLandingSpot,
     };
 }

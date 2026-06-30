@@ -3,6 +3,8 @@
 function buildBehaviorContext(frame, input) {
     var ball = getBallPitchPos(frame);
     var carrier = input.ballPressure != null ? input.ballPressure.carrier : null;
+    var intendedTarget =
+        input.ballPressure != null ? input.ballPressure.intendedTarget : null;
     var defenders = getTeamPlayerPositions(frame, getDefendingTeam(frame), false);
     var attackers = getTeamPlayerPositions(frame, getAttackingTeam(frame), true);
 
@@ -10,11 +12,13 @@ function buildBehaviorContext(frame, input) {
         frame: frame,
         ball: ball,
         carrier: carrier,
+        intendedTarget: intendedTarget,
         defenders: defenders,
         attackers: attackers,
         defenderLookup: buildPlayerLookup(defenders),
         attackerLookup: buildPlayerLookup(attackers),
         presserIds: input.presserIds || {},
+        highPassChallengerIds: input.highPassChallengerIds || {},
         offBallPools: input.offBallPools || [],
         ballPressure: input.ballPressure || null,
         passingOptions: input.passingOptions || null,
@@ -45,7 +49,7 @@ function decisionToDefenderResult(defender, decision) {
         behavior: decision.behavior,
         behaviorLabel: BEHAVIOR_LABELS[decision.behavior],
         pipelineStep: decision.step,
-        pipelineStepName: PIPELINE_STEP_NAMES[decision.step],
+        pipelineStepName: decision.stepName || PIPELINE_STEP_NAMES[decision.step],
         primaryTargetId: primaryTargetId,
         primaryTargetShirt: primaryTargetShirt,
         explanation: buildBehaviorExplanation(decision),

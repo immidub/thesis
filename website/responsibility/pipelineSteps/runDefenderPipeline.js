@@ -1,6 +1,9 @@
 //defender pipeline steps for classifying defensive behaviors
 function runDefenderPipeline(defender, targets, context) {
-    var decision = stepPressing(defender, context);
+    var decision = stepChallengingHighPass(defender, context);
+    if (decision != null) return decision;
+
+    decision = stepPressing(defender, context);
     if (decision != null) return decision;
 
     decision = stepTrackingRun(defender, targets, context);

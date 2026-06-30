@@ -15,6 +15,24 @@ function formatXt(value) {
     return value.toFixed(4);
 }
 
+function describeChallengingHighPass(evidence) {
+    var parts = [];
+    if (evidence.engaged) {
+        parts.push("Challenging the intended receiver on a high pass");
+    } else {
+        parts.push("Closing on the intended receiver of a high pass");
+    }
+    parts.push(formatMeters(evidence.distance) + " away");
+    if (
+        !evidence.engaged &&
+        evidence.closingSpeed != null &&
+        isFinite(evidence.closingSpeed)
+    ) {
+        parts.push("closing at " + formatSpeed(evidence.closingSpeed));
+    }
+    return parts.join(", ") + ".";
+}
+
 function describePressing(evidence) {
     var parts = [];
     if (evidence.engaged) {
@@ -88,6 +106,8 @@ function buildBehaviorExplanation(decision) {
     switch (decision.behavior) {
         case BEHAVIOR_TYPES.PRESSING:
             return describePressing(evidence);
+        case BEHAVIOR_TYPES.CHALLENGING_HIGH_PASS:
+            return describeChallengingHighPass(evidence);
         case BEHAVIOR_TYPES.TRACKING_RUN:
             return describeTrackingRun(evidence);
         case BEHAVIOR_TYPES.MAN_MARKING:

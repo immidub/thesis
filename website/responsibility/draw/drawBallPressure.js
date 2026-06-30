@@ -1,10 +1,20 @@
 const BALL_PRESSURE_EDGE_COLOR = "#DC2626";
 const BALL_CARRIER_RING_COLOR = "#F59E0B";
+const BALL_INTENDED_TARGET_RING_COLOR = "#8B5CF6";
+const HIGH_PASS_CHALLENGE_EDGE_COLOR = "#EA580C";
 
 function drawBallPressureOverlay(ballPressure) {
     if (!ballPressure.active) return;
 
-    if (ballPressure.carrier != null) {
+    if (ballPressure.intendedTarget != null) {
+        drawPlayerRing(
+            ballPressure.intendedTarget.x,
+            ballPressure.intendedTarget.y,
+            PLAYER_DOT_RADIUS + 4,
+            BALL_INTENDED_TARGET_RING_COLOR,
+            2.5
+        );
+    } else if (ballPressure.carrier != null) {
         drawPlayerRing(
             ballPressure.carrier.x,
             ballPressure.carrier.y,
@@ -12,6 +22,33 @@ function drawBallPressureOverlay(ballPressure) {
             BALL_CARRIER_RING_COLOR,
             2.5
         );
+    }
+
+    if (ballPressure.highPassChallengers != null && ballPressure.highPassChallengers.length > 0) {
+        var intendedTarget = ballPressure.intendedTarget;
+        if (intendedTarget != null) {
+            gameCanvas.ctx.strokeStyle = HIGH_PASS_CHALLENGE_EDGE_COLOR;
+            gameCanvas.ctx.lineWidth = 2.5;
+
+            for (var j = 0; j < ballPressure.highPassChallengers.length; j++) {
+                var challenger = ballPressure.highPassChallengers[j];
+                gameCanvas.drawLine(
+                    challenger.x,
+                    challenger.y,
+                    intendedTarget.x,
+                    intendedTarget.y
+                );
+                drawPlayerRing(
+                    challenger.x,
+                    challenger.y,
+                    PLAYER_DOT_RADIUS + 3,
+                    HIGH_PASS_CHALLENGE_EDGE_COLOR,
+                    2.5
+                );
+            }
+
+            gameCanvas.ctx.lineWidth = 1;
+        }
     }
 
     if (ballPressure.pressers.length === 0) return;

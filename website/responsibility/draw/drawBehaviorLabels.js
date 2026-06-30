@@ -4,6 +4,7 @@ const BEHAVIOR_BADGE_COLORS = {
     SPACE_COVER: "#059669",
     PASSING_LANE_COVER: "#0891B2",
     PRESSING: "#DC2626",
+    CHALLENGING_HIGH_PASS: "#EA580C",
 };
 
 const BEHAVIOR_BADGE_SHORT = {
@@ -12,6 +13,7 @@ const BEHAVIOR_BADGE_SHORT = {
     SPACE_COVER: "SPACE",
     PASSING_LANE_COVER: "LANE",
     PRESSING: "PRESS",
+    CHALLENGING_HIGH_PASS: "HIGH",
 };
 
 function drawBehaviorClassificationOverlay(behaviorAnalysis) {
