@@ -226,10 +226,14 @@
                                             <option value="2">2</option>
                                             <option value="3">3</option>
                                         </select>
-                                        <label class="pitch-checkbox mt-2" for="knn_attacker_to_defender">
-                                            <input type="checkbox" id="knn_attacker_to_defender">
-                                            <span>Attackers to defenders</span>
+                                        <label class="pitch-control-label mt-2" for="knn_assignment_mode_select">
+                                            Assignment
                                         </label>
+                                        <select class="form-select form-select-sm pitch-k-select" id="knn_assignment_mode_select">
+                                            <option value="defender-to-attacker" selected>Defenders to attackers</option>
+                                            <option value="attacker-to-defender">Attackers to defenders</option>
+                                            <option value="both">Both</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>

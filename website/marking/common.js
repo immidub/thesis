@@ -42,8 +42,10 @@ function drawMarkingEdges(edges, color) {
 
     for (var i = 0; i < edges.length; i++) {
         var edge = edges[i];
+        gameCanvas.ctx.setLineDash(edge.dashed ? [6, 4] : []);
         gameCanvas.drawLine(edge.x1, edge.y1, edge.x2, edge.y2);
     }
 
+    gameCanvas.ctx.setLineDash([]);
     gameCanvas.ctx.lineWidth = 1;
 }
