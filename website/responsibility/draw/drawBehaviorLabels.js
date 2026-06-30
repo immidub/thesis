@@ -5,6 +5,7 @@ const BEHAVIOR_BADGE_COLORS = {
     PASSING_LANE_COVER: "#0891B2",
     PRESSING: "#DC2626",
     CHALLENGING_HIGH_PASS: "#EA580C",
+    HELP_DEFENDER: "#CA8A04",
 };
 
 const BEHAVIOR_BADGE_SHORT = {
@@ -14,6 +15,7 @@ const BEHAVIOR_BADGE_SHORT = {
     PASSING_LANE_COVER: "LANE",
     PRESSING: "PRESS",
     CHALLENGING_HIGH_PASS: "HIGH",
+    HELP_DEFENDER: "HELP",
 };
 
 function drawBehaviorClassificationOverlay(behaviorAnalysis) {
@@ -29,9 +31,10 @@ function drawBehaviorClassificationOverlay(behaviorAnalysis) {
     for (var i = 0; i < behaviorAnalysis.defenders.length; i++) {
         var entry = behaviorAnalysis.defenders[i];
         var color = BEHAVIOR_BADGE_COLORS[entry.behavior] || "#374151";
+        var targetPrefix = entry.behavior === BEHAVIOR_TYPES.HELP_DEFENDER ? " D" : " A";
         var label =
             BEHAVIOR_BADGE_SHORT[entry.behavior] +
-            (entry.primaryTargetShirt != null ? " A" + entry.primaryTargetShirt : "");
+            (entry.primaryTargetShirt != null ? targetPrefix + entry.primaryTargetShirt : "");
 
         ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
         ctx.fillRect(entry.x - 18, entry.y - 28, 36, 12);
@@ -83,8 +86,11 @@ function updateBehaviorExplanationsPanel(behaviorAnalysis, analysis) {
     for (var i = 0; i < defenders.length; i++) {
         var entry = defenders[i];
         var color = BEHAVIOR_BADGE_COLORS[entry.behavior] || "#374151";
-        var targetLabel =
-            entry.primaryTargetShirt != null ? " → A" + entry.primaryTargetShirt : "";
+        var targetLabel = "";
+        if (entry.primaryTargetShirt != null) {
+            var prefix = entry.behavior === BEHAVIOR_TYPES.HELP_DEFENDER ? " → D" : " → A";
+            targetLabel = prefix + entry.primaryTargetShirt;
+        }
 
         html +=
             '<div class="behavior-explanation">' +

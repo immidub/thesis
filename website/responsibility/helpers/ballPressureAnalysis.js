@@ -113,32 +113,6 @@ function evaluatePressCandidate(defender, carrier) {
     };
 }
 
-function getNearestDefendersToTarget(defenders, target, count) {
-    var candidates = [];
-
-    for (var i = 0; i < defenders.length; i++) {
-        if (isGoalkeeperPlayer(defenders[i].id)) continue;
-
-        var defender = defenders[i];
-        candidates.push({
-            defender: defender,
-            distSq: getPitchDistanceSquared(defender.h, defender.v, target.h, target.v),
-        });
-    }
-
-    candidates.sort(function (a, b) {
-        return a.distSq - b.distSq;
-    });
-
-    var nearest = [];
-    var limit = Math.min(count, candidates.length);
-    for (var j = 0; j < limit; j++) {
-        nearest.push(candidates[j].defender);
-    }
-
-    return nearest;
-}
-
 function findPressureDefenders(defenders, target) {
     var pressers = [];
     var nearestDefenders = getNearestDefendersToTarget(

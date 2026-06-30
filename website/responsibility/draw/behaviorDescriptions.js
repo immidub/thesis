@@ -23,11 +23,7 @@ function describeChallengingHighPass(evidence) {
         parts.push("Closing on the intended receiver of a high pass");
     }
     parts.push(formatMeters(evidence.distance) + " away");
-    if (
-        !evidence.engaged &&
-        evidence.closingSpeed != null &&
-        isFinite(evidence.closingSpeed)
-    ) {
+    if (!evidence.engaged) {
         parts.push("closing at " + formatSpeed(evidence.closingSpeed));
     }
     return parts.join(", ") + ".";
@@ -41,11 +37,7 @@ function describePressing(evidence) {
         parts.push("Actively closing on the ball carrier");
     }
     parts.push(formatMeters(evidence.distance) + " away");
-    if (
-        !evidence.engaged &&
-        evidence.closingSpeed != null &&
-        isFinite(evidence.closingSpeed)
-    ) {
+    if (!evidence.engaged) {
         parts.push("closing at " + formatSpeed(evidence.closingSpeed));
     }
     return parts.join(", ") + ".";
@@ -53,16 +45,7 @@ function describePressing(evidence) {
 
 function describeTrackingRun(evidence) {
     var parts = ["Following a run into higher threat space"];
-    if (evidence.attackerXtGain != null) {
-        parts.push("xT gain " + formatXt(evidence.attackerXtGain) + " over 1s");
-    }
-    if (evidence.attackerXtProjected != null) {
-        parts.push("projected xT " + formatXt(evidence.attackerXtProjected));
-    }
     parts.push(formatMeters(evidence.distance) + " from defender");
-    if (evidence.closingSpeed != null && isFinite(evidence.closingSpeed)) {
-        parts.push("closing at " + formatSpeed(evidence.closingSpeed));
-    }
     if (evidence.velocityAlignment != null) {
         parts.push(
             "movement aligned (" + Math.round(evidence.velocityAlignment * 100) + "%)"
@@ -72,7 +55,9 @@ function describeTrackingRun(evidence) {
 }
 
 function describeManMarking(evidence) {
-    var parts = ["Close man-to-man on pool attacker"];
+    var targetLabel =
+        evidence.primaryTargetShirt != null ? "A" + evidence.primaryTargetShirt : "attacker";
+    var parts = ["Close man-to-man on " + targetLabel];
     parts.push(formatMeters(evidence.distance) + " away");
     if (evidence.velocitySimilarity != null) {
         parts.push(
@@ -80,6 +65,20 @@ function describeManMarking(evidence) {
         );
     }
     return parts.join(", ") + ".";
+}
+
+function describeHelpDefender(evidence) {
+    var presserLabel =
+        evidence.primaryTargetShirt != null
+            ? "D" + evidence.primaryTargetShirt
+            : "presser";
+    return (
+        "Supporting ball pressure near " +
+        presserLabel +
+        ", " +
+        formatMeters(evidence.distanceToPresser) +
+        " from presser."
+    );
 }
 
 function describePassingLaneCover(evidence) {
@@ -112,6 +111,8 @@ function buildBehaviorExplanation(decision) {
             return describeTrackingRun(evidence);
         case BEHAVIOR_TYPES.MAN_MARKING:
             return describeManMarking(evidence);
+        case BEHAVIOR_TYPES.HELP_DEFENDER:
+            return describeHelpDefender(evidence);
         case BEHAVIOR_TYPES.PASSING_LANE_COVER:
             return describePassingLaneCover(evidence);
         case BEHAVIOR_TYPES.SPACE_COVER:

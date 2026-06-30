@@ -135,6 +135,57 @@ function isMovingTowardPoint(player, targetH, targetV) {
     return alignment / move.magnitude > BEHAVIOR_THRESHOLDS.towardPointAlignment;
 }
 
+function isMovingAwayFromPressSituation(defender, presser, carrier) {
+    var move = getMovementVector(defender);
+    if (move.magnitude < BEHAVIOR_THRESHOLDS.movementMinSpeed) return false;
+
+    if (isMovingTowardPoint(defender, presser.h, presser.v)) return false;
+    if (isMovingTowardPoint(defender, carrier.h, carrier.v)) return false;
+
+    return true;
+}
+
+function getNearestDefendersToTarget(defenders, target, count) {
+    var candidates = [];
+
+    for (var i = 0; i < defenders.length; i++) {
+        if (isGoalkeeperPlayer(defenders[i].id)) continue;
+
+        var candidate = defenders[i];
+        if (String(candidate.id) === String(target.id)) continue;
+
+        candidates.push({
+            defender: candidate,
+            distSq: getPitchDistanceSquared(
+                candidate.h,
+                candidate.v,
+                target.h,
+                target.v
+            ),
+        });
+    }
+
+    candidates.sort(function (a, b) {
+        return a.distSq - b.distSq;
+    });
+
+    var nearest = [];
+    var limit = Math.min(count, candidates.length);
+    for (var j = 0; j < limit; j++) {
+        nearest.push(candidates[j].defender);
+    }
+
+    return nearest;
+}
+
+function isDefenderAmongNearestToTarget(defender, defenders, target, count) {
+    var nearest = getNearestDefendersToTarget(defenders, target, count);
+    for (var i = 0; i < nearest.length; i++) {
+        if (String(nearest[i].id) === String(defender.id)) return true;
+    }
+    return false;
+}
+
 //helper functions for passing lane cover behavior
 
 function projectPointOntoSegment(px, py, x1, y1, x2, y2) {

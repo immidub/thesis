@@ -12,6 +12,9 @@ function runDefenderPipeline(defender, targets, context) {
     decision = stepManMarking(defender, targets, context);
     if (decision != null) return decision;
 
+    decision = stepHelpDefender(defender, targets, context);
+    if (decision != null) return decision;
+
     decision = stepPassingLaneCover(defender, targets, context);
     if (decision != null) return decision;
 
