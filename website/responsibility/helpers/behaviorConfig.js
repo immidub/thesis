@@ -53,7 +53,7 @@ const BEHAVIOR_THRESHOLDS = {
 
     passingOptionMaxDistance: 30,
     passingLaneMinLineDist: 1,
-    passingLaneMaxLineDist: 5,
+    passingLaneMaxLineDist: 4,
     passingLaneMaxDefenderSpeed: 5,
     passingLaneMaxCrossAngle: 60,
 
