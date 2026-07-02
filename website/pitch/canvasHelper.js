@@ -3,7 +3,7 @@ var gameCanvas;
 var drawLoopStarted = false;
 
 const PITCH_COUNT = 5;
-const PITCHES_PER_ROW = 1;
+const PITCHES_PER_ROW = 2;
 
 class CanvasHelper {
     constructor(id, width, height) {

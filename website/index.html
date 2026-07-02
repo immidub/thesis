@@ -205,7 +205,7 @@
                         </div>
 
                         <div id="pitches_container" class="pitches-container">
-                            <div class="pitches-row pitches-row--single">
+                            <div class="pitches-row">
                                 <div class="pitch-panel">
                                     <div class="pitch-title">Distance threshold</div>
                                     <div class="pitch-direction" id="pitch_direction_1"></div>
@@ -215,10 +215,12 @@
                                             Threshold: <span id="distance_threshold_label">10.0</span> m
                                         </label>
                                         <input type="range" min="5" max="15" step="0.5" value="10" class="form-range pitch-threshold-slider" id="distance_threshold_slider">
+                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="distance_threshold_orientation_filter">
+                                            <input type="checkbox" id="distance_threshold_orientation_filter">
+                                            <span>Exclude attacker-ahead edges</span>
+                                        </label>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="pitches-row pitches-row--single">
                                 <div class="pitch-panel">
                                     <div class="pitch-title">k-nearest neighbors</div>
                                     <div class="pitch-direction" id="pitch_direction_2"></div>
@@ -267,7 +269,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="pitches-row pitches-row--single">
+                            <div class="pitches-row">
                                 <div class="pitch-panel">
                                     <div class="pitch-title">Attacking team</div>
                                     <div class="pitch-direction" id="pitch_direction_4"></div>
@@ -286,8 +288,6 @@
                                         </fieldset>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="pitches-row pitches-row--single">
                                 <div class="pitch-panel">
                                     <div class="pitch-title">All outfield players</div>
                                     <div class="pitch-direction" id="pitch_direction_5"></div>

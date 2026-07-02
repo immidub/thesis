@@ -247,12 +247,8 @@ function dirLabel(name, color, attacksRight) {
     return '<span class="pitch-dir-team" style="color:' + color + '">' + text + "</span>";
 }
 
-function getPitchDirectionHtml(frame) {
+function getHomeAttacksRight(frame) {
     var period = getPeriod(frame);
-    if (pitchDirectionCache[period] != null) {
-        return pitchDirectionCache[period];
-    }
-
     var startFrame =
         gameData.periods && gameData.periods.length > 0
             ? gameData.periods[period].startFrame
@@ -264,16 +260,36 @@ function getPitchDirectionHtml(frame) {
     var awayH = getGoalkeeperH(startFrame, 2);
     frameDelta = savedDelta;
 
+    if (homeH != null && awayH != null && homeH !== awayH) {
+        return awayH < homeH;
+    }
+    return true;
+}
+
+function getTeamGoalLineH(frame, team) {
+    var halfLength = gameData.pitch.length / 2;
+    var homeAttacksRight = getHomeAttacksRight(frame);
+    if (team === 1) {
+        return homeAttacksRight ? halfLength : -halfLength;
+    }
+    return homeAttacksRight ? -halfLength : halfLength;
+}
+
+function getPitchDirectionHtml(frame) {
+    var period = getPeriod(frame);
+    if (pitchDirectionCache[period] != null) {
+        return pitchDirectionCache[period];
+    }
+
+    var savedDelta = frameDelta;
+    frameDelta = 0;
+    var homeAttacksRight = getHomeAttacksRight(frame);
+    frameDelta = savedDelta;
+
     var homeColor = gameData.homeTeam.colorShirt || "#B73B92";
     var awayColor = gameData.awayTeam.colorShirt || "#3395AB";
     var homeName = gameData.homeTeam.name || "Home";
     var awayName = gameData.awayTeam.name || "Away";
-    var homeAttacksRight;
-    if (homeH != null && awayH != null && homeH !== awayH) {
-        homeAttacksRight = awayH < homeH;
-    } else {
-        homeAttacksRight = true;
-    }
 
     var leftLabel = homeAttacksRight
         ? dirLabel(homeName, homeColor, true)

@@ -121,11 +121,11 @@ body {
 
 .pitch-panel {
   flex: 0 0 auto;
-  max-width: 100%;
+  max-width: calc(50% - 6px);
 }
 
 .pitches-row--single .pitch-panel {
-  max-width: 100%;
+  max-width: calc(50% - 6px);
 }
 
 .pitch-direction {
