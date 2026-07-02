@@ -1,14 +1,12 @@
 var isExporting = false;
-var CLIP_EXPORT_PLAYBACK_SPEED = 1;
+var CLIP_EXPORT_PLAYBACK_SPEED = 0.5;
 
 var PITCH_EXPORT_OPTIONS = [
     { index: 0, label: "Distance threshold" },
     { index: 1, label: "k-nearest neighbors" },
-    { index: 2, label: "Hungarian matching" },
-    { index: 3, label: "Delaunay triangulation" },
-    { index: 4, label: "Shape graph (attacking)" },
-    { index: 5, label: "Shape graph (all outfield)" },
-    { index: 6, label: "Ball pressure" },
+    { index: 2, label: "Perfect matching" },
+    { index: 3, label: "Attacking team graph" },
+    { index: 4, label: "All outfield graph" },
 ];
 
 function getClipMimeType() {

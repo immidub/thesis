@@ -43,8 +43,8 @@ function getAttackingShapeGraphEdges(frame) {
     return graphToCanvasEdges(graph, built.players);
 }
 
-function getAllOutfieldShapeGraphEdges(frame) {
-    if (!isBallLive(frame)) return [];
+function buildAllOutfieldPlayers(frame) {
+    if (!isBallLive(frame)) return null;
 
     var team1Players = getTeamPlayerPositions(frame, 1);
     var team2Players = getTeamPlayerPositions(frame, 2);
@@ -57,7 +57,19 @@ function getAllOutfieldShapeGraphEdges(frame) {
     }
 
     var players = team1Players.concat(team2Players);
-    var built = buildDelaunayFromPlayers(players);
+    return buildDelaunayFromPlayers(players);
+}
+
+function getAllOutfieldDelaunayEdges(frame) {
+    var built = buildAllOutfieldPlayers(frame);
+    if (!built) return [];
+
+    var graph = computeBaseGraph(built.delaunay);
+    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly);
+}
+
+function getAllOutfieldShapeGraphEdges(frame) {
+    var built = buildAllOutfieldPlayers(frame);
     if (!built) return [];
 
     var graph = computeBaseGraph(built.delaunay);
@@ -100,14 +112,35 @@ function drawGraphEdges(edges, color) {
     gameCanvas.ctx.lineWidth = 1;
 }
 
+var attackingGraphMode = "delaunay";
+var allOutfieldGraphMode = "delaunay";
 var shapeGraphOpponentsOnly = false;
 
-function setupAllOutfieldShapeGraph() {
+function setupAttackingGraphMode() {
+    var radios = document.querySelectorAll('input[name="attacking_graph_mode"]');
+    if (!radios.length) return;
+
+    radios.forEach(function (radio) {
+        if (radio.checked) attackingGraphMode = radio.value;
+        radio.addEventListener("change", function () {
+            if (radio.checked) attackingGraphMode = radio.value;
+        });
+    });
+}
+
+function setupAllOutfieldGraph() {
+    var radios = document.querySelectorAll('input[name="all_outfield_graph_mode"]');
+    radios.forEach(function (radio) {
+        if (radio.checked) allOutfieldGraphMode = radio.value;
+        radio.addEventListener("change", function () {
+            if (radio.checked) allOutfieldGraphMode = radio.value;
+        });
+    });
+
     var checkbox = document.getElementById("shape_graph_opponents_only");
     if (!checkbox) return;
 
     shapeGraphOpponentsOnly = checkbox.checked;
-
     checkbox.addEventListener("change", function () {
         shapeGraphOpponentsOnly = checkbox.checked;
     });

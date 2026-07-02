@@ -40,26 +40,20 @@ function drawPitchFrame(pitchIndex) {
     }
 
     if (pitchIndex === 3) {
-        var delaunayEdges = getAttackingDelaunayEdges(frameNr);
-        drawGraphEdges(delaunayEdges, GRAPH_EDGE_COLOR);
+        var attackingEdges = attackingGraphMode === "shape"
+            ? getAttackingShapeGraphEdges(frameNr)
+            : getAttackingDelaunayEdges(frameNr);
+        drawGraphEdges(attackingEdges, GRAPH_EDGE_COLOR);
     }
 
     if (pitchIndex === 4) {
-        var shapeGraphEdges = getAttackingShapeGraphEdges(frameNr);
-        drawGraphEdges(shapeGraphEdges, GRAPH_EDGE_COLOR);
+        var allOutfieldEdges = allOutfieldGraphMode === "shape"
+            ? getAllOutfieldShapeGraphEdges(frameNr)
+            : getAllOutfieldDelaunayEdges(frameNr);
+        drawGraphEdges(allOutfieldEdges, GRAPH_EDGE_COLOR);
     }
 
-    if (pitchIndex === 5) {
-        var allOutfieldShapeGraphEdges = getAllOutfieldShapeGraphEdges(frameNr);
-        drawGraphEdges(allOutfieldShapeGraphEdges, GRAPH_EDGE_COLOR);
-    }
-
-    var responsibilityAnalysis = null;
-    if (pitchIndex === 6) {
-        responsibilityAnalysis = analyzeResponsibility(frameNr);
-    }
-
-    var defendingTeam = (pitchIndex < 3 || pitchIndex === 5) ? getDefendingTeam(frameNr) : null;
+    var defendingTeam = (pitchIndex < 3 || pitchIndex === 4) ? getDefendingTeam(frameNr) : null;
     var ballLive = isBallLive(frameNr);
 
     gameCanvas.ctx.save();
@@ -73,11 +67,6 @@ function drawPitchFrame(pitchIndex) {
     drawPlayerLabels(frameNr);
     drawBall(frameNr, ballLive);
     gameCanvas.ctx.restore();
-
-    if (pitchIndex === 6 && responsibilityAnalysis != null) {
-        drawResponsibilityOverlay(responsibilityAnalysis);
-        updateResponsibilityInfo(responsibilityAnalysis);
-    }
 }
 
 const DEFENDING_PLAYER_BORDER_COLOR = "#1a1a1a";
