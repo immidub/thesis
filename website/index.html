@@ -219,6 +219,14 @@
                                             <input type="checkbox" id="distance_threshold_orientation_filter">
                                             <span>Exclude attacker-ahead edges</span>
                                         </label>
+                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="distance_threshold_angle_filter">
+                                            <input type="checkbox" id="distance_threshold_angle_filter">
+                                            <span>Ball angle filter</span>
+                                        </label>
+                                        <label class="pitch-control-label mt-2" for="distance_threshold_angle_degrees">
+                                            Max ball angle: <span id="distance_threshold_angle_label">90</span>°
+                                        </label>
+                                        <input type="number" min="0" max="180" step="1" value="90" class="form-control form-control-sm pitch-angle-input" id="distance_threshold_angle_degrees">
                                     </div>
                                 </div>
                                 <div class="pitch-panel">

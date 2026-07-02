@@ -285,6 +285,10 @@ body {
   width: 100%;
 }
 
+.pitch-angle-input {
+  width: 100%;
+}
+
 .time-label-wrap {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;

@@ -36,6 +36,30 @@ function getPitchDistanceSquared(h1, v1, h2, v2) {
     return dh * dh + dv * dv;
 }
 
+function getBallPitchPosition(frame) {
+    var dataLine = gameData.tracking[frame];
+    if (!dataLine || !dataLine.objects[gameData.ballId]) return null;
+
+    var object1 = dataLine.objects[gameData.ballId];
+    var object2 = (gameData.tracking[frame + 1] ?? dataLine).objects[gameData.ballId] ?? object1;
+    var [h, v] = getCoordinates(object1, object2);
+    return { h: h, v: v };
+}
+
+function getAngleAtBallDegrees(ball, pointA, pointB) {
+    var ax = pointA.h - ball.h;
+    var ay = pointA.v - ball.v;
+    var bx = pointB.h - ball.h;
+    var by = pointB.v - ball.v;
+    var magA = Math.sqrt(ax * ax + ay * ay);
+    var magB = Math.sqrt(bx * bx + by * by);
+    if (magA === 0 || magB === 0) return 180;
+
+    var dot = ax * bx + ay * by;
+    var cos = Math.max(-1, Math.min(1, dot / (magA * magB)));
+    return Math.acos(cos) * (180 / Math.PI);
+}
+
 function drawMarkingEdges(edges, color) {
     gameCanvas.ctx.strokeStyle = color;
     gameCanvas.ctx.lineWidth = 2;

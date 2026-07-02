@@ -1,10 +1,17 @@
 var distanceThresholdMeters = 10;
 var distanceThresholdOrientationFilter = false;
+var distanceThresholdAngleFilter = false;
+var distanceThresholdAngleDegrees = 90;
 
 function isAttackerAheadOfDefender(defender, attacker, defendingGoalLineH) {
     var defenderDist = Math.abs(defender.h - defendingGoalLineH);
     var attackerDist = Math.abs(attacker.h - defendingGoalLineH);
     return attackerDist < defenderDist;
+}
+
+function passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees) {
+    var angle = getAngleAtBallDegrees(ball, attacker, defender);
+    return angle <= maxAngleDegrees;
 }
 
 function getDistanceMarkingEdges(frame, thresholdMeters) {
@@ -20,6 +27,8 @@ function getDistanceMarkingEdges(frame, thresholdMeters) {
     var defendingGoalLineH = distanceThresholdOrientationFilter
         ? getTeamGoalLineH(frame, defendingTeam)
         : null;
+    var ball = distanceThresholdAngleFilter ? getBallPitchPosition(frame) : null;
+    var maxAngleDegrees = distanceThresholdAngleDegrees;
 
     for (var i = 0; i < defenders.length; i++) {
         var defender = defenders[i];
@@ -31,6 +40,11 @@ function getDistanceMarkingEdges(frame, thresholdMeters) {
 
             if (defendingGoalLineH != null &&
                 isAttackerAheadOfDefender(defender, attacker, defendingGoalLineH)) {
+                continue;
+            }
+
+            if (ball != null &&
+                !passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees)) {
                 continue;
             }
 
@@ -54,6 +68,19 @@ function setDistanceThresholdMeters(value) {
     }
 }
 
+function setDistanceThresholdAngleDegrees(value) {
+    if (!Number.isFinite(value)) return;
+    distanceThresholdAngleDegrees = Math.min(180, Math.max(0, value));
+    var label = document.getElementById("distance_threshold_angle_label");
+    if (label) {
+        label.textContent = String(Math.round(distanceThresholdAngleDegrees));
+    }
+    var input = document.getElementById("distance_threshold_angle_degrees");
+    if (input && +input.value !== distanceThresholdAngleDegrees) {
+        input.value = String(distanceThresholdAngleDegrees);
+    }
+}
+
 function setupDistanceMarking() {
     var slider = document.getElementById("distance_threshold_slider");
     if (!slider) return;
@@ -69,6 +96,25 @@ function setupDistanceMarking() {
         distanceThresholdOrientationFilter = orientationCheckbox.checked;
         orientationCheckbox.addEventListener("change", function () {
             distanceThresholdOrientationFilter = orientationCheckbox.checked;
+        });
+    }
+
+    var angleCheckbox = document.getElementById("distance_threshold_angle_filter");
+    if (angleCheckbox) {
+        distanceThresholdAngleFilter = angleCheckbox.checked;
+        angleCheckbox.addEventListener("change", function () {
+            distanceThresholdAngleFilter = angleCheckbox.checked;
+        });
+    }
+
+    var angleInput = document.getElementById("distance_threshold_angle_degrees");
+    if (angleInput) {
+        setDistanceThresholdAngleDegrees(+angleInput.value);
+        angleInput.addEventListener("input", function () {
+            setDistanceThresholdAngleDegrees(+angleInput.value);
+        });
+        angleInput.addEventListener("change", function () {
+            setDistanceThresholdAngleDegrees(+angleInput.value);
         });
     }
 }
