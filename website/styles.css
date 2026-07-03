@@ -208,6 +208,14 @@ body {
   padding: 0;
 }
 
+.pitch-radio-group--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0 4px;
+}
+
 .pitch-radio {
   display: inline-flex;
   align-items: center;

@@ -20,7 +20,7 @@
         <script src="algorithms/drawGraph.js"></script>
         <script src="marking/distanceMarking.js"></script>
         <script src="marking/knnMarking.js"></script>
-        <script src="marking/hungarianMarking.js"></script>
+        <script src="marking/hungarianMarking.js?v=2"></script>
         <script src="core/timeline.js"></script>
         <script src="core/clipExport.js"></script>
         <script src="core/uiElements.js"></script>
@@ -250,6 +250,10 @@
                                             <option value="attacker-to-defender">Attackers to defenders</option>
                                             <option value="both">Both</option>
                                         </select>
+                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="knn_projected_positions">
+                                            <input type="checkbox" id="knn_projected_positions">
+                                            <span>Use 1s projected positions</span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -259,21 +263,52 @@
                                     <div class="pitch-direction" id="pitch_direction_3"></div>
                                     <canvas id="canvas3"></canvas>
                                     <div class="pitch-control">
-                                        <label class="pitch-control-label" for="hungarian_attacker_count_select">
-                                            Attackers matched: <span id="hungarian_attacker_count_label">10</span>
+                                        <fieldset class="pitch-radio-group pitch-radio-group--stacked">
+                                            <legend class="visually-hidden">Attacker selection mode</legend>
+                                            <label class="pitch-radio">
+                                                <input type="radio" name="hungarian_attacker_selection" value="nearest" checked>
+                                                <span>Nearest attackers to ball</span>
+                                            </label>
+                                            <label class="pitch-radio">
+                                                <input type="radio" name="hungarian_attacker_selection" value="ball-radius">
+                                                <span>Within ball radius</span>
+                                            </label>
+                                        </fieldset>
+                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="hungarian_exclude_closest_attacker">
+                                            <input type="checkbox" id="hungarian_exclude_closest_attacker">
+                                            <span>Exclude closest attacker to ball</span>
                                         </label>
-                                        <select class="form-select form-select-sm pitch-k-select" id="hungarian_attacker_count_select">
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                            <option value="5">5</option>
-                                            <option value="6">6</option>
-                                            <option value="7">7</option>
-                                            <option value="8">8</option>
-                                            <option value="9">9</option>
-                                            <option value="10" selected>10</option>
-                                        </select>
+                                        <div id="hungarian_nearest_controls">
+                                            <label class="pitch-control-label mt-2" for="hungarian_attacker_count_select">
+                                                Attackers matched: <span id="hungarian_attacker_count_label">10</span>
+                                            </label>
+                                            <select class="form-select form-select-sm pitch-k-select" id="hungarian_attacker_count_select">
+                                                <option value="1">1</option>
+                                                <option value="2">2</option>
+                                                <option value="3">3</option>
+                                                <option value="4">4</option>
+                                                <option value="5">5</option>
+                                                <option value="6">6</option>
+                                                <option value="7">7</option>
+                                                <option value="8">8</option>
+                                                <option value="9">9</option>
+                                                <option value="10" selected>10</option>
+                                            </select>
+                                        </div>
+                                        <div id="hungarian_ball_radius_controls" hidden>
+                                            <label class="pitch-control-label mt-2" for="hungarian_ball_radius_slider">
+                                                Ball radius: <span id="hungarian_ball_radius_label">15.0</span> m
+                                            </label>
+                                            <input type="range" min="5" max="30" step="0.5" value="15" class="form-range pitch-threshold-slider" id="hungarian_ball_radius_slider">
+                                        </div>
+                                        <label class="pitch-control-label mt-2" for="hungarian_threshold_slider">
+                                            Match threshold: <span id="hungarian_threshold_label">15.0</span> m
+                                        </label>
+                                        <input type="range" min="10" max="20" step="0.5" value="15" class="form-range pitch-threshold-slider" id="hungarian_threshold_slider">
+                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="hungarian_projected_positions">
+                                            <input type="checkbox" id="hungarian_projected_positions">
+                                            <span>Use 1s projected positions</span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>

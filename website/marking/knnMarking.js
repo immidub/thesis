@@ -1,5 +1,6 @@
 var knnK = 1;
 var knnAssignmentMode = "defender-to-attacker";
+var knnProjectedPositions = false;
 
 function getKnnMarkingEdges(frame, k) {
     if (!isBallLive(frame)) return [];
@@ -79,7 +80,7 @@ function addKnnEdgesForDefenders(defenders, opponents, k, edges) {
             var opp = opponents[j];
             distances.push({
                 opponent: opp,
-                distSq: getPitchDistanceSquared(player.h, player.v, opp.h, opp.v),
+                distSq: getMarkingPairDistanceSquared(player, opp, knnProjectedPositions),
             });
         }
 
@@ -125,6 +126,14 @@ function setupKnnMarking() {
         knnAssignmentMode = modeSelect.value;
         modeSelect.addEventListener("change", function () {
             knnAssignmentMode = modeSelect.value;
+        });
+    }
+
+    var projectedCheckbox = document.getElementById("knn_projected_positions");
+    if (projectedCheckbox) {
+        knnProjectedPositions = projectedCheckbox.checked;
+        projectedCheckbox.addEventListener("change", function () {
+            knnProjectedPositions = projectedCheckbox.checked;
         });
     }
 }

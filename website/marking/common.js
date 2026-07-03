@@ -29,6 +29,44 @@ function getTeamPlayerPositions(frame, team, includeGoalkeepers) {
 }
 
 const MARKING_EDGE_COLOR = "#2563EB";
+const MARKING_POSITION_LOOKAHEAD_SECONDS = 1;
+
+function directionToUnitVector(directionDeg) {
+    var rad = (directionDeg * Math.PI) / 180;
+    // Match getCoordinates pitch space where h is negated.
+    return { h: -Math.cos(rad), v: Math.sin(rad) };
+}
+
+function projectPlayerPitchPosition(player, seconds) {
+    var lookahead = seconds != null ? seconds : MARKING_POSITION_LOOKAHEAD_SECONDS;
+    if (player.speed == null || player.direction == null || player.speed <= 0) {
+        return { h: player.h, v: player.v };
+    }
+
+    var unit = directionToUnitVector(player.direction);
+    return {
+        h: player.h + unit.h * player.speed * lookahead,
+        v: player.v + unit.v * player.speed * lookahead,
+    };
+}
+
+function getMarkingPairDistanceSquared(playerA, playerB, useProjected) {
+    var h1 = playerA.h;
+    var v1 = playerA.v;
+    var h2 = playerB.h;
+    var v2 = playerB.v;
+
+    if (useProjected) {
+        var projectedA = projectPlayerPitchPosition(playerA);
+        var projectedB = projectPlayerPitchPosition(playerB);
+        h1 = projectedA.h;
+        v1 = projectedA.v;
+        h2 = projectedB.h;
+        v2 = projectedB.v;
+    }
+
+    return getPitchDistanceSquared(h1, v1, h2, v2);
+}
 
 function getPitchDistanceSquared(h1, v1, h2, v2) {
     var dh = h1 - h2;
