@@ -3,14 +3,31 @@ var distanceThresholdOrientationFilter = false;
 var distanceThresholdAngleFilter = false;
 var distanceThresholdAngleDegrees = 90;
 
-function isAttackerAheadOfDefender(defender, attacker, defendingGoalLineH) {
-    var defenderDist = Math.abs(defender.h - defendingGoalLineH);
-    var attackerDist = Math.abs(attacker.h - defendingGoalLineH);
+var distanceThresholdMeters = 10;
+var distanceThresholdOrientationFilter = false;
+var distanceThresholdAngleFilter = false;
+var distanceThresholdAngleDegrees = 90;
+var distanceThresholdProjectedPositions = false;
+
+function getPlayerMarkingPosition(player, useProjected) {
+    if (!useProjected) {
+        return { h: player.h, v: player.v };
+    }
+    return projectPlayerPitchPosition(player);
+}
+
+function isAttackerAheadOfDefender(defender, attacker, defendingGoalLineH, useProjected) {
+    var defenderPos = getPlayerMarkingPosition(defender, useProjected);
+    var attackerPos = getPlayerMarkingPosition(attacker, useProjected);
+    var defenderDist = Math.abs(defenderPos.h - defendingGoalLineH);
+    var attackerDist = Math.abs(attackerPos.h - defendingGoalLineH);
     return attackerDist < defenderDist;
 }
 
-function passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees) {
-    var angle = getAngleAtBallDegrees(ball, attacker, defender);
+function passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees, useProjected) {
+    var defenderPos = getPlayerMarkingPosition(defender, useProjected);
+    var attackerPos = getPlayerMarkingPosition(attacker, useProjected);
+    var angle = getAngleAtBallDegrees(ball, attackerPos, defenderPos);
     return angle <= maxAngleDegrees;
 }
 
@@ -29,22 +46,23 @@ function getDistanceMarkingEdges(frame, thresholdMeters) {
         : null;
     var ball = distanceThresholdAngleFilter ? getBallPitchPosition(frame) : null;
     var maxAngleDegrees = distanceThresholdAngleDegrees;
+    var useProjected = distanceThresholdProjectedPositions;
 
     for (var i = 0; i < defenders.length; i++) {
         var defender = defenders[i];
         for (var j = 0; j < attackers.length; j++) {
             var attacker = attackers[j];
-            if (getPitchDistanceSquared(defender.h, defender.v, attacker.h, attacker.v) > thresholdSq) {
+            if (getMarkingPairDistanceSquared(defender, attacker, useProjected) > thresholdSq) {
                 continue;
             }
 
             if (defendingGoalLineH != null &&
-                isAttackerAheadOfDefender(defender, attacker, defendingGoalLineH)) {
+                isAttackerAheadOfDefender(defender, attacker, defendingGoalLineH, useProjected)) {
                 continue;
             }
 
             if (ball != null &&
-                !passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees)) {
+                !passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees, useProjected)) {
                 continue;
             }
 
@@ -115,6 +133,14 @@ function setupDistanceMarking() {
         });
         angleInput.addEventListener("change", function () {
             setDistanceThresholdAngleDegrees(+angleInput.value);
+        });
+    }
+
+    var projectedCheckbox = document.getElementById("distance_threshold_projected_positions");
+    if (projectedCheckbox) {
+        distanceThresholdProjectedPositions = projectedCheckbox.checked;
+        projectedCheckbox.addEventListener("change", function () {
+            distanceThresholdProjectedPositions = projectedCheckbox.checked;
         });
     }
 }
