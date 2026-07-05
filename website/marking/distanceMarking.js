@@ -1,32 +1,10 @@
 var distanceThresholdMeters = 10;
-var distanceThresholdOrientationFilter = false;
 var distanceThresholdAngleFilter = false;
 var distanceThresholdAngleDegrees = 90;
 
-var distanceThresholdMeters = 10;
-var distanceThresholdOrientationFilter = false;
-var distanceThresholdAngleFilter = false;
-var distanceThresholdAngleDegrees = 90;
-var distanceThresholdProjectedPositions = false;
-
-function getPlayerMarkingPosition(player, useProjected) {
-    if (!useProjected) {
-        return { h: player.h, v: player.v };
-    }
-    return projectPlayerPitchPosition(player);
-}
-
-function isAttackerAheadOfDefender(defender, attacker, defendingGoalLineH, useProjected) {
-    var defenderPos = getPlayerMarkingPosition(defender, useProjected);
-    var attackerPos = getPlayerMarkingPosition(attacker, useProjected);
-    var defenderDist = Math.abs(defenderPos.h - defendingGoalLineH);
-    var attackerDist = Math.abs(attackerPos.h - defendingGoalLineH);
-    return attackerDist < defenderDist;
-}
-
-function passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees, useProjected) {
-    var defenderPos = getPlayerMarkingPosition(defender, useProjected);
-    var attackerPos = getPlayerMarkingPosition(attacker, useProjected);
+function passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees) {
+    var defenderPos = getPlayerMarkingPosition(defender);
+    var attackerPos = getPlayerMarkingPosition(attacker);
     var angle = getAngleAtBallDegrees(ball, attackerPos, defenderPos);
     return angle <= maxAngleDegrees;
 }
@@ -41,28 +19,23 @@ function getDistanceMarkingEdges(frame, thresholdMeters) {
     var defenders = getTeamPlayerPositions(frame, defendingTeam);
     var edges = [];
     var thresholdSq = thresholdMeters * thresholdMeters;
-    var defendingGoalLineH = distanceThresholdOrientationFilter
-        ? getTeamGoalLineH(frame, defendingTeam)
-        : null;
     var ball = distanceThresholdAngleFilter ? getBallPitchPosition(frame) : null;
     var maxAngleDegrees = distanceThresholdAngleDegrees;
-    var useProjected = distanceThresholdProjectedPositions;
 
     for (var i = 0; i < defenders.length; i++) {
         var defender = defenders[i];
         for (var j = 0; j < attackers.length; j++) {
             var attacker = attackers[j];
-            if (getMarkingPairDistanceSquared(defender, attacker, useProjected) > thresholdSq) {
-                continue;
-            }
-
-            if (defendingGoalLineH != null &&
-                isAttackerAheadOfDefender(defender, attacker, defendingGoalLineH, useProjected)) {
+            if (getMarkingPairDistanceSquared(defender, attacker, useProjectedPositions) > thresholdSq) {
                 continue;
             }
 
             if (ball != null &&
-                !passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees, useProjected)) {
+                !passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees)) {
+                continue;
+            }
+
+            if (!passesMarkingEdgeFilters(frame, defender, attacker)) {
                 continue;
             }
 
@@ -109,14 +82,6 @@ function setupDistanceMarking() {
         setDistanceThresholdMeters(+slider.value);
     });
 
-    var orientationCheckbox = document.getElementById("distance_threshold_orientation_filter");
-    if (orientationCheckbox) {
-        distanceThresholdOrientationFilter = orientationCheckbox.checked;
-        orientationCheckbox.addEventListener("change", function () {
-            distanceThresholdOrientationFilter = orientationCheckbox.checked;
-        });
-    }
-
     var angleCheckbox = document.getElementById("distance_threshold_angle_filter");
     if (angleCheckbox) {
         distanceThresholdAngleFilter = angleCheckbox.checked;
@@ -133,14 +98,6 @@ function setupDistanceMarking() {
         });
         angleInput.addEventListener("change", function () {
             setDistanceThresholdAngleDegrees(+angleInput.value);
-        });
-    }
-
-    var projectedCheckbox = document.getElementById("distance_threshold_projected_positions");
-    if (projectedCheckbox) {
-        distanceThresholdProjectedPositions = projectedCheckbox.checked;
-        projectedCheckbox.addEventListener("change", function () {
-            distanceThresholdProjectedPositions = projectedCheckbox.checked;
         });
     }
 }

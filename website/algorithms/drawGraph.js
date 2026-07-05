@@ -28,7 +28,7 @@ function getAttackingDelaunayEdges(frame) {
     if (!built) return [];
 
     var graph = computeBaseGraph(built.delaunay);
-    return graphToCanvasEdges(graph, built.players);
+    return graphToCanvasEdges(graph, built.players, false, frame);
 }
 
 function getAttackingShapeGraphEdges(frame) {
@@ -40,7 +40,7 @@ function getAttackingShapeGraphEdges(frame) {
         computeShapeGraph(built.delaunay, graph);
     }
 
-    return graphToCanvasEdges(graph, built.players);
+    return graphToCanvasEdges(graph, built.players, false, frame);
 }
 
 function buildAllOutfieldPlayers(frame) {
@@ -65,7 +65,7 @@ function getAllOutfieldDelaunayEdges(frame) {
     if (!built) return [];
 
     var graph = computeBaseGraph(built.delaunay);
-    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly);
+    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly, frame);
 }
 
 function getAllOutfieldShapeGraphEdges(frame) {
@@ -77,16 +77,17 @@ function getAllOutfieldShapeGraphEdges(frame) {
         computeShapeGraph(built.delaunay, graph);
     }
 
-    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly);
+    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly, frame);
 }
 
-function graphToCanvasEdges(graph, players, opponentsOnly) {
+function graphToCanvasEdges(graph, players, opponentsOnly, frame) {
     var edges = [];
     for (var i = 0; i < graph.length; i++) {
         for (var j = 0; j < graph[i].length; j++) {
             var k = graph[i][j];
             if (k <= i) continue;
             if (opponentsOnly && players[i].team === players[k].team) continue;
+            if (!passesGraphEdgePairFilter(frame, players[i], players[k])) continue;
             edges.push({
                 x1: players[i].x,
                 y1: players[i].y,
@@ -138,10 +139,10 @@ function setupAllOutfieldGraph() {
     });
 
     var checkbox = document.getElementById("shape_graph_opponents_only");
-    if (!checkbox) return;
-
-    shapeGraphOpponentsOnly = checkbox.checked;
-    checkbox.addEventListener("change", function () {
+    if (checkbox) {
         shapeGraphOpponentsOnly = checkbox.checked;
-    });
+        checkbox.addEventListener("change", function () {
+            shapeGraphOpponentsOnly = checkbox.checked;
+        });
+    }
 }

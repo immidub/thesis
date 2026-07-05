@@ -1,6 +1,5 @@
 var knnK = 1;
 var knnAssignmentMode = "defender-to-attacker";
-var knnProjectedPositions = false;
 
 function getKnnMarkingEdges(frame, k) {
     if (!isBallLive(frame)) return [];
@@ -12,7 +11,7 @@ function getKnnMarkingEdges(frame, k) {
     var defenders = getTeamPlayerPositions(frame, defendingTeam);
 
     if (knnAssignmentMode === "both") {
-        return getKnnBothMarkingEdges(defenders, attackers, k);
+        return getKnnBothMarkingEdges(defenders, attackers, k, frame);
     }
 
     var attackerToDefender = knnAssignmentMode === "attacker-to-defender";
@@ -20,7 +19,7 @@ function getKnnMarkingEdges(frame, k) {
     var targets = attackerToDefender ? defenders : attackers;
     var edges = [];
 
-    addKnnEdgesForDefenders(sources, targets, k, edges);
+    addKnnEdgesForDefenders(sources, targets, k, edges, frame, !attackerToDefender);
 
     return edges;
 }
@@ -29,12 +28,12 @@ function getKnnPairKey(defenderId, attackerId) {
     return defenderId + ":" + attackerId;
 }
 
-function getKnnBothMarkingEdges(defenders, attackers, k) {
+function getKnnBothMarkingEdges(defenders, attackers, k, frame) {
     var defenderToAttacker = [];
     var attackerToDefender = [];
 
-    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker);
-    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender);
+    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true);
+    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false);
 
     var inDefenderToAttacker = {};
     var inAttackerToDefender = {};
@@ -71,16 +70,16 @@ function getKnnBothMarkingEdges(defenders, attackers, k) {
     return merged;
 }
 
-function addKnnEdgesForDefenders(defenders, opponents, k, edges) {
-    for (var i = 0; i < defenders.length; i++) {
-        var player = defenders[i];
+function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefender) {
+    for (var i = 0; i < sources.length; i++) {
+        var player = sources[i];
         var distances = [];
 
-        for (var j = 0; j < opponents.length; j++) {
-            var opp = opponents[j];
+        for (var j = 0; j < targets.length; j++) {
+            var opp = targets[j];
             distances.push({
                 opponent: opp,
-                distSq: getMarkingPairDistanceSquared(player, opp, knnProjectedPositions),
+                distSq: getMarkingPairDistanceSquared(player, opp, useProjectedPositions),
             });
         }
 
@@ -91,6 +90,12 @@ function addKnnEdgesForDefenders(defenders, opponents, k, edges) {
         var count = Math.min(k, distances.length);
         for (var n = 0; n < count; n++) {
             var opp = distances[n].opponent;
+            var defender = sourceIsDefender ? player : opp;
+            var attacker = sourceIsDefender ? opp : player;
+            if (!passesMarkingEdgeFilters(frame, defender, attacker)) {
+                continue;
+            }
+
             edges.push({
                 x1: player.x,
                 y1: player.y,
@@ -126,14 +131,6 @@ function setupKnnMarking() {
         knnAssignmentMode = modeSelect.value;
         modeSelect.addEventListener("change", function () {
             knnAssignmentMode = modeSelect.value;
-        });
-    }
-
-    var projectedCheckbox = document.getElementById("knn_projected_positions");
-    if (projectedCheckbox) {
-        knnProjectedPositions = projectedCheckbox.checked;
-        projectedCheckbox.addEventListener("change", function () {
-            knnProjectedPositions = projectedCheckbox.checked;
         });
     }
 }

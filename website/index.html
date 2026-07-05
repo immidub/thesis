@@ -165,6 +165,21 @@
                             </div>
                         </div>
 
+                        <div class="global-edge-filters">
+                            <label class="pitch-checkbox pitch-checkbox--inline" for="global_max_edge_length_15m">
+                                <input type="checkbox" id="global_max_edge_length_15m">
+                                <span>15 m max edge length</span>
+                            </label>
+                            <label class="pitch-checkbox pitch-checkbox--inline" for="global_backward_edge_filter">
+                                <input type="checkbox" id="global_backward_edge_filter">
+                                <span>Backward edges ≤5 m ahead only</span>
+                            </label>
+                            <label class="pitch-checkbox pitch-checkbox--inline" for="global_projected_positions">
+                                <input type="checkbox" id="global_projected_positions">
+                                <span>Use projected position</span>
+                            </label>
+                        </div>
+
                         <div class="clip-export-panel mb-4">
                             <div class="clip-export-title">Export clip</div>
                             <div class="clip-export-row">
@@ -215,10 +230,6 @@
                                             Threshold: <span id="distance_threshold_label">10.0</span> m
                                         </label>
                                         <input type="range" min="5" max="15" step="0.5" value="10" class="form-range pitch-threshold-slider" id="distance_threshold_slider">
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="distance_threshold_orientation_filter">
-                                            <input type="checkbox" id="distance_threshold_orientation_filter">
-                                            <span>Exclude attacker-ahead edges</span>
-                                        </label>
                                         <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="distance_threshold_angle_filter">
                                             <input type="checkbox" id="distance_threshold_angle_filter">
                                             <span>Ball angle filter</span>
@@ -227,10 +238,6 @@
                                             Max ball angle: <span id="distance_threshold_angle_label">90</span>°
                                         </label>
                                         <input type="number" min="0" max="180" step="1" value="90" class="form-control form-control-sm pitch-angle-input" id="distance_threshold_angle_degrees">
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="distance_threshold_projected_positions">
-                                            <input type="checkbox" id="distance_threshold_projected_positions">
-                                            <span>Use 1s projected positions</span>
-                                        </label>
                                     </div>
                                 </div>
                                 <div class="pitch-panel">
@@ -254,10 +261,6 @@
                                             <option value="attacker-to-defender">Attackers to defenders</option>
                                             <option value="both">Both</option>
                                         </select>
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="knn_projected_positions">
-                                            <input type="checkbox" id="knn_projected_positions">
-                                            <span>Use 1s projected positions</span>
-                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -305,14 +308,6 @@
                                             </label>
                                             <input type="range" min="5" max="30" step="0.5" value="15" class="form-range pitch-threshold-slider" id="hungarian_ball_radius_slider">
                                         </div>
-                                        <label class="pitch-control-label mt-2" for="hungarian_threshold_slider">
-                                            Match threshold: <span id="hungarian_threshold_label">15.0</span> m
-                                        </label>
-                                        <input type="range" min="10" max="20" step="0.5" value="15" class="form-range pitch-threshold-slider" id="hungarian_threshold_slider">
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="hungarian_projected_positions">
-                                            <input type="checkbox" id="hungarian_projected_positions">
-                                            <span>Use 1s projected positions</span>
-                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -366,6 +361,7 @@
         </div>
         <script>
             setupUIElements();
+            setupGlobalEdgeFilters();
             setupDistanceMarking();
             setupKnnMarking();
             setupHungarianMarking();

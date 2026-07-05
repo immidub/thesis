@@ -29,7 +29,7 @@ function getTeamPlayerPositions(frame, team, includeGoalkeepers) {
 }
 
 const MARKING_EDGE_COLOR = "#2563EB";
-const MARKING_POSITION_LOOKAHEAD_SECONDS = 1;
+const MARKING_POSITION_LOOKAHEAD_SECONDS = 2;
 
 function directionToUnitVector(directionDeg) {
     var rad = (directionDeg * Math.PI) / 180;
@@ -110,4 +110,89 @@ function drawMarkingEdges(edges, color) {
 
     gameCanvas.ctx.setLineDash([]);
     gameCanvas.ctx.lineWidth = 1;
+}
+
+const GLOBAL_MAX_EDGE_LENGTH_METERS = 15;
+const GLOBAL_BACKWARD_EDGE_MARGIN_METERS = 5;
+
+var useProjectedPositions = false;
+var maxEdgeLength15mEnabled = false;
+var backwardEdgeFilterEnabled = false;
+
+function getPlayerMarkingPosition(player) {
+    if (!useProjectedPositions) {
+        return { h: player.h, v: player.v };
+    }
+    return projectPlayerPitchPosition(player);
+}
+
+function getGlobalMaxEdgeLengthMeters() {
+    return maxEdgeLength15mEnabled ? GLOBAL_MAX_EDGE_LENGTH_METERS : null;
+}
+
+function passesGlobalMaxEdgeLengthFilter(playerA, playerB) {
+    var maxM = getGlobalMaxEdgeLengthMeters();
+    if (maxM == null) return true;
+    return getMarkingPairDistanceSquared(playerA, playerB, useProjectedPositions) <= maxM * maxM;
+}
+
+function passesGlobalBackwardEdgeFilter(frame, defender, attacker) {
+    if (!backwardEdgeFilterEnabled) return true;
+
+    var defendingTeam = getDefendingTeam(frame);
+    if (defendingTeam == null) return true;
+
+    var goalLineH = getTeamGoalLineH(frame, defendingTeam);
+    var attackerPos = getPlayerMarkingPosition(attacker);
+    var defenderPos = getPlayerMarkingPosition(defender);
+    var attackerDist = Math.abs(attackerPos.h - goalLineH);
+    var defenderDist = Math.abs(defenderPos.h - goalLineH);
+
+    if (attackerDist >= defenderDist) return true;
+
+    return defenderDist - attackerDist <= GLOBAL_BACKWARD_EDGE_MARGIN_METERS;
+}
+
+function passesMarkingEdgeFilters(frame, defender, attacker) {
+    if (!passesGlobalMaxEdgeLengthFilter(defender, attacker)) return false;
+    if (!passesGlobalBackwardEdgeFilter(frame, defender, attacker)) return false;
+    return true;
+}
+
+function passesGraphEdgePairFilter(frame, playerA, playerB) {
+    if (!passesGlobalMaxEdgeLengthFilter(playerA, playerB)) return false;
+    if (playerA.team == null || playerB.team == null || playerA.team === playerB.team) return true;
+
+    var defendingTeam = getDefendingTeam(frame);
+    if (defendingTeam == null) return true;
+
+    var attacker = playerA.team === defendingTeam ? playerB : playerA;
+    var defender = playerA.team === defendingTeam ? playerA : playerB;
+    return passesGlobalBackwardEdgeFilter(frame, defender, attacker);
+}
+
+function setupGlobalEdgeFilters() {
+    var maxEdgeLengthCheckbox = document.getElementById("global_max_edge_length_15m");
+    if (maxEdgeLengthCheckbox) {
+        maxEdgeLength15mEnabled = maxEdgeLengthCheckbox.checked;
+        maxEdgeLengthCheckbox.addEventListener("change", function () {
+            maxEdgeLength15mEnabled = maxEdgeLengthCheckbox.checked;
+        });
+    }
+
+    var backwardEdgeCheckbox = document.getElementById("global_backward_edge_filter");
+    if (backwardEdgeCheckbox) {
+        backwardEdgeFilterEnabled = backwardEdgeCheckbox.checked;
+        backwardEdgeCheckbox.addEventListener("change", function () {
+            backwardEdgeFilterEnabled = backwardEdgeCheckbox.checked;
+        });
+    }
+
+    var projectedCheckbox = document.getElementById("global_projected_positions");
+    if (projectedCheckbox) {
+        useProjectedPositions = projectedCheckbox.checked;
+        projectedCheckbox.addEventListener("change", function () {
+            useProjectedPositions = projectedCheckbox.checked;
+        });
+    }
 }

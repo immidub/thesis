@@ -1,9 +1,7 @@
 var hungarianAttackerCount = 10;
-var hungarianThresholdMeters = 15;
 var hungarianAttackerSelectionMode = "nearest";
 var hungarianBallRadiusMeters = 15;
 var hungarianExcludeClosestAttackerToBall = false;
-var hungarianProjectedPositions = false;
 
 function getHungarianMarkingEdges(frame, attackerCount) {
     if (!isBallLive(frame)) return [];
@@ -42,14 +40,13 @@ function getHungarianMarkingEdges(frame, attackerCount) {
 
     if (selectedAttackers.length === 0) return [];
 
-    var costMatrix = buildDefenderOpponentCostMatrix(defenders, selectedAttackers, hungarianProjectedPositions);
+    var costMatrix = buildDefenderOpponentCostMatrix(defenders, selectedAttackers, useProjectedPositions);
     var indices = computeMunkres(costMatrix);
     return indicesToMarkingEdges(
         indices,
         defenders,
         selectedAttackers,
-        hungarianThresholdMeters,
-        hungarianProjectedPositions
+        frame
     );
 }
 
@@ -128,26 +125,22 @@ function buildDefenderOpponentCostMatrix(defenders, opponents, useProjected) {
     return costMatrix;
 }
 
-function indicesToMarkingEdges(indices, defenders, opponents, thresholdMeters, useProjected) {
-    var thresholdSq = thresholdMeters * thresholdMeters;
+function indicesToMarkingEdges(indices, defenders, opponents, frame) {
     var edges = [];
     for (var k = 0; k < indices.length; k++) {
         var defIdx = indices[k][0];
         var oppIdx = indices[k][1];
         if (defIdx >= defenders.length || oppIdx >= opponents.length) continue;
 
-        var distSq = getMarkingPairDistanceSquared(
-            defenders[defIdx],
-            opponents[oppIdx],
-            useProjected
-        );
-        if (distSq > thresholdSq) continue;
+        var defender = defenders[defIdx];
+        var attacker = opponents[oppIdx];
+        if (!passesMarkingEdgeFilters(frame, defender, attacker)) continue;
 
         edges.push({
-            x1: defenders[defIdx].x,
-            y1: defenders[defIdx].y,
-            x2: opponents[oppIdx].x,
-            y2: opponents[oppIdx].y,
+            x1: defender.x,
+            y1: defender.y,
+            x2: attacker.x,
+            y2: attacker.y,
         });
     }
     return edges;
@@ -158,14 +151,6 @@ function setHungarianAttackerCount(value) {
     var label = document.getElementById("hungarian_attacker_count_label");
     if (label) {
         label.textContent = "" + value;
-    }
-}
-
-function setHungarianThresholdMeters(value) {
-    hungarianThresholdMeters = value;
-    var label = document.getElementById("hungarian_threshold_label");
-    if (label) {
-        label.textContent = value.toFixed(1);
     }
 }
 
@@ -196,14 +181,6 @@ function setupHungarianMarking() {
         setHungarianAttackerCount(+select.value);
     });
 
-    var slider = document.getElementById("hungarian_threshold_slider");
-    if (slider) {
-        setHungarianThresholdMeters(+slider.value);
-        slider.addEventListener("input", function () {
-            setHungarianThresholdMeters(+slider.value);
-        });
-    }
-
     var ballRadiusSlider = document.getElementById("hungarian_ball_radius_slider");
     if (ballRadiusSlider) {
         setHungarianBallRadiusMeters(+ballRadiusSlider.value);
@@ -228,14 +205,6 @@ function setupHungarianMarking() {
         hungarianExcludeClosestAttackerToBall = excludeClosestCheckbox.checked;
         excludeClosestCheckbox.addEventListener("change", function () {
             hungarianExcludeClosestAttackerToBall = excludeClosestCheckbox.checked;
-        });
-    }
-
-    var projectedCheckbox = document.getElementById("hungarian_projected_positions");
-    if (projectedCheckbox) {
-        hungarianProjectedPositions = projectedCheckbox.checked;
-        projectedCheckbox.addEventListener("change", function () {
-            hungarianProjectedPositions = projectedCheckbox.checked;
         });
     }
 

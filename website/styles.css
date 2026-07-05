@@ -23,6 +23,7 @@ body {
   max-width: 700px;
   margin-left: auto;
   margin-right: auto;
+  margin-bottom: 0;
 }
 
 .clip-export-panel {
@@ -111,6 +112,16 @@ body {
   gap: 12px;
   flex-wrap: nowrap;
   width: 100%;
+}
+
+.global-edge-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1.25rem;
+  padding: 0 8px;
 }
 
 .pitches-row + .pitches-row {
