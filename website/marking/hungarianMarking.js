@@ -2,6 +2,9 @@ var hungarianAttackerCount = 10;
 var hungarianAttackerSelectionMode = "nearest";
 var hungarianBallRadiusMeters = 15;
 var hungarianExcludeClosestAttackerToBall = false;
+var hungarianDelaunayOpponentsOnly = false;
+
+const HUNGARIAN_INFEASIBLE_COST = 1e15;
 
 function getHungarianMarkingEdges(frame, attackerCount) {
     if (!isBallLive(frame)) return [];
@@ -40,13 +43,26 @@ function getHungarianMarkingEdges(frame, attackerCount) {
 
     if (selectedAttackers.length === 0) return [];
 
-    var costMatrix = buildDefenderOpponentCostMatrix(defenders, selectedAttackers, useProjectedPositions);
-    var indices = computeMunkres(costMatrix);
+    var delaunayPairSet = hungarianDelaunayOpponentsOnly
+        ? getDelaunayOpponentPairSet(frame)
+        : null;
+    var costMatrix = buildDefenderOpponentCostMatrix(
+        defenders,
+        selectedAttackers,
+        useProjectedPositions,
+        delaunayPairSet
+    );
+    var munkresOptions = hungarianDelaunayOpponentsOnly
+        ? { padValue: HUNGARIAN_INFEASIBLE_COST }
+        : undefined;
+    var indices = computeMunkres(costMatrix, munkresOptions);
     return indicesToMarkingEdges(
         indices,
         defenders,
         selectedAttackers,
-        frame
+        frame,
+        delaunayPairSet,
+        costMatrix
     );
 }
 
@@ -110,11 +126,15 @@ function attackerDistToBallSquared(attacker, frame) {
     return getPitchDistanceSquared(ball.h, ball.v, attacker.h, attacker.v);
 }
 
-function buildDefenderOpponentCostMatrix(defenders, opponents, useProjected) {
+function buildDefenderOpponentCostMatrix(defenders, opponents, useProjected, allowedPairSet) {
     var costMatrix = [];
     for (var i = 0; i < defenders.length; i++) {
         costMatrix[i] = [];
         for (var j = 0; j < opponents.length; j++) {
+            if (allowedPairSet && !playerPairInSet(allowedPairSet, defenders[i], opponents[j])) {
+                costMatrix[i][j] = HUNGARIAN_INFEASIBLE_COST;
+                continue;
+            }
             costMatrix[i][j] = getMarkingPairDistanceSquared(
                 defenders[i],
                 opponents[j],
@@ -125,7 +145,7 @@ function buildDefenderOpponentCostMatrix(defenders, opponents, useProjected) {
     return costMatrix;
 }
 
-function indicesToMarkingEdges(indices, defenders, opponents, frame) {
+function indicesToMarkingEdges(indices, defenders, opponents, frame, allowedPairSet, costMatrix) {
     var edges = [];
     for (var k = 0; k < indices.length; k++) {
         var defIdx = indices[k][0];
@@ -134,6 +154,8 @@ function indicesToMarkingEdges(indices, defenders, opponents, frame) {
 
         var defender = defenders[defIdx];
         var attacker = opponents[oppIdx];
+        if (costMatrix[defIdx][oppIdx] >= HUNGARIAN_INFEASIBLE_COST) continue;
+        if (allowedPairSet && !playerPairInSet(allowedPairSet, defender, attacker)) continue;
         if (!passesMarkingEdgeFilters(frame, defender, attacker)) continue;
 
         edges.push({
@@ -205,6 +227,14 @@ function setupHungarianMarking() {
         hungarianExcludeClosestAttackerToBall = excludeClosestCheckbox.checked;
         excludeClosestCheckbox.addEventListener("change", function () {
             hungarianExcludeClosestAttackerToBall = excludeClosestCheckbox.checked;
+        });
+    }
+
+    var delaunayCheckbox = document.getElementById("hungarian_delaunay_opponents_only");
+    if (delaunayCheckbox) {
+        hungarianDelaunayOpponentsOnly = delaunayCheckbox.checked;
+        delaunayCheckbox.addEventListener("change", function () {
+            hungarianDelaunayOpponentsOnly = delaunayCheckbox.checked;
         });
     }
 

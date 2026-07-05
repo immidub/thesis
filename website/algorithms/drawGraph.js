@@ -80,6 +80,34 @@ function getAllOutfieldShapeGraphEdges(frame) {
     return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly, frame);
 }
 
+function getPlayerPairKey(playerA, playerB) {
+    var idA = String(playerA.id);
+    var idB = String(playerB.id);
+    return idA < idB ? idA + ":" + idB : idB + ":" + idA;
+}
+
+function playerPairInSet(pairSet, playerA, playerB) {
+    return pairSet != null && pairSet[getPlayerPairKey(playerA, playerB)] === true;
+}
+
+function getDelaunayOpponentPairSet(frame) {
+    var built = buildAllOutfieldPlayers(frame);
+    if (!built) return null;
+
+    var graph = computeBaseGraph(built.delaunay);
+    var pairs = {};
+    for (var i = 0; i < graph.length; i++) {
+        for (var j = 0; j < graph[i].length; j++) {
+            var k = graph[i][j];
+            if (k <= i) continue;
+            if (built.players[i].team === built.players[k].team) continue;
+            if (!passesGraphEdgePairFilter(frame, built.players[i], built.players[k])) continue;
+            pairs[getPlayerPairKey(built.players[i], built.players[k])] = true;
+        }
+    }
+    return pairs;
+}
+
 function graphToCanvasEdges(graph, players, opponentsOnly, frame) {
     var edges = [];
     for (var i = 0; i < graph.length; i++) {
