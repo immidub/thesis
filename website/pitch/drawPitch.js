@@ -35,25 +35,30 @@ function drawPitchFrame(pitchIndex) {
     }
 
     if (pitchIndex === 2) {
+        var allOutfieldKnnEdges = getAllOutfieldKnnEdges(frameNr, allOutfieldKnnK);
+        drawMarkingEdges(allOutfieldKnnEdges, MARKING_EDGE_COLOR);
+    }
+
+    if (pitchIndex === 3) {
         var hungarianEdges = getHungarianMarkingEdges(frameNr, hungarianAttackerCount);
         drawMarkingEdges(hungarianEdges, MARKING_EDGE_COLOR);
     }
 
-    if (pitchIndex === 3) {
+    if (pitchIndex === 4) {
         var attackingEdges = attackingGraphMode === "shape"
             ? getAttackingShapeGraphEdges(frameNr)
             : getAttackingDelaunayEdges(frameNr);
         drawGraphEdges(attackingEdges, GRAPH_EDGE_COLOR);
     }
 
-    if (pitchIndex === 4) {
+    if (pitchIndex === 5) {
         var allOutfieldEdges = allOutfieldGraphMode === "shape"
             ? getAllOutfieldShapeGraphEdges(frameNr)
             : getAllOutfieldDelaunayEdges(frameNr);
         drawGraphEdges(allOutfieldEdges, GRAPH_EDGE_COLOR);
     }
 
-    var defendingTeam = (pitchIndex < 3 || pitchIndex === 4) ? getDefendingTeam(frameNr) : null;
+    var defendingTeam = (pitchIndex < 4 || pitchIndex === 5) ? getDefendingTeam(frameNr) : null;
     var ballLive = isBallLive(frameNr);
 
     gameCanvas.ctx.save();

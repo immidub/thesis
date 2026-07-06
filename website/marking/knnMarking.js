@@ -1,5 +1,13 @@
 var knnK = 1;
 var knnAssignmentMode = "defender-to-attacker";
+var knnHideDashedEdges = false;
+
+function filterKnnEdges(edges) {
+    if (!knnHideDashedEdges) return edges;
+    return edges.filter(function (edge) {
+        return !edge.dashed;
+    });
+}
 
 function getKnnMarkingEdges(frame, k) {
     if (!isBallLive(frame)) return [];
@@ -11,7 +19,7 @@ function getKnnMarkingEdges(frame, k) {
     var defenders = getTeamPlayerPositions(frame, defendingTeam);
 
     if (knnAssignmentMode === "both") {
-        return getKnnBothMarkingEdges(defenders, attackers, k, frame);
+        return filterKnnEdges(getKnnBothMarkingEdges(defenders, attackers, k, frame));
     }
 
     var attackerToDefender = knnAssignmentMode === "attacker-to-defender";
@@ -21,7 +29,7 @@ function getKnnMarkingEdges(frame, k) {
 
     addKnnEdgesForDefenders(sources, targets, k, edges, frame, !attackerToDefender);
 
-    return edges;
+    return filterKnnEdges(edges);
 }
 
 function getKnnPairKey(defenderId, attackerId) {
@@ -131,6 +139,14 @@ function setupKnnMarking() {
         knnAssignmentMode = modeSelect.value;
         modeSelect.addEventListener("change", function () {
             knnAssignmentMode = modeSelect.value;
+        });
+    }
+
+    var hideDashedCheckbox = document.getElementById("knn_hide_dashed_edges");
+    if (hideDashedCheckbox) {
+        knnHideDashedEdges = hideDashedCheckbox.checked;
+        hideDashedCheckbox.addEventListener("change", function () {
+            knnHideDashedEdges = hideDashedCheckbox.checked;
         });
     }
 }
