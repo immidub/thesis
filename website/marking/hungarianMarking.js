@@ -2,9 +2,36 @@ var hungarianAttackerCount = 10;
 var hungarianAttackerSelectionMode = "nearest";
 var hungarianBallRadiusMeters = 15;
 var hungarianExcludeClosestAttackerToBall = false;
-var hungarianDelaunayOpponentsOnly = false;
+var hungarianEdgeRestriction = "none";
 
 const HUNGARIAN_INFEASIBLE_COST = 1e15;
+
+function getHungarianAllowedPairSet(frame) {
+    if (hungarianEdgeRestriction === "knn") {
+        return {
+            type: "knn",
+            pairs: getKnnBidirectionalPairSet(frame, knnK),
+        };
+    }
+    if (hungarianEdgeRestriction === "delaunay") {
+        return {
+            type: "delaunay",
+            pairs: getDelaunayOpponentPairSet(frame),
+        };
+    }
+    return null;
+}
+
+function markingPairAllowed(allowed, defender, attacker) {
+    if (!allowed || !allowed.pairs) return true;
+    if (allowed.type === "knn") {
+        return markingPairInKnnSet(allowed.pairs, defender, attacker);
+    }
+    if (allowed.type === "delaunay") {
+        return markingPairInDelaunaySet(allowed.pairs, defender, attacker);
+    }
+    return true;
+}
 
 function getHungarianMarkingEdges(frame, attackerCount) {
     if (!isBallLive(frame)) return [];
@@ -43,25 +70,21 @@ function getHungarianMarkingEdges(frame, attackerCount) {
 
     if (selectedAttackers.length === 0) return [];
 
-    var delaunayPairSet = hungarianDelaunayOpponentsOnly
-        ? getDelaunayOpponentPairSet(frame)
-        : null;
+    var allowedPairSet = getHungarianAllowedPairSet(frame);
     var costMatrix = buildDefenderOpponentCostMatrix(
         defenders,
         selectedAttackers,
         useProjectedPositions,
-        delaunayPairSet
+        allowedPairSet
     );
-    var munkresOptions = hungarianDelaunayOpponentsOnly
-        ? { padValue: HUNGARIAN_INFEASIBLE_COST }
-        : undefined;
+    var munkresOptions = allowedPairSet ? { padValue: HUNGARIAN_INFEASIBLE_COST } : undefined;
     var indices = computeMunkres(costMatrix, munkresOptions);
     return indicesToMarkingEdges(
         indices,
         defenders,
         selectedAttackers,
         frame,
-        delaunayPairSet,
+        allowedPairSet,
         costMatrix
     );
 }
@@ -131,7 +154,7 @@ function buildDefenderOpponentCostMatrix(defenders, opponents, useProjected, all
     for (var i = 0; i < defenders.length; i++) {
         costMatrix[i] = [];
         for (var j = 0; j < opponents.length; j++) {
-            if (allowedPairSet && !playerPairInSet(allowedPairSet, defenders[i], opponents[j])) {
+            if (allowedPairSet && !markingPairAllowed(allowedPairSet, defenders[i], opponents[j])) {
                 costMatrix[i][j] = HUNGARIAN_INFEASIBLE_COST;
                 continue;
             }
@@ -155,7 +178,7 @@ function indicesToMarkingEdges(indices, defenders, opponents, frame, allowedPair
         var defender = defenders[defIdx];
         var attacker = opponents[oppIdx];
         if (costMatrix[defIdx][oppIdx] >= HUNGARIAN_INFEASIBLE_COST) continue;
-        if (allowedPairSet && !playerPairInSet(allowedPairSet, defender, attacker)) continue;
+        if (allowedPairSet && !markingPairAllowed(allowedPairSet, defender, attacker)) continue;
         if (!passesMarkingEdgeFilters(frame, defender, attacker)) continue;
 
         edges.push({
@@ -230,13 +253,13 @@ function setupHungarianMarking() {
         });
     }
 
-    var delaunayCheckbox = document.getElementById("hungarian_delaunay_opponents_only");
-    if (delaunayCheckbox) {
-        hungarianDelaunayOpponentsOnly = delaunayCheckbox.checked;
-        delaunayCheckbox.addEventListener("change", function () {
-            hungarianDelaunayOpponentsOnly = delaunayCheckbox.checked;
+    var edgeRestrictionRadios = document.querySelectorAll('input[name="hungarian_edge_restriction"]');
+    edgeRestrictionRadios.forEach(function (radio) {
+        if (radio.checked) hungarianEdgeRestriction = radio.value;
+        radio.addEventListener("change", function () {
+            if (radio.checked) hungarianEdgeRestriction = radio.value;
         });
-    }
+    });
 
     updateHungarianAttackerSelectionControls();
 }

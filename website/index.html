@@ -296,48 +296,66 @@
                                     <div class="pitch-title">Perfect matching</div>
                                     <div class="pitch-direction" id="pitch_direction_4"></div>
                                     <canvas id="canvas4"></canvas>
-                                    <div class="pitch-control">
-                                        <fieldset class="pitch-radio-group pitch-radio-group--stacked">
-                                            <legend class="visually-hidden">Attacker selection mode</legend>
-                                            <label class="pitch-radio">
-                                                <input type="radio" name="hungarian_attacker_selection" value="nearest" checked>
-                                                <span>Nearest attackers to ball</span>
+                                    <div class="pitch-control pitch-control--sections">
+                                        <div class="pitch-control-section">
+                                            <div class="pitch-control-section-title">Attacker selection</div>
+                                            <fieldset class="pitch-radio-group pitch-radio-group--stacked">
+                                                <legend class="visually-hidden">Attacker selection mode</legend>
+                                                <label class="pitch-radio">
+                                                    <input type="radio" name="hungarian_attacker_selection" value="nearest" checked>
+                                                    <span>Nearest attackers to ball</span>
+                                                </label>
+                                                <label class="pitch-radio">
+                                                    <input type="radio" name="hungarian_attacker_selection" value="ball-radius">
+                                                    <span>Within ball radius</span>
+                                                </label>
+                                            </fieldset>
+                                            <div id="hungarian_nearest_controls" class="pitch-control-subsection">
+                                                <label class="pitch-control-label" for="hungarian_attacker_count_select">
+                                                    Attackers matched: <span id="hungarian_attacker_count_label">10</span>
+                                                </label>
+                                                <select class="form-select form-select-sm pitch-k-select" id="hungarian_attacker_count_select">
+                                                    <option value="1">1</option>
+                                                    <option value="2">2</option>
+                                                    <option value="3">3</option>
+                                                    <option value="4">4</option>
+                                                    <option value="5">5</option>
+                                                    <option value="6">6</option>
+                                                    <option value="7">7</option>
+                                                    <option value="8">8</option>
+                                                    <option value="9">9</option>
+                                                    <option value="10" selected>10</option>
+                                                </select>
+                                            </div>
+                                            <div id="hungarian_ball_radius_controls" class="pitch-control-subsection" hidden>
+                                                <label class="pitch-control-label" for="hungarian_ball_radius_slider">
+                                                    Ball radius: <span id="hungarian_ball_radius_label">15.0</span> m
+                                                </label>
+                                                <input type="range" min="5" max="30" step="0.5" value="15" class="form-range pitch-threshold-slider" id="hungarian_ball_radius_slider">
+                                            </div>
+                                            <label class="pitch-checkbox mt-1" for="hungarian_exclude_closest_attacker">
+                                                <input type="checkbox" id="hungarian_exclude_closest_attacker">
+                                                <span>Exclude ball carrier</span>
                                             </label>
-                                            <label class="pitch-radio">
-                                                <input type="radio" name="hungarian_attacker_selection" value="ball-radius">
-                                                <span>Within ball radius</span>
-                                            </label>
-                                        </fieldset>
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="hungarian_exclude_closest_attacker">
-                                            <input type="checkbox" id="hungarian_exclude_closest_attacker">
-                                            <span>Exclude closest attacker to ball</span>
-                                        </label>
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="hungarian_delaunay_opponents_only">
-                                            <input type="checkbox" id="hungarian_delaunay_opponents_only">
-                                            <span>Delaunay opponent edges only</span>
-                                        </label>
-                                        <div id="hungarian_nearest_controls">
-                                            <label class="pitch-control-label mt-2" for="hungarian_attacker_count_select">
-                                                Attackers matched: <span id="hungarian_attacker_count_label">10</span>
-                                            </label>
-                                            <select class="form-select form-select-sm pitch-k-select" id="hungarian_attacker_count_select">
-                                                <option value="1">1</option>
-                                                <option value="2">2</option>
-                                                <option value="3">3</option>
-                                                <option value="4">4</option>
-                                                <option value="5">5</option>
-                                                <option value="6">6</option>
-                                                <option value="7">7</option>
-                                                <option value="8">8</option>
-                                                <option value="9">9</option>
-                                                <option value="10" selected>10</option>
-                                            </select>
                                         </div>
-                                        <div id="hungarian_ball_radius_controls" hidden>
-                                            <label class="pitch-control-label mt-2" for="hungarian_ball_radius_slider">
-                                                Ball radius: <span id="hungarian_ball_radius_label">15.0</span> m
-                                            </label>
-                                            <input type="range" min="5" max="30" step="0.5" value="15" class="form-range pitch-threshold-slider" id="hungarian_ball_radius_slider">
+                                        <div class="pitch-control-section">
+                                            <div class="pitch-control-section-title">Edge restriction</div>
+                                            <fieldset class="pitch-radio-group pitch-radio-group--stacked">
+                                                <legend class="visually-hidden">Edge restriction mode</legend>
+                                                <label class="pitch-radio">
+                                                    <input type="radio" name="hungarian_edge_restriction" value="none" checked>
+                                                    <span>No edge restriction</span>
+                                                </label>
+                                                <label class="pitch-radio">
+                                                    <input type="radio" name="hungarian_edge_restriction" value="knn">
+                                                    <span>Two-way k-NN only</span>
+                                                </label>
+                                                <label class="pitch-radio">
+                                                    <input type="radio" name="hungarian_edge_restriction" value="delaunay">
+                                                    <span>Delaunay opponent edges only</span>
+                                                </label>
+                                            </fieldset>
+                                            <div class="pitch-control-hint">k-NN uses k from the k-NN pitch (both directions, solid and dashed).</div>
                                         </div>
                                     </div>
                                 </div>

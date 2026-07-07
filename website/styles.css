@@ -261,6 +261,47 @@ body {
   min-height: 3.25rem;
 }
 
+.pitch-control--sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 0;
+}
+
+.pitch-control-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.65rem 0.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.pitch-control-section-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #6c757d;
+}
+
+.pitch-control-subsection {
+  padding-left: 0.15rem;
+}
+
+.pitch-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.pitch-control-hint {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #6c757d;
+}
+
 .pitch-control--checkbox {
   display: flex;
   align-items: center;

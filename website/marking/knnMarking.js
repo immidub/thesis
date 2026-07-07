@@ -36,6 +36,41 @@ function getKnnPairKey(defenderId, attackerId) {
     return defenderId + ":" + attackerId;
 }
 
+function collectKnnBidirectionalPairs(defenders, attackers, k, frame) {
+    var defenderToAttacker = [];
+    var attackerToDefender = [];
+
+    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true);
+    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false);
+
+    var pairs = {};
+    for (var i = 0; i < defenderToAttacker.length; i++) {
+        var edge = defenderToAttacker[i];
+        pairs[getKnnPairKey(edge.sourceId, edge.targetId)] = true;
+    }
+    for (var j = 0; j < attackerToDefender.length; j++) {
+        var reverseEdge = attackerToDefender[j];
+        pairs[getKnnPairKey(reverseEdge.targetId, reverseEdge.sourceId)] = true;
+    }
+    return pairs;
+}
+
+function getKnnBidirectionalPairSet(frame, k) {
+    if (!isBallLive(frame)) return null;
+
+    var defendingTeam = getDefendingTeam(frame);
+    if (defendingTeam == null) return null;
+
+    var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
+    var defenders = getTeamPlayerPositions(frame, defendingTeam);
+    return collectKnnBidirectionalPairs(defenders, attackers, k, frame);
+}
+
+function markingPairInKnnSet(pairSet, defender, attacker) {
+    return pairSet != null &&
+        pairSet[getKnnPairKey(String(defender.id), String(attacker.id))] === true;
+}
+
 function getKnnBothMarkingEdges(defenders, attackers, k, frame) {
     var defenderToAttacker = [];
     var attackerToDefender = [];

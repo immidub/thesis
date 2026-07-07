@@ -86,8 +86,8 @@ function getPlayerPairKey(playerA, playerB) {
     return idA < idB ? idA + ":" + idB : idB + ":" + idA;
 }
 
-function playerPairInSet(pairSet, playerA, playerB) {
-    return pairSet != null && pairSet[getPlayerPairKey(playerA, playerB)] === true;
+function markingPairInDelaunaySet(pairSet, defender, attacker) {
+    return pairSet != null && pairSet[getPlayerPairKey(defender, attacker)] === true;
 }
 
 function getDelaunayOpponentPairSet(frame) {
