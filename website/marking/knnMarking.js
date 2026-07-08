@@ -1,6 +1,7 @@
 var knnK = 1;
 var knnAssignmentMode = "defender-to-attacker";
 var knnHideDashedEdges = false;
+var knnDelaunayOpponentsOnly = false;
 
 function filterKnnEdges(edges) {
     if (!knnHideDashedEdges) return edges;
@@ -17,9 +18,10 @@ function getKnnMarkingEdges(frame, k) {
 
     var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
     var defenders = getTeamPlayerPositions(frame, defendingTeam);
+    var delaunayPairSet = knnDelaunayOpponentsOnly ? getDelaunayOpponentPairSet(frame) : null;
 
     if (knnAssignmentMode === "both") {
-        return filterKnnEdges(getKnnBothMarkingEdges(defenders, attackers, k, frame));
+        return filterKnnEdges(getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet));
     }
 
     var attackerToDefender = knnAssignmentMode === "attacker-to-defender";
@@ -27,7 +29,7 @@ function getKnnMarkingEdges(frame, k) {
     var targets = attackerToDefender ? defenders : attackers;
     var edges = [];
 
-    addKnnEdgesForDefenders(sources, targets, k, edges, frame, !attackerToDefender);
+    addKnnEdgesForDefenders(sources, targets, k, edges, frame, !attackerToDefender, delaunayPairSet);
 
     return filterKnnEdges(edges);
 }
@@ -43,14 +45,32 @@ function collectKnnBidirectionalPairs(defenders, attackers, k, frame) {
     addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true);
     addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false);
 
-    var pairs = {};
+    var inDefenderToAttacker = {};
+    var inAttackerToDefender = {};
+
     for (var i = 0; i < defenderToAttacker.length; i++) {
         var edge = defenderToAttacker[i];
-        pairs[getKnnPairKey(edge.sourceId, edge.targetId)] = true;
+        inDefenderToAttacker[getKnnPairKey(edge.sourceId, edge.targetId)] = true;
     }
     for (var j = 0; j < attackerToDefender.length; j++) {
         var reverseEdge = attackerToDefender[j];
-        pairs[getKnnPairKey(reverseEdge.targetId, reverseEdge.sourceId)] = true;
+        inAttackerToDefender[getKnnPairKey(reverseEdge.targetId, reverseEdge.sourceId)] = true;
+    }
+
+    var pairs = {};
+    if (knnHideDashedEdges) {
+        for (var key in inDefenderToAttacker) {
+            if (inAttackerToDefender[key]) {
+                pairs[key] = true;
+            }
+        }
+    } else {
+        for (var key in inDefenderToAttacker) {
+            pairs[key] = true;
+        }
+        for (var key in inAttackerToDefender) {
+            pairs[key] = true;
+        }
     }
     return pairs;
 }
@@ -71,12 +91,12 @@ function markingPairInKnnSet(pairSet, defender, attacker) {
         pairSet[getKnnPairKey(String(defender.id), String(attacker.id))] === true;
 }
 
-function getKnnBothMarkingEdges(defenders, attackers, k, frame) {
+function getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet) {
     var defenderToAttacker = [];
     var attackerToDefender = [];
 
-    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true);
-    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false);
+    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true, delaunayPairSet);
+    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false, delaunayPairSet);
 
     var inDefenderToAttacker = {};
     var inAttackerToDefender = {};
@@ -113,7 +133,7 @@ function getKnnBothMarkingEdges(defenders, attackers, k, frame) {
     return merged;
 }
 
-function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefender) {
+function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefender, delaunayPairSet) {
     for (var i = 0; i < sources.length; i++) {
         var player = sources[i];
         var distances = [];
@@ -136,6 +156,9 @@ function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefe
             var defender = sourceIsDefender ? player : opp;
             var attacker = sourceIsDefender ? opp : player;
             if (!passesMarkingEdgeFilters(frame, defender, attacker)) {
+                continue;
+            }
+            if (delaunayPairSet && !markingPairInDelaunaySet(delaunayPairSet, defender, attacker)) {
                 continue;
             }
 
@@ -182,6 +205,14 @@ function setupKnnMarking() {
         knnHideDashedEdges = hideDashedCheckbox.checked;
         hideDashedCheckbox.addEventListener("change", function () {
             knnHideDashedEdges = hideDashedCheckbox.checked;
+        });
+    }
+
+    var delaunayCheckbox = document.getElementById("knn_delaunay_opponents_only");
+    if (delaunayCheckbox) {
+        knnDelaunayOpponentsOnly = delaunayCheckbox.checked;
+        delaunayCheckbox.addEventListener("change", function () {
+            knnDelaunayOpponentsOnly = delaunayCheckbox.checked;
         });
     }
 }

@@ -266,6 +266,10 @@
                                             <input type="checkbox" id="knn_hide_dashed_edges">
                                             <span>Hide dashed edges</span>
                                         </label>
+                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="knn_delaunay_opponents_only">
+                                            <input type="checkbox" id="knn_delaunay_opponents_only">
+                                            <span>Outfield Delaunay edges only</span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -348,14 +352,14 @@
                                                 </label>
                                                 <label class="pitch-radio">
                                                     <input type="radio" name="hungarian_edge_restriction" value="knn">
-                                                    <span>Two-way k-NN only</span>
+                                                    <span>k-NN edges only</span>
                                                 </label>
                                                 <label class="pitch-radio">
                                                     <input type="radio" name="hungarian_edge_restriction" value="delaunay">
                                                     <span>Delaunay opponent edges only</span>
                                                 </label>
                                             </fieldset>
-                                            <div class="pitch-control-hint">k-NN uses k from the k-NN pitch (both directions, solid and dashed).</div>
+                                            <div class="pitch-control-hint">Uses k from the k-NN pitch. Solid edges only when “Hide dashed edges” is on; solid and dashed when it is off.</div>
                                         </div>
                                     </div>
                                 </div>
