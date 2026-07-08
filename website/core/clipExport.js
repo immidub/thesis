@@ -149,19 +149,36 @@ async function exportPitchClip(pitchIndex, pitchIndex2, startTimeStr, endTimeStr
         return;
     }
 
-    var startSeconds = parseGameTime(startTimeStr);
-    var endSeconds = parseGameTime(endTimeStr);
-    if (startSeconds == null || endSeconds == null) {
-        setClipExportStatus("Use game time like 23:45 or 90+2:15.", true);
+    var startTime = parseGameTime(startTimeStr);
+    var endTime = parseGameTime(endTimeStr);
+    if (startTime == null || endTime == null) {
+        setClipExportStatus("Use game time like 23:45, 45+2:15, or 90+1:00.", true);
         return;
     }
-    if (startSeconds >= endSeconds) {
+    if (
+        startTime.periodIndex != null &&
+        endTime.periodIndex != null &&
+        startTime.periodIndex === endTime.periodIndex &&
+        startTime.seconds >= endTime.seconds
+    ) {
+        setClipExportStatus("Start time must be before end time.", true);
+        return;
+    }
+    if (
+        startTime.periodIndex == null &&
+        endTime.periodIndex == null &&
+        startTime.seconds >= endTime.seconds
+    ) {
         setClipExportStatus("Start time must be before end time.", true);
         return;
     }
 
-    var startFrame = timeToFrame(startSeconds);
-    var endFrame = timeToFrame(endSeconds);
+    var startFrame = timeToFrame(startTime);
+    var endFrame = timeToFrame(endTime);
+    if (startFrame >= endFrame) {
+        setClipExportStatus("Start time must be before end time.", true);
+        return;
+    }
     if (startFrame > maxFrame) {
         setClipExportStatus("Start time is after the end of the match.", true);
         return;

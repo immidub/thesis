@@ -113,11 +113,52 @@ function getPeriod(frame) {
         return 0;
     }
     for (var i = 0; i < gameData.periods.length; i++) {
-        if (frame < gameData.periods[i].endFrame) {
+        var period = gameData.periods[i];
+        var start = period.startFrame != null ? period.startFrame : 0;
+        var end = period.endFrame;
+        if (frame >= start && frame <= end) {
             return i;
         }
     }
+    if (frame < gameData.periods[0].startFrame) return 0;
     return gameData.periods.length - 1;
+}
+
+function getPeriodRegulationSeconds(periodIndex) {
+    return periodIndex > 2 ? 15 * 60 : 45 * 60;
+}
+
+function getPeriodMatchClockOffset(periodIndex) {
+    var offset = 0;
+    if (periodIndex >= 1) offset += 45 * 60;
+    if (periodIndex >= 2) offset += 45 * 60;
+    if (periodIndex >= 3) offset += 15 * 60;
+    return offset;
+}
+
+function getPeriodFrameRange(periodIndex) {
+    if (!gameData.periods || gameData.periods.length === 0) {
+        return { start: 0, end: maxFrame };
+    }
+    if (periodIndex < 0 || periodIndex >= gameData.periods.length) {
+        return null;
+    }
+    var period = gameData.periods[periodIndex];
+    return {
+        start: period.startFrame != null ? period.startFrame : 0,
+        end: Math.min(maxFrame, period.endFrame),
+    };
+}
+
+function periodIndexFromStoppageBaseMinutes(baseMin) {
+    if (baseMin === 45) return 0;
+    if (baseMin === 90) return 1;
+    if (baseMin === 105) return 2;
+    if (baseMin === 120) return 3;
+    if (baseMin < 90) return 0;
+    if (baseMin < 105) return 1;
+    if (baseMin < 120) return 2;
+    return Math.min(3, gameData.periods ? gameData.periods.length - 1 : 3);
 }
 
 function frameToTime(frame) {
@@ -170,15 +211,11 @@ function getMatchClockSeconds(frame) {
     if (!gameData.periods || gameData.periods.length === 0) {
         return ts;
     }
-
-    var offset = 0;
-    var p = getPeriod(frame);
-    if (p >= 1) offset += 45 * 60;
-    if (p >= 2) offset += 45 * 60;
-    if (p >= 3) offset += 15 * 60;
-    return offset + ts;
+    return getPeriodMatchClockOffset(getPeriod(frame)) + ts;
 }
 
+// Parses playback-style game times. Stoppage uses "45+2:15" / "90+1:00".
+// Returns { seconds, periodIndex } so first-half stoppage is not confused with early second half.
 function parseGameTime(str) {
     str = (str || "").trim();
     if (!str) return null;
@@ -192,7 +229,11 @@ function parseGameTime(str) {
         var stoppageMin = parseInt(rest.slice(0, colon), 10);
         var sec = parseInt(rest.slice(colon + 1), 10);
         if (isNaN(stoppageMin) || isNaN(sec)) return null;
-        return baseMin * 60 + stoppageMin * 60 + sec;
+        return {
+            seconds: baseMin * 60 + stoppageMin * 60 + sec,
+            periodIndex: periodIndexFromStoppageBaseMinutes(baseMin),
+            isStoppage: true,
+        };
     }
 
     var colon = str.indexOf(":");
@@ -200,12 +241,16 @@ function parseGameTime(str) {
     var min = parseInt(str.slice(0, colon), 10);
     var sec = parseInt(str.slice(colon + 1), 10);
     if (isNaN(min) || isNaN(sec)) return null;
-    return min * 60 + sec;
+    return {
+        seconds: min * 60 + sec,
+        periodIndex: null,
+        isStoppage: false,
+    };
 }
 
-function timeToFrame(seconds) {
-    var lo = 0;
-    var hi = maxFrame;
+function timeToFrameInRange(seconds, startFrame, endFrame) {
+    var lo = startFrame;
+    var hi = endFrame;
     while (lo < hi) {
         var mid = Math.floor((lo + hi) / 2);
         if (getMatchClockSeconds(mid) < seconds) lo = mid + 1;
