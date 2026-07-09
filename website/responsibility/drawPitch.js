@@ -46,6 +46,10 @@ const CONTEST_CONTESTANT_RING_COLOR = "#F59E0B"; // amber
 const CONTEST_RING_WIDTH = 3.0;
 const CONTEST_RING_EXTRA_RADIUS = 3.5;
 
+const MUTUAL_HELP_EDGE_COLOR = "#94A3B8";
+const MUTUAL_HELP_EDGE_WIDTH = 1;
+const RESPONSIBILITY_MARKING_EDGE_WIDTH = 2;
+
 function getPlayerScreenPosition(frame, playerId) {
     var dataLine = gameData.tracking[frame];
     if (!dataLine || !dataLine.objects) return null;
@@ -69,6 +73,44 @@ function drawRingAt(x, y, radius, color) {
     ctx.lineWidth = prevWidth;
 }
 
+function drawResponsibilityMarkingEdges(edges) {
+    if (!edges || edges.length === 0) return;
+
+    var ctx = gameCanvas.ctx;
+    var prevWidth = ctx.lineWidth;
+    var prevStroke = ctx.strokeStyle;
+
+    ctx.lineWidth = RESPONSIBILITY_MARKING_EDGE_WIDTH;
+    ctx.strokeStyle = MARKING_EDGE_COLOR;
+
+    for (var i = 0; i < edges.length; i++) {
+        var edge = edges[i];
+        gameCanvas.drawLine(edge.x1, edge.y1, edge.x2, edge.y2);
+    }
+
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth = prevWidth;
+}
+
+function drawMutualHelpEdges(edges) {
+    if (!edges || edges.length === 0) return;
+
+    var ctx = gameCanvas.ctx;
+    var prevWidth = ctx.lineWidth;
+    var prevStroke = ctx.strokeStyle;
+
+    ctx.lineWidth = MUTUAL_HELP_EDGE_WIDTH;
+    ctx.strokeStyle = MUTUAL_HELP_EDGE_COLOR;
+
+    for (var i = 0; i < edges.length; i++) {
+        var edge = edges[i];
+        gameCanvas.drawLine(edge.x1, edge.y1, edge.x2, edge.y2);
+    }
+
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth = prevWidth;
+}
+
 function drawBallContestOverlay(frame) {
     if (typeof inferBallContest !== "function") return;
     var res = inferBallContest(frame);
@@ -76,6 +118,14 @@ function drawBallContestOverlay(frame) {
     if (res.state !== "controlled" && res.state !== "contested") return;
 
     if (!res.contestants || res.contestants.length === 0) return;
+
+    if (typeof getMutualHelpEdges === "function") {
+        drawMutualHelpEdges(getMutualHelpEdges(frame, res.contestants));
+    }
+
+    if (typeof getResponsibilityMarkingEdges === "function") {
+        drawResponsibilityMarkingEdges(getResponsibilityMarkingEdges(frame, res.contestants));
+    }
 
     var ringColor = res.contestants.length === 1
         ? CONTEST_CONTROLLER_RING_COLOR
