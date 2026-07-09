@@ -29,12 +29,71 @@ function draw() {
     drawGoalKeepers(getGoalKeepers(frameNr), null);
     drawPlayerLabels(frameNr);
     drawBall(frameNr, ballLive);
+
+    // Debug: highlight controller / contestants (reachability-to-ball).
+    if (ballLive) {
+        drawBallContestOverlay(frameNr);
+    }
     gameCanvas.ctx.restore();
 }
 
 const DEFENDING_PLAYER_BORDER_COLOR = "#1a1a1a";
 const DEFENDING_PLAYER_BORDER_WIDTH = 2.5;
 const PLAYER_DOT_RADIUS = 8;
+
+const CONTEST_CONTROLLER_RING_COLOR = "#16A34A"; // green
+const CONTEST_CONTESTANT_RING_COLOR = "#F59E0B"; // amber
+const CONTEST_RING_WIDTH = 3.0;
+const CONTEST_RING_EXTRA_RADIUS = 3.5;
+
+function getPlayerScreenPosition(frame, playerId) {
+    var dataLine = gameData.tracking[frame];
+    if (!dataLine || !dataLine.objects) return null;
+    var obj = dataLine.objects[String(playerId)];
+    if (!obj) return null;
+    var [h, v] = getCoordinates(obj, obj);
+    var [x, y] = pt(h, v);
+    return { x: x, y: y };
+}
+
+function drawRingAt(x, y, radius, color) {
+    var ctx = gameCanvas.ctx;
+    var prevWidth = ctx.lineWidth;
+    var prevStroke = ctx.strokeStyle;
+    ctx.lineWidth = CONTEST_RING_WIDTH;
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth = prevWidth;
+}
+
+function drawBallContestOverlay(frame) {
+    if (typeof inferBallContest !== "function") return;
+    var res = inferBallContest(frame);
+    if (!res || !res.ball) return;
+    if (res.state !== "controlled" && res.state !== "contested") return;
+
+    if (!res.contestants || res.contestants.length === 0) return;
+
+    var ringColor = res.contestants.length === 1
+        ? CONTEST_CONTROLLER_RING_COLOR
+        : CONTEST_CONTESTANT_RING_COLOR;
+
+    for (var i = 0; i < res.contestants.length; i++) {
+        var c = res.contestants[i];
+        if (!c || c.id == null) continue;
+        var pos = getPlayerScreenPosition(frame, c.id);
+        if (!pos) continue;
+        drawRingAt(
+            pos.x,
+            pos.y,
+            PLAYER_DOT_RADIUS + CONTEST_RING_EXTRA_RADIUS,
+            ringColor
+        );
+    }
+}
 
 function drawTeam(team, defendingTeam) {
     const [points] = getGamePoints(frameNr, team);
