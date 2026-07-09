@@ -2,15 +2,18 @@ var gameData = null;
 
 var playerShirtNumbers = {};
 
-const LOCAL_DATA_PATH = "../data/tracking-produced.jsonl";
-const LOCAL_META_PATH = "../data/metaData.json";
+function getLocalDataDir() {
+	return window.location.pathname.indexOf("/responsibility/") !== -1
+		? "../../data"
+		: "../data";
+}
 
 //-- Local data handling ------------------------------------------------------------------------------
 
 //try to load local data if not available then returns
 async function tryLoadLocalData() {
 	try {
-		var response = await fetch(LOCAL_DATA_PATH);
+		var response = await fetch(getLocalDataDir() + "/tracking-produced.jsonl");
 		if (!response.ok) return;
 		await loadTrackingData(response);
 	} catch (err) {
@@ -23,7 +26,7 @@ async function loadTrackingData(source) {
 	dataReceived();
 	document.getElementById("dataLoadingSubtitle").textContent = "Loading tracking data...";
 	gameData = await parseTrackingJsonl(source);
-	var meta = await loadMatchMetadata(LOCAL_META_PATH);
+	var meta = await loadMatchMetadata(getLocalDataDir() + "/metaData.json");
 	if (meta) {
 		applyMatchMetadata(gameData, meta);
 	} else {

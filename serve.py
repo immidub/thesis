@@ -273,6 +273,7 @@ def main():
     else:
         print("No game MP4 in clips/ — export requires a broadcast file in clips/")
     print("Open http://localhost:8000/website/index.html")
+    print("Responsibility view: http://localhost:8000/website/responsibility/index.html")
     server.serve_forever()
 
 
