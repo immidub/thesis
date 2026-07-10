@@ -1,6 +1,8 @@
 const BALL_TRACKING_ID = "__ball__";
 const TRACKING_FRAME_RATE = 50;
 
+
+//builds tracking data from a jsonl file
 async function parseTrackingJsonl(source) {
     var tracking = [];
     var homePlayerMeta = {};
@@ -35,6 +37,7 @@ async function parseTrackingJsonl(source) {
 
         tracking.push({
             frame: frameIdx,
+            period: period,
             timestamp: Math.round(gameClock * 1000),
             possession: frame.lastTouch || null,
             live: frame.live != null ? frame.live : null,

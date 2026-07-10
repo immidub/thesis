@@ -2,14 +2,14 @@
 
 const DEFAULT_BALL_CONTEST_PARAMS = {
     reach: DEFAULT_BALL_REACH_PARAMS,
-    epsilonSeconds: 0.30,
+    epsilonSeconds: 0.30, // the epsilon seconds for the ball contest
     majorityWindow: 5,
     majorityVotes: 3,
 };
 
 var contestantHistory = [];
 
-function resetContestantHistoryIfNeeded(frame) {
+function resetContestantHistoryIfNeeded(frame) { // resets the contestant history if the frame is less than the last frame in the history
     if (contestantHistory.length === 0) return;
     if (frame < contestantHistory[contestantHistory.length - 1].frame) {
         contestantHistory = [];
@@ -17,6 +17,8 @@ function resetContestantHistoryIfNeeded(frame) {
 }
 
 function applyContestantMajorityVote(frame, rawContestants, allPlayers, params) {
+    // applies the contestant majority vote for the given frame, raw contestants and all players
+    //to smooth out the contestant history
     var p = params || DEFAULT_BALL_CONTEST_PARAMS;
     var windowSize = p.majorityWindow != null ? p.majorityWindow : 3;
     var minVotes = p.majorityVotes != null ? p.majorityVotes : 2;
@@ -69,7 +71,7 @@ function applyContestantMajorityVote(frame, rawContestants, allPlayers, params) 
     return result;
 }
 
-function findPlayersInCircleAtTime(players, ball, t, kinematics) {
+function findPlayersInCircleAtTime(players, ball, t, kinematics) { // finds the players in the reachability circle at the given time
     var found = [];
     for (var i = 0; i < players.length; i++) {
         var entry = players[i];
@@ -83,10 +85,11 @@ function findPlayersInCircleAtTime(players, ball, t, kinematics) {
 function inferBallContest(frame, params) {
     var p = params || DEFAULT_BALL_CONTEST_PARAMS;
     var kinematics = p.reach.kinematics || DEFAULT_KINEMATICS_PARAMS;
-    var tMax = clampNumber(kinematics.tMax, 0.1, 30);
-    var dt = clampNumber(kinematics.dt, 0.005, 1.0);
-    var eps = p.epsilonSeconds != null ? p.epsilonSeconds : 0.3;
+    var tMax = clampNumber(kinematics.tMax, 0.1, 30);   // how far ahead to search (seconds)
+    var dt = clampNumber(kinematics.dt, 0.005, 1.0);    // time step for the search
+    var eps = p.epsilonSeconds != null ? p.epsilonSeconds : 0.3; // contest window after first reach
 
+    //guards
     if (gameData == null) return { state: "no-data" };
     if (!isBallLive(frame)) return { state: "dead" };
 
@@ -102,12 +105,13 @@ function inferBallContest(frame, params) {
     var tStar = null;
     for (var t = 0; t <= tMax + 1e-9; t += dt) {
         if (findPlayersInCircleAtTime(players, ball, t, kinematics).length > 0) {
-            tStar = t;
+            tStar = t; // earliest time someone can reach the ball
             break;
         }
     }
 
     if (tStar == null) {
+        // Nobody can reach the ball within tMax — still smooth via majority vote for stability.
         var rawEmpty = [];
         var smoothedEmpty = applyContestantMajorityVote(frame, rawEmpty, players, p);
         var bestEmpty = smoothedEmpty.length > 0 ? smoothedEmpty[0] : null;
@@ -124,7 +128,7 @@ function inferBallContest(frame, params) {
         };
     }
 
-    // 2) First player at tStar is the possessor; only opponents can contest in [tStar, tStar + eps].
+    // Step 2: the first player to reach the ball at tStar is the possessor.
     var atStar = findPlayersInCircleAtTime(players, ball, tStar, kinematics);
     if (atStar.length === 0) {
         var rawEmpty = [];
@@ -152,20 +156,23 @@ function inferBallContest(frame, params) {
     seen[possessor.id] = true;
     contestants.push(best);
 
+    // In [tStar, tStar + eps], only opponents who also reach the ball count as contestants.
     for (var t2 = tStar; t2 <= tEnd + 1e-9; t2 += dt) {
         var atTime = findPlayersInCircleAtTime(players, ball, t2, kinematics);
         for (var i = 0; i < atTime.length; i++) {
             var entry = atTime[i];
-            if (entry.team === possessorTeam) continue;
-            if (seen[entry.id]) continue;
+            if (entry.team === possessorTeam) continue; // teammates don't contest
+            if (seen[entry.id]) continue;               // each player counted once
             seen[entry.id] = true;
             contestants.push({ id: entry.id, team: entry.team, player: entry.player, t: t2 });
         }
     }
 
     var rawContestants = contestants;
+    // Smooth frame-to-frame flicker: keep players that appear in a majority of recent frames.
     contestants = applyContestantMajorityVote(frame, rawContestants, players, p);
     if (contestants.length > 0) {
+        // Prefer the possessor as best when they survive the vote; otherwise take top vote-getter.
         var possessorEntry = null;
         for (var j = 0; j < contestants.length; j++) {
             if (contestants[j].id === possessor.id) {
@@ -178,6 +185,7 @@ function inferBallContest(frame, params) {
         best = null;
     }
 
+    // One contestant → controlled; multiple → contested; none → none.
     var state = contestants.length === 1 ? "controlled" : contestants.length > 1 ? "contested" : "none";
 
     return {

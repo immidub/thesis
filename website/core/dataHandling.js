@@ -82,6 +82,7 @@ function getShirtNumberLabel(playerId) {
 	return playerShirtNumbers[playerId] ?? "";
 }
 
+//if no meta data is available, infer goalkeepers from positions
 function inferGoalkeepersFromPositions() {
 	var halfLength = gameData.pitch.length / 2;
 	var firstFrame = gameData.tracking[0].objects;

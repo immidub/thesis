@@ -1,5 +1,13 @@
 var minFrame = 0;
 var maxFrame = 0;
+var enableClipExport = true;
+
+function configureUIElements(options) {
+    if (!options) return;
+    if (options.enableClipExport != null) {
+        enableClipExport = options.enableClipExport;
+    }
+}
 
 function setupSlider() {
     $("#duration_slider").prop("min", minFrame);
@@ -12,22 +20,14 @@ function setupUIElements() {
     $("#data_error_view").hide();
     $("#data_loading_view").hide();
 
-    function onPlay() {
-        playPlayback();
-    }
-
-    function onPause() {
-        pausePlayback();
-    }
-
     $("#play_pause_btn").on("click", function () {
         if ($("#button_pause").is(":visible")) {
-            onPause();
+            pausePlayback();
         } else {
-            onPlay();
+            playPlayback();
         }
     });
-    
+
     $("#button_pause").hide();
 
     $("#duration_slider").on("input", function () {
@@ -36,7 +36,10 @@ function setupUIElements() {
     });
 
     setupPlaybackKeyboard();
-    setupClipExport();
+
+    if (enableClipExport && typeof setupClipExport === "function") {
+        setupClipExport();
+    }
 
     tryLoadLocalData();
 }

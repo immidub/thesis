@@ -24,6 +24,7 @@ function getPlayerVelocityVector(player) {
 }
 
 // r(t) = max(vmax * ( t - (1 - exp(-α t)) / α ), R0)
+// added R0 to the formula to ensure the radius is not 0 for t=0
 function reachabilityRadius(t, vMax, alpha, minRadius) {
     var r0 = minRadius != null ? minRadius : DEFAULT_KINEMATICS_PARAMS.minRadius;
     if (t <= 0) return r0;
@@ -37,12 +38,6 @@ function reachabilityCenter(player, t, alpha) {
     var k = (1 - Math.exp(-alpha * t)) / alpha;
     var vel = getPlayerVelocityVector(player);
     return { h: player.h + vel.h * k, v: player.v + vel.v * k };
-}
-
-function distanceSquared(a, b) {
-    var dh = a.h - b.h;
-    var dv = a.v - b.v;
-    return dh * dh + dv * dv;
 }
 
 function ballPositionAt(ball, t) {
@@ -60,5 +55,5 @@ function isBallInReachCircle(player, ball, t, params) {
     var ballAtT = ballPositionAt(ball, t);
     var c = reachabilityCenter(player, t, alpha);
     var r = reachabilityRadius(t, vMax, alpha, p.minRadius);
-    return distanceSquared(c, ballAtT) <= r * r;
+    return getPitchDistanceSquared(c.h, c.v, ballAtT.h, ballAtT.v) <= r * r;
 }

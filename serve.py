@@ -5,6 +5,8 @@ import json
 import re
 import subprocess
 import tempfile
+from email import policy
+from email.parser import BytesParser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -16,23 +18,11 @@ FFMPEG_CRF = "20"
 
 
 def find_source_video():
-    candidates = []
-    for path in CLIPS_DIR.glob("*.mp4"):
-        if path.name.endswith("_game.mp4"):
-            continue
-        if (CLIPS_DIR / (path.stem + ".webm")).exists():
-            continue
-        candidates.append(path)
-    if not candidates:
-        return None
-    if len(candidates) == 1:
-        return candidates[0]
-    camera = [p for p in candidates if "camera" in p.name.lower()]
-    if camera:
-        return camera[0]
-    return max(candidates, key=lambda p: p.stat().st_size)
+    # Hardcoded for the current WC match — update this path for other matches.
+    path = CLIPS_DIR / "281-M08-QAT-SUI-camera1-720p.mp4"
+    return path if path.exists() else None
 
-
+# cleans filename for export
 def safe_filename(name, suffix):
     cleaned = Path(re.sub(r"[^\w.\-]", "_", name or f"clip{suffix}")).name
     if not cleaned.endswith(suffix):
@@ -41,33 +31,14 @@ def safe_filename(name, suffix):
 
 
 def parse_multipart_form(content_type, body):
-    boundary = None
-    for part in content_type.split(";"):
-        part = part.strip()
-        if part.startswith("boundary="):
-            boundary = part.split("=", 1)[1].strip().strip('"')
-    if not boundary:
-        raise ValueError("Missing multipart boundary")
-
-    delimiter = ("--" + boundary).encode()
+    msg = BytesParser(policy=policy.default).parsebytes(
+        b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body
+    )
     fields = {}
-    for chunk in body.split(delimiter):
-        if not chunk or chunk in (b"--", b"--\r\n"):
-            continue
-        chunk = chunk.lstrip(b"\r\n")
-        if b"\r\n\r\n" not in chunk:
-            continue
-        header_bytes, payload = chunk.split(b"\r\n\r\n", 1)
-        payload = payload.rstrip(b"\r\n")
-        headers = header_bytes.decode("utf-8", errors="replace")
-        name = None
-        for line in headers.split("\r\n"):
-            if line.lower().startswith("content-disposition:"):
-                match = re.search(r'name="([^"]+)"', line)
-                if match:
-                    name = match.group(1)
+    for part in msg.iter_parts():
+        name = part.get_param("name", header="content-disposition")
         if name:
-            fields[name] = payload
+            fields[name] = part.get_payload(decode=True)
     return fields
 
 
@@ -120,44 +91,48 @@ def export_combined_clip(
     else:
         game_pts = f"setpts={game_pts_scale:.8f}*(PTS-STARTPTS)"
 
+    # Combine pitch (bottom) and broadcast (top) into one MP4.
     subprocess.run(
         [
             "ffmpeg",
-            "-y",
+            "-y",  # overwrite existing output file
             "-ss",
-            f"{video_start_sec:.6f}",
+            f"{video_start_sec:.6f}",  # seek into broadcast video
             "-to",
-            f"{video_end_sec:.6f}",
+            f"{video_end_sec:.6f}",  # end of broadcast segment to use
             "-i",
-            str(source),
+            str(source),  # input 0: full broadcast MP4
             "-i",
-            str(raw_pitch_path),
+            str(raw_pitch_path),  # input 1: pitch recording from the browser
             "-filter_complex",
             (
+                # pitch: take first N frames, retime to target duration, scale width
                 f"[1:v]select='lte(n\\,{last_frame})',"
                 f"setpts=N/({pitch_fps}*TB),"
                 f"scale={width}:-2,"
                 f"trim=duration={duration},setpts=PTS-STARTPTS[pitch];"
+                # game: scale broadcast, trim to clip length, stretch/squeeze to match pitch
                 f"[0:v]scale={width}:-2,"
                 f"trim=duration={game_cut},"
                 f"{game_pts}[game];"
+                # stack broadcast on top, pitch underneath
                 f"[game][pitch]vstack=inputs=2[v]"
             ),
             "-map",
-            "[v]",
+            "[v]",  # use the stacked video from filter_complex
             "-t",
-            duration,
+            duration,  # final output length
             "-c:v",
-            "libx264",
+            "libx264",  # H.264 video codec
             "-preset",
-            FFMPEG_PRESET,
+            FFMPEG_PRESET,  # encoding speed vs compression
             "-crf",
-            FFMPEG_CRF,
-            "-an",
+            FFMPEG_CRF,  # quality (lower = better)
+            "-an",  # drop audio
             str(output_path),
         ],
-        check=True,
-        capture_output=True,
+        check=True,  # raise CalledProcessError if ffmpeg fails
+        capture_output=True,  # keep stderr for error reporting
     )
 
 
@@ -171,6 +146,7 @@ class Handler(SimpleHTTPRequestHandler):
             return
         self.send_error(404)
 
+    # send json response
     def _send_json(self, status, payload):
         body = json.dumps(payload).encode()
         self.send_response(status)
@@ -184,27 +160,28 @@ class Handler(SimpleHTTPRequestHandler):
         self._send_json(500, {"error": f"ffmpeg failed: {message[:400]}"})
 
     def _export_clip(self):
+        # validate content type
         content_type = self.headers.get("Content-Type", "")
         if "multipart/form-data" not in content_type:
             self._send_json(400, {"error": "Expected multipart/form-data"})
             return
 
         content_length = int(self.headers.get("Content-Length", "0"))
-        body = self.rfile.read(content_length)
+        body = self.rfile.read(content_length) #read body of the request
 
         try:
-            fields = parse_multipart_form(content_type, body)
+            fields = parse_multipart_form(content_type, body) #parse the multipart form
         except ValueError as err:
             self._send_json(400, {"error": str(err)})
             return
 
         try:
-            metadata = json.loads(fields["metadata"].decode("utf-8"))
-            output_filename = safe_filename(metadata.get("outputFilename"), ".mp4")
-            num_frames = int(metadata["numFrames"])
-            target_duration = float(metadata["targetDurationSec"])
-            video_start = float(metadata["videoStartSec"])
-            video_end = float(metadata["videoEndSec"])
+            metadata = json.loads(fields["metadata"].decode("utf-8")) #parse the metadata
+            output_filename = safe_filename(metadata.get("outputFilename"), ".mp4") #clean the filename for export
+            num_frames = int(metadata["numFrames"]) #number of frames in the pitch recording
+            target_duration = float(metadata["targetDurationSec"]) #target duration of the clip
+            video_start = float(metadata["videoStartSec"]) #start time of the clip
+            video_end = float(metadata["videoEndSec"]) #end time of the clip
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             self._send_json(400, {"error": "Invalid metadata"})
             return
@@ -213,22 +190,22 @@ class Handler(SimpleHTTPRequestHandler):
             self._send_json(400, {"error": "Missing pitch recording"})
             return
 
-        pitch_bytes = fields["pitch"]
+        pitch_bytes = fields["pitch"] #get the pitch recording
 
-        source = find_source_video()
+        source = find_source_video() #find the source video
         if source is None:
             self._send_json(404, {"error": "No source game video found in clips/"})
             return
 
         CLIPS_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = CLIPS_DIR / output_filename
+        out_path = CLIPS_DIR / output_filename #create the output path
 
         with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as raw_file:
             raw_pitch_path = Path(raw_file.name)
-            raw_file.write(pitch_bytes)
+            raw_file.write(pitch_bytes) #write the pitch recording to a temporary file
 
         try:
-            export_combined_clip(
+            export_combined_clip( #combine the pitch and game video
                 source,
                 raw_pitch_path,
                 out_path,
@@ -244,10 +221,10 @@ class Handler(SimpleHTTPRequestHandler):
             self._send_json(400, {"error": str(err)})
             return
         finally:
-            if raw_pitch_path.exists():
-                raw_pitch_path.unlink()
+            if raw_pitch_path.exists(): 
+                raw_pitch_path.unlink() #delete the temporary file
 
-        self._send_json(
+        self._send_json( #send the response
             200,
             {
                 "path": f"clips/{output_filename}",
@@ -263,9 +240,9 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    CLIPS_DIR.mkdir(parents=True, exist_ok=True)
-    source = find_source_video()
-    server = ThreadingHTTPServer(("localhost", 8000), Handler)
+    CLIPS_DIR.mkdir(parents=True, exist_ok=True) #ensure the clips directory exists
+    source = find_source_video() #find the source video
+    server = ThreadingHTTPServer(("localhost", 8000), Handler) #start the server
     print(f"Serving {REPO_ROOT} at http://localhost:8000/")
     print(f"Clips saved to {CLIPS_DIR}")
     if source:

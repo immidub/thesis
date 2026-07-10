@@ -1,3 +1,5 @@
+//pitchView.js handles the several drawing functions for the pitch view
+
 var scaling = 6;
 var pitchOffsetX = -1;
 var pitchOffsetY = -1;
@@ -16,13 +18,14 @@ function convertDist(d) {
     return d * scaling;
 }
 
-function getCoordinates(object1, object2) {
+function getCoordinates(object1, object2) { //interpolates the coordinates of the object between two frames
     if (object2 == null) object2 = object1;
 
     var h = +object1.h + (+object2.h - +object1.h) * frameDelta;
     var v = +object1.v + (+object2.v - +object1.v) * frameDelta;
 
     return [-h, v];
+    //-h because the pitch is mirrored for display specifically for this game to match the camera angle
 }
 
 function isBallTracked(frame) {
@@ -46,81 +49,63 @@ function getPossessionTeam(frame) {
     return null;
 }
 
-function getDefendingTeam(frame) {
+function getDefendingTeam(frame) { 
     var possessionTeam = getPossessionTeam(frame);
     if (possessionTeam == null) return null;
     return possessionTeam === 1 ? 2 : 1;
 }
 
-function getAttackingTeam(frame) {
-    return getPossessionTeam(frame);
-}
-
-function getGoalkeeperId(team, frame) {
-    var teamPlayers = team === 1 ? gameData.homeTeam.players : gameData.awayTeam.players;
-    if (!teamPlayers) return null;
-
-    var dataLine = frame != null && gameData.tracking[frame] ? gameData.tracking[frame] : null;
-    for (var i = 0; i < teamPlayers.length; i++) {
-        var player = teamPlayers[i];
-        if (!player.isGoalie) continue;
-        var playerId = String(player.id);
-        if (dataLine != null && !dataLine.objects[playerId]) continue;
-        return playerId;
-    }
-    return null;
-}
-
 function getGoalkeeperH(frame, team) {
+    //gets the horizontal coordinate of the goalkeeper for the given team and frame
+    //used to determine the direction of the pitch (bades on where each goalie is positioned)
     var dataLine = gameData.tracking[frame];
     if (!dataLine) return null;
 
-    var playerId = getGoalkeeperId(team, frame);
+    var teamPlayers = team === 1 ? gameData.homeTeam.players : gameData.awayTeam.players;
+    if (!teamPlayers) return null;
+
+    var playerId = null;
+    for (var i = 0; i < teamPlayers.length; i++) {
+        var player = teamPlayers[i];
+        if (!player.isGoalie) continue;
+        var id = String(player.id);
+        if (!dataLine.objects[id]) continue;
+        playerId = id;
+        break;
+    }
     if (!playerId) return null;
 
     var object1 = dataLine.objects[playerId];
-    if (!object1) return null;
-
     var object2 = (gameData.tracking[frame + 1] ?? dataLine).objects[playerId] ?? object1;
     return getCoordinates(object1, object2)[0];
 }
 
-function getGoalKeepers(frame) {
+function getGamePoints(frame, team, options) {
+    options = options || {};
+    var goalkeepersOnly = options.goalkeepersOnly === true;
     var points = [];
     var dataLine = gameData.tracking[frame];
-    var dataLine2 = gameData.tracking[frame + 1];
-
-    for (var playerId in dataLine.objects) {
-        if (!isGoalkeeperPlayer(playerId)) continue;
-
-        var object1 = dataLine.objects[playerId];
-        var object2 = dataLine2.objects[playerId] ?? object1;
-        var [h, v] = getCoordinates(object1, object2);
-        var [x, y] = pt(h, v);
-        points.push([x, y, gameData.players.team1.includes(String(playerId)) ? 1 : 2]);
-    }
-
-    return points;
-}
-
-function getGamePoints(frame, team) {
-    var points = [];
-    var dataLine = gameData.tracking[frame];
-    var dataLine2 = gameData.tracking[frame + 1];
+    if (!dataLine) return goalkeepersOnly ? points : [points];
+    var dataLine2 = gameData.tracking[frame + 1] ?? dataLine;
     var teamIds = team === 1 ? gameData.players.team1 : gameData.players.team2;
 
     for (var playerId in dataLine.objects) {
         if (!teamIds.includes(String(playerId))) continue;
-        if (isGoalkeeperPlayer(playerId)) continue;
+        var isGk = isGoalkeeperPlayer(playerId);
+        if (goalkeepersOnly ? !isGk : isGk) continue;
 
         var object1 = dataLine.objects[playerId];
         var object2 = dataLine2.objects[playerId] ?? object1;
         var [h, v] = getCoordinates(object1, object2);
         var [x, y] = pt(h, v);
-        points.push(x, y);
+        if (goalkeepersOnly) {
+            points.push([x, y, team]);
+        } else {
+            points.push(x, y);
+        }
     }
 
-    return [points];
+    return goalkeepersOnly ? points : [points];
 }
 
 function drawGameSetup() {
@@ -131,6 +116,8 @@ function drawGameSetup() {
     pitchOffsetX = (gameCanvas.width - convertDist(gameData.pitch.length)) / 2;
     pitchOffsetY = (gameCanvas.height - convertDist(gameData.pitch.width)) / 2;
 }
+
+//-------------------------------- drawing functions --------------------------------//
 
 function drawPlayerLabels(frame) {
     var dataLine = gameData.tracking[frame];
@@ -248,10 +235,12 @@ function dirLabel(name, color, attacksRight) {
 }
 
 function getHomeAttacksRight(frame) {
-    var period = getPeriod(frame);
+    //determines if the home team is attacking from the right side of the pitch
+    //based on the position of the goalkeepers at the start of the period
+    var periodIndex = gameData.tracking[frame].period - 1;
     var startFrame =
         gameData.periods && gameData.periods.length > 0
-            ? gameData.periods[period].startFrame
+            ? gameData.periods[periodIndex].startFrame
             : 0;
 
     var savedDelta = frameDelta;
@@ -266,19 +255,10 @@ function getHomeAttacksRight(frame) {
     return true;
 }
 
-function getTeamGoalLineH(frame, team) {
-    var halfLength = gameData.pitch.length / 2;
-    var homeAttacksRight = getHomeAttacksRight(frame);
-    if (team === 1) {
-        return homeAttacksRight ? halfLength : -halfLength;
-    }
-    return homeAttacksRight ? -halfLength : halfLength;
-}
-
 function getPitchDirectionHtml(frame) {
-    var period = getPeriod(frame);
-    if (pitchDirectionCache[period] != null) {
-        return pitchDirectionCache[period];
+    var periodIndex = gameData.tracking[frame].period - 1;
+    if (pitchDirectionCache[periodIndex] != null) {
+        return pitchDirectionCache[periodIndex];
     }
 
     var savedDelta = frameDelta;
@@ -298,13 +278,13 @@ function getPitchDirectionHtml(frame) {
         ? dirLabel(awayName, awayColor, false)
         : dirLabel(homeName, homeColor, false);
 
-    pitchDirectionCache[period] =
+    pitchDirectionCache[periodIndex] =
         '<div class="pitch-direction-inner">' +
         '<span class="pitch-dir-side pitch-dir-side--left">' + leftLabel + "</span>" +
         '<span class="pitch-dir-side pitch-dir-side--right">' + rightLabel + "</span>" +
         "</div>";
 
-    return pitchDirectionCache[period];
+    return pitchDirectionCache[periodIndex];
 }
 
 function updatePitchDirectionBars(frame) {
@@ -314,7 +294,8 @@ function updatePitchDirectionBars(frame) {
     if (html === lastPitchDirectionHtml) return;
 
     lastPitchDirectionHtml = html;
-    for (var i = 1; i <= PITCH_COUNT; i++) {
+    var pitchCount = canvasLayout.pitchCount;
+    for (var i = 1; i <= pitchCount; i++) {
         var element = document.getElementById("pitch_direction_" + i);
         if (element) element.innerHTML = html;
     }

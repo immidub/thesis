@@ -27,16 +27,16 @@ function getDistanceMarkingEdges(frame, thresholdMeters) {
         for (var j = 0; j < attackers.length; j++) {
             var attacker = attackers[j];
             if (getMarkingPairDistanceSquared(defender, attacker, useProjectedPositions) > thresholdSq) {
-                continue;
+                continue; //if the distance between the defender and attacker is greater than the threshold, skip
             }
 
             if (ball != null &&
                 !passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees)) {
-                continue;
+                continue; //if the angle between the defender and attacker is greater than the threshold, skip
             }
 
             if (!passesMarkingEdgeFilters(frame, defender, attacker)) {
-                continue;
+                continue; //if the edges do not pass the marking edge filters, skip
             }
 
             edges.push({

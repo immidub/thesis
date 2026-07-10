@@ -10,7 +10,7 @@ function filterKnnEdges(edges) {
     });
 }
 
-function getKnnMarkingEdges(frame, k) {
+function getKnnMarkingEdges(frame, k) { //gets the knn marking edges for the given frame and k
     if (!isBallLive(frame)) return [];
 
     var defendingTeam = getDefendingTeam(frame);
@@ -18,7 +18,7 @@ function getKnnMarkingEdges(frame, k) {
 
     var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
     var defenders = getTeamPlayerPositions(frame, defendingTeam);
-    var delaunayPairSet = knnDelaunayOpponentsOnly ? getDelaunayOpponentPairSet(frame) : null;
+    var delaunayPairSet = knnDelaunayOpponentsOnly ? getDelaunayOpponentPairSet(frame) : null; //gets the delaunay opponent pair set for the given frame
 
     if (knnAssignmentMode === "both") {
         return filterKnnEdges(getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet));
@@ -35,10 +35,10 @@ function getKnnMarkingEdges(frame, k) {
 }
 
 function getKnnPairKey(defenderId, attackerId) {
-    return defenderId + ":" + attackerId;
+    return String(defenderId) + ":" + String(attackerId);
 }
 
-function collectKnnBidirectionalPairs(defenders, attackers, k, frame) {
+function collectKnnBidirectionalPairs(defenders, attackers, k, frame) { // used to collect the bidirectional pairs for the knn algorithm
     var defenderToAttacker = [];
     var attackerToDefender = [];
 
@@ -75,7 +75,7 @@ function collectKnnBidirectionalPairs(defenders, attackers, k, frame) {
     return pairs;
 }
 
-function getKnnBidirectionalPairSet(frame, k) {
+function getKnnBidirectionalPairSet(frame, k) { //gets the bidirectional pair set for the given frame and k for hungarian marking
     if (!isBallLive(frame)) return null;
 
     var defendingTeam = getDefendingTeam(frame);
@@ -86,12 +86,12 @@ function getKnnBidirectionalPairSet(frame, k) {
     return collectKnnBidirectionalPairs(defenders, attackers, k, frame);
 }
 
-function markingPairInKnnSet(pairSet, defender, attacker) {
+function markingPairInKnnSet(pairSet, defender, attacker) { //used to check if the pair is in the knn set
     return pairSet != null &&
         pairSet[getKnnPairKey(String(defender.id), String(attacker.id))] === true;
 }
 
-function getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet) {
+function getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet) { //gets the both marking edges for the given defenders, attackers, k, frame and delaunay pair set
     var defenderToAttacker = [];
     var attackerToDefender = [];
 
@@ -133,46 +133,29 @@ function getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet)
     return merged;
 }
 
-function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefender, delaunayPairSet) {
-    for (var i = 0; i < sources.length; i++) {
-        var player = sources[i];
-        var distances = [];
-
-        for (var j = 0; j < targets.length; j++) {
-            var opp = targets[j];
-            distances.push({
-                opponent: opp,
-                distSq: getMarkingPairDistanceSquared(player, opp, useProjectedPositions),
-            });
+function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefender, delaunayPairSet) { //runs knn + filters + pushes edges to the array
+    collectKnnOpponentEdges(sources, targets, k, useProjectedPositions, function (player, opp) {
+        var defender = sourceIsDefender ? player : opp;
+        var attacker = sourceIsDefender ? opp : player;
+        if (!passesMarkingEdgeFilters(frame, defender, attacker)) {
+            return;
+        }
+        if (delaunayPairSet && !markingPairInDelaunaySet(delaunayPairSet, defender, attacker)) {
+            return;
         }
 
-        distances.sort(function (a, b) {
-            return a.distSq - b.distSq;
+        edges.push({
+            x1: player.x,
+            y1: player.y,
+            x2: opp.x,
+            y2: opp.y,
+            sourceId: player.id,
+            targetId: opp.id,
         });
-
-        var count = Math.min(k, distances.length);
-        for (var n = 0; n < count; n++) {
-            var opp = distances[n].opponent;
-            var defender = sourceIsDefender ? player : opp;
-            var attacker = sourceIsDefender ? opp : player;
-            if (!passesMarkingEdgeFilters(frame, defender, attacker)) {
-                continue;
-            }
-            if (delaunayPairSet && !markingPairInDelaunaySet(delaunayPairSet, defender, attacker)) {
-                continue;
-            }
-
-            edges.push({
-                x1: player.x,
-                y1: player.y,
-                x2: opp.x,
-                y2: opp.y,
-                sourceId: player.id,
-                targetId: opp.id,
-            });
-        }
-    }
+    });
 }
+
+//-------------------------------- setup functions --------------------------------//
 
 function setKnnK(value) {
     knnK = value;

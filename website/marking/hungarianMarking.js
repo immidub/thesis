@@ -4,9 +4,9 @@ var hungarianBallRadiusMeters = 15;
 var hungarianExcludeClosestAttackerToBall = false;
 var hungarianEdgeRestriction = "none";
 
-const HUNGARIAN_INFEASIBLE_COST = 1e15;
+const HUNGARIAN_INFEASIBLE_COST = 1e15; //used to mark infeasible pairs in the cost matrix
 
-function getHungarianAllowedPairSet(frame) {
+function getHungarianAllowedPairSet(frame) { //gets the allowed pair set for the given frame
     if (hungarianEdgeRestriction === "knn") {
         return {
             type: "knn",
@@ -22,7 +22,7 @@ function getHungarianAllowedPairSet(frame) {
     return null;
 }
 
-function markingPairAllowed(allowed, defender, attacker) {
+function markingPairAllowed(allowed, defender, attacker) { //used to check if the pair is allowed for the given allowed pair set
     if (!allowed || !allowed.pairs) return true;
     if (allowed.type === "knn") {
         return markingPairInKnnSet(allowed.pairs, defender, attacker);
@@ -33,7 +33,7 @@ function markingPairAllowed(allowed, defender, attacker) {
     return true;
 }
 
-function getHungarianMarkingEdges(frame, attackerCount) {
+function getHungarianMarkingEdges(frame, attackerCount) { //main function for hungarian marking
     if (!isBallLive(frame)) return [];
 
     var defendingTeam = getDefendingTeam(frame);
@@ -45,16 +45,16 @@ function getHungarianMarkingEdges(frame, attackerCount) {
     if (defenders.length === 0 || opponents.length === 0) return [];
 
     var selectedAttackers;
-    if (hungarianAttackerSelectionMode === "ball-radius") {
+    if (hungarianAttackerSelectionMode === "ball-radius") { //gets the attackers within the ball radius
         selectedAttackers = getAttackersWithinBallRadius(opponents, frame, hungarianBallRadiusMeters);
     } else {
-        var count = attackerCount != null ? attackerCount : hungarianAttackerCount;
+        var count = attackerCount != null ? attackerCount : hungarianAttackerCount; //gets the closest attackers
         selectedAttackers = getClosestAttackers(opponents, frame, count);
     }
 
     if (selectedAttackers.length === 0) return [];
 
-    if (hungarianExcludeClosestAttackerToBall) {
+    if (hungarianExcludeClosestAttackerToBall) { //excludes the closest attacker to the ball
         var closestAttacker = getClosestAttackerToBall(opponents, frame);
         if (closestAttacker != null) {
             var closestId = String(closestAttacker.id);
@@ -70,16 +70,16 @@ function getHungarianMarkingEdges(frame, attackerCount) {
 
     if (selectedAttackers.length === 0) return [];
 
-    var allowedPairSet = getHungarianAllowedPairSet(frame);
-    var costMatrix = buildDefenderOpponentCostMatrix(
+    var allowedPairSet = getHungarianAllowedPairSet(frame); //gets the allowed pair set
+    var costMatrix = buildDefenderOpponentCostMatrix( //builds the cost matrix
         defenders,
         selectedAttackers,
         useProjectedPositions,
         allowedPairSet
     );
-    var munkresOptions = allowedPairSet ? { padValue: HUNGARIAN_INFEASIBLE_COST } : undefined;
-    var indices = computeMunkres(costMatrix, munkresOptions);
-    return indicesToMarkingEdges(
+    var munkresOptions = allowedPairSet ? { padValue: HUNGARIAN_INFEASIBLE_COST } : undefined; //sets the padding value for the cost matrix
+    var indices = computeMunkres(costMatrix, munkresOptions); //computes the munkres algorithm
+    return indicesToMarkingEdges( //converts the indices to marking edges
         indices,
         defenders,
         selectedAttackers,
@@ -190,6 +190,8 @@ function indicesToMarkingEdges(indices, defenders, opponents, frame, allowedPair
     }
     return edges;
 }
+
+//-------------------------------- setup functions --------------------------------//
 
 function setHungarianAttackerCount(value) {
     hungarianAttackerCount = value;

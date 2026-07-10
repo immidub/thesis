@@ -2,18 +2,7 @@
 
 var doPrint = false;
 
-function computeBaseGraph(delaunay) {
-    var graph = []
-
-    for (var i = 0; i < delaunay.points.length/2; i++) {
-        const neighbors = Array.from(delaunay.neighbors(i));
-        graph.push(neighbors)
-    }
-    
-    return graph
-}
-
-function computeShapeGraph(delaunay, graph) {
+function computeShapeGraph(delaunay, graph) { //computes the shape graph for the given delaunay and graph
 
     let queue = new PriorityQueue();
 

@@ -10,6 +10,7 @@ var PITCH_EXPORT_OPTIONS = [
     { index: 5, label: "All outfield graph" },
 ];
 
+//picks supported mime type for recording
 function getClipMimeType() {
     if (typeof MediaRecorder === "undefined") return null;
     if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) return "video/webm;codecs=vp9";
@@ -24,50 +25,15 @@ function getClipTargetDurationSec(startFrame, endFrame) {
     return span / CLIP_EXPORT_PLAYBACK_SPEED;
 }
 
+//cleans time string for filename
 function sanitizeClipFilenamePart(str) {
     return (str || "").trim().replace(/[^\w.\-+]/g, "_");
 }
 
-function buildClipFilename(pitchIndex, pitchIndex2, startTime, endTime, ext) {
+function buildClipFilename(pitchIndex, startTime, endTime, ext) {
     var pitch = PITCH_EXPORT_OPTIONS.find(function (p) { return p.index === pitchIndex; });
     var slug = pitch ? pitch.label.toLowerCase().replace(/[^a-z0-9]+/g, "_") : "pitch_" + pitchIndex;
-    if (pitchIndex2 != null && pitchIndex2 !== pitchIndex) {
-        var pitch2 = PITCH_EXPORT_OPTIONS.find(function (p) { return p.index === pitchIndex2; });
-        var slug2 = pitch2 ? pitch2.label.toLowerCase().replace(/[^a-z0-9]+/g, "_") : "pitch_" + pitchIndex2;
-        slug = slug + "_vs_" + slug2;
-    }
     return slug + "_" + sanitizeClipFilenamePart(startTime) + "_to_" + sanitizeClipFilenamePart(endTime) + ext;
-}
-
-function getDualPitchExportCanvas(pitchIndexA, pitchIndexB) {
-    var canvasA = document.getElementById("canvas" + (pitchIndexA + 1));
-    var canvasB = document.getElementById("canvas" + (pitchIndexB + 1));
-    if (!canvasA || !canvasB) return null;
-
-    var exportCanvas = document.getElementById("clip_export_canvas");
-    if (!exportCanvas) {
-        exportCanvas = document.createElement("canvas");
-        exportCanvas.id = "clip_export_canvas";
-        exportCanvas.style.display = "none";
-        document.body.appendChild(exportCanvas);
-    }
-
-    exportCanvas.width = canvasA.width * 2;
-    exportCanvas.height = canvasA.height;
-    return {
-        canvas: exportCanvas,
-        ctx: exportCanvas.getContext("2d"),
-        canvasA: canvasA,
-        canvasB: canvasB,
-    };
-}
-
-function renderDualPitchForExport(pitchIndexA, pitchIndexB, frame, dualExport) {
-    renderPitchForExport(pitchIndexA, frame);
-    renderPitchForExport(pitchIndexB, frame);
-    dualExport.ctx.clearRect(0, 0, dualExport.canvas.width, dualExport.canvas.height);
-    dualExport.ctx.drawImage(dualExport.canvasA, 0, 0);
-    dualExport.ctx.drawImage(dualExport.canvasB, dualExport.canvasA.width, 0);
 }
 
 function setClipExportStatus(message, isError) {
@@ -77,6 +43,7 @@ function setClipExportStatus(message, isError) {
     el.className = "clip-export-status" + (isError ? " clip-export-status--error" : "");
 }
 
+//-------------------------------- export progress bar handling --------------------------------//
 function setClipExportProgress(percent, stepMessage) {
     var wrap = document.getElementById("clip_export_progress_wrap");
     var bar = document.getElementById("clip_export_progress_bar");
@@ -110,6 +77,7 @@ function renderPitchForExport(pitchIndex, frame) {
     drawPitchFrame(pitchIndex);
 }
 
+//-------------------------------- export handling --------------------------------//
 async function exportClipOnServer(blob, metadata) {
     var form = new FormData();
     form.append("metadata", JSON.stringify(metadata));
@@ -127,6 +95,7 @@ async function exportClipOnServer(blob, metadata) {
     return payload;
 }
 
+//if webm recording is not supported, fallback to downloading the clip
 function downloadClipFallback(blob, filename) {
     var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
@@ -136,7 +105,9 @@ function downloadClipFallback(blob, filename) {
     URL.revokeObjectURL(url);
 }
 
-async function exportPitchClip(pitchIndex, pitchIndex2, startTimeStr, endTimeStr) {
+//export pitch clip and handle errors
+async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
+    //error guards
     if (isExporting) return;
     if (gameData == null || maxFrame <= 0) {
         setClipExportStatus("Load match data first.", true);
@@ -189,22 +160,16 @@ async function exportPitchClip(pitchIndex, pitchIndex2, startTimeStr, endTimeStr
         return;
     }
 
-    var dualCompare = pitchIndex2 != null && pitchIndex2 !== pitchIndex;
-    var dualExport = dualCompare ? getDualPitchExportCanvas(pitchIndex, pitchIndex2) : null;
-    if (dualCompare && dualExport == null) {
-        setClipExportStatus("Pitch canvases not found.", true);
-        return;
-    }
-
-    var canvasEl = dualCompare ? dualExport.canvas : document.getElementById("canvas" + (pitchIndex + 1));
+    var canvasEl = document.getElementById("canvas" + (pitchIndex + 1));
     if (!canvasEl) {
         setClipExportStatus("Pitch canvas not found.", true);
         return;
     }
 
+    //calculate details for the export and set it up
     var targetDurationSec = getClipTargetDurationSec(startFrame, endFrame);
     var numFrames = endFrame - startFrame + 1;
-    var outputFilename = buildClipFilename(pitchIndex, dualCompare ? pitchIndex2 : null, startTimeStr, endTimeStr, ".mp4");
+    var outputFilename = buildClipFilename(pitchIndex, startTimeStr, endTimeStr, ".mp4");
 
     isExporting = true;
     var savedFrame = frameNr;
@@ -217,8 +182,9 @@ async function exportPitchClip(pitchIndex, pitchIndex2, startTimeStr, endTimeStr
 
     try {
         setClipExportStatus("");
-        setClipExportProgress(0, dualCompare ? "Recording pitch comparison…" : "Recording pitch frames…");
+        setClipExportProgress(0, "Recording pitch frames…");
 
+        //set up Media recorder
         var stream = canvasEl.captureStream(0);
         var track = stream.getVideoTracks()[0];
         var recorder = new MediaRecorder(stream, { mimeType: mimeType });
@@ -233,31 +199,29 @@ async function exportPitchClip(pitchIndex, pitchIndex2, startTimeStr, endTimeStr
         });
 
         recorder.start();
-
+        //render frames while recording
         var frameIndex = 0;
         for (var f = startFrame; f <= endFrame; f++) {
-            if (dualCompare) {
-                renderDualPitchForExport(pitchIndex, pitchIndex2, f, dualExport);
-            } else {
-                renderPitchForExport(pitchIndex, f);
-            }
-            track.requestFrame();
+            renderPitchForExport(pitchIndex, f);
+            track.requestFrame(); //push frame into recorder
             await new Promise(function (r) { requestAnimationFrame(r); });
             frameIndex++;
             setClipExportProgress(
                 5 + (frameIndex / numFrames) * 70,
-                (dualCompare ? "Recording pitch comparison… " : "Recording pitch frames… ") + frameIndex + " / " + numFrames
+                "Recording pitch frames… " + frameIndex + " / " + numFrames
             );
         }
 
         recorder.stop();
         await stopped;
 
+        //build blob from chunks
         var blob = new Blob(chunks, { type: mimeType });
+        //set progress bar to building combined clip
         setClipExportProgress(80, "Building combined clip…");
 
         try {
-            var result = await exportClipOnServer(blob, {
+            var result = await exportClipOnServer(blob, { //send to server to be combined with video
                 outputFilename: outputFilename,
                 numFrames: numFrames,
                 targetDurationSec: targetDurationSec,
@@ -272,7 +236,7 @@ async function exportPitchClip(pitchIndex, pitchIndex2, startTimeStr, endTimeStr
         }
     } catch (err) {
         setClipExportStatus("Export failed: " + err.message, true);
-    } finally {
+    } finally { //restore state before export
         frameNr = savedFrame;
         frameDelta = savedDelta;
         setFrameNr(savedFrame);
@@ -292,16 +256,11 @@ function populateClipPitchSelect(select) {
     });
 }
 
-function setupClipExport() {
+function setupClipExport() { //called by uiElements.js
     var select = document.getElementById("clip_pitch_select");
     if (!select) return;
 
     populateClipPitchSelect(select);
-
-    var select2 = document.getElementById("clip_pitch_select_2");
-    if (select2) {
-        populateClipPitchSelect(select2);
-    }
 
     document.getElementById("clip_set_start_btn").addEventListener("click", function () {
         document.getElementById("clip_start_time").value = frameToTime(frameNr);
@@ -313,10 +272,8 @@ function setupClipExport() {
 
     document.getElementById("clip_export_btn").addEventListener("click", function () {
         var pitchIndex = +document.getElementById("clip_pitch_select").value;
-        var pitchIndex2Raw = select2 ? select2.value : "";
-        var pitchIndex2 = pitchIndex2Raw === "" ? null : +pitchIndex2Raw;
         var startTime = document.getElementById("clip_start_time").value;
         var endTime = document.getElementById("clip_end_time").value;
-        exportPitchClip(pitchIndex, pitchIndex2, startTime, endTime);
+        exportPitchClip(pitchIndex, startTime, endTime);
     });
 }

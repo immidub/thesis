@@ -11,17 +11,19 @@
         <script src="../core/trackingJsonl.js"></script>
         <script src="../core/matchMeta.js"></script>
         <script src="../core/dataHandling.js"></script>
-        <script src="canvasHelper.js"></script>
+        <script src="../pitch/canvasHelper.js"></script>
         <script src="../pitch/pitchView.js"></script>
         <script src="../marking/common.js"></script>
+        <script src="../algorithms/delaunay.js"></script>
         <script src="kinematics.js"></script>
         <script src="ballReachability.js"></script>
         <script src="ballContest.js"></script>
         <script src="mutualHelp.js"></script>
         <script src="responsibilityMarking.js"></script>
+        <script src="../pitch/drawPlayers.js"></script>
         <script src="drawPitch.js"></script>
         <script src="../core/timeline.js"></script>
-        <script src="uiElements.js"></script>
+        <script src="../core/uiElements.js"></script>
 
         <link rel="stylesheet" type="text/css" href="../styles.css" />
 
@@ -144,6 +146,8 @@
             </div>
         </div>
         <script>
+            configureCanvasLayout({ pitchCount: 1, pitchesPerRow: 1, maxWidth: 900, minWidth: 400, gap: 0 });
+            configureUIElements({ enableClipExport: false });
             setupUIElements();
         </script>
     </body>

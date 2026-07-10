@@ -4,7 +4,7 @@ const DEFAULT_BALL_REACH_PARAMS = {
     kinematics: DEFAULT_KINEMATICS_PARAMS,
 };
 
-function getBallState(frame) {
+function getBallState(frame) { // gets the ball state for the given frame
     var dataLine = gameData && gameData.tracking ? gameData.tracking[frame] : null;
     if (!dataLine || !dataLine.objects || !dataLine.objects[gameData.ballId]) return null;
 
@@ -26,7 +26,7 @@ function getBallState(frame) {
     return { h: h1, v: v1, vel: vel };
 }
 
-function getAllPlayersForFrame(frame) {
+function getAllPlayersForFrame(frame) { // gets all the players for the given frame
     var players = [];
     for (var team = 1; team <= 2; team++) {
         var teamPlayers = getTeamPlayerPositions(frame, team, true);

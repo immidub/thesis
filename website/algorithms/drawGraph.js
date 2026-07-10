@@ -1,41 +1,27 @@
 const GRAPH_EDGE_COLOR = "#9333EA";
 
-function buildDelaunayFromPlayers(players) {
-    if (players.length < 2) return null;
-
-    var points = [];
-    for (var i = 0; i < players.length; i++) {
-        points.push([players[i].v, players[i].h]);
-    }
-
-    return {
-        delaunay: d3.Delaunay.from(points),
-        players: players,
-    };
-}
-
-function buildAttackingDelaunay(frame) {
+function buildAttackingDelaunay(frame) { //builds the attacking delaunay
     if (!isBallLive(frame)) return null;
 
-    var attackingTeam = getAttackingTeam(frame);
-    if (attackingTeam == null) return null;
+    var possessionTeam = getPossessionTeam(frame);
+    if (possessionTeam == null) return null;
 
-    return buildDelaunayFromPlayers(getTeamPlayerPositions(frame, attackingTeam));
+    return buildDelaunayFromPlayers(getTeamPlayerPositions(frame, possessionTeam));
 }
 
-function getAttackingDelaunayEdges(frame) {
+function getAttackingDelaunayEdges(frame) { //gets the attacking delaunay edges for the given frame
     var built = buildAttackingDelaunay(frame);
     if (!built) return [];
 
-    var graph = computeBaseGraph(built.delaunay);
+    var graph = computeDelaunayNeighborGraph(built.delaunay);
     return graphToCanvasEdges(graph, built.players, false, frame);
 }
 
-function getAttackingShapeGraphEdges(frame) {
+function getAttackingShapeGraphEdges(frame) { //gets the attacking shape graph edges for the given frame
     var built = buildAttackingDelaunay(frame);
     if (!built) return [];
 
-    var graph = computeBaseGraph(built.delaunay);
+    var graph = computeDelaunayNeighborGraph(built.delaunay);
     if (built.players.length >= 4) {
         computeShapeGraph(built.delaunay, graph);
     }
@@ -43,36 +29,19 @@ function getAttackingShapeGraphEdges(frame) {
     return graphToCanvasEdges(graph, built.players, false, frame);
 }
 
-function buildAllOutfieldPlayers(frame) {
-    if (!isBallLive(frame)) return null;
-
-    var team1Players = getTeamPlayerPositions(frame, 1);
-    var team2Players = getTeamPlayerPositions(frame, 2);
-
-    for (var i = 0; i < team1Players.length; i++) {
-        team1Players[i].team = 1;
-    }
-    for (var j = 0; j < team2Players.length; j++) {
-        team2Players[j].team = 2;
-    }
-
-    var players = team1Players.concat(team2Players);
-    return buildDelaunayFromPlayers(players);
-}
-
-function getAllOutfieldDelaunayEdges(frame) {
+function getAllOutfieldDelaunayEdges(frame) { //gets the all outfield delaunay edges for the given frame
     var built = buildAllOutfieldPlayers(frame);
     if (!built) return [];
 
-    var graph = computeBaseGraph(built.delaunay);
+    var graph = computeDelaunayNeighborGraph(built.delaunay);
     return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly, frame);
 }
 
-function getAllOutfieldShapeGraphEdges(frame) {
+function getAllOutfieldShapeGraphEdges(frame) { //gets the all outfield shape graph edges for the given frame
     var built = buildAllOutfieldPlayers(frame);
     if (!built) return [];
 
-    var graph = computeBaseGraph(built.delaunay);
+    var graph = computeDelaunayNeighborGraph(built.delaunay);
     if (built.players.length >= 4) {
         computeShapeGraph(built.delaunay, graph);
     }
@@ -80,35 +49,18 @@ function getAllOutfieldShapeGraphEdges(frame) {
     return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly, frame);
 }
 
-function getPlayerPairKey(playerA, playerB) {
-    var idA = String(playerA.id);
-    var idB = String(playerB.id);
-    return idA < idB ? idA + ":" + idB : idB + ":" + idA;
+function markingPairInDelaunaySet(pairSet, defender, attacker) { //used to check if the pair is in the delaunay set
+    return pairSet != null && pairSet[getUndirectedPairKey(defender.id, attacker.id)] === true;
 }
 
-function markingPairInDelaunaySet(pairSet, defender, attacker) {
-    return pairSet != null && pairSet[getPlayerPairKey(defender, attacker)] === true;
+function getDelaunayOpponentPairSet(frame) { //gets the delaunay opponent pair set for the given frame
+    return getAllOutfieldDelaunayOpponentPairSet(frame, {
+        applyGraphEdgeFilter: true,
+        emptyOnMiss: true,
+    });
 }
 
-function getDelaunayOpponentPairSet(frame) {
-    var built = buildAllOutfieldPlayers(frame);
-    if (!built) return null;
-
-    var graph = computeBaseGraph(built.delaunay);
-    var pairs = {};
-    for (var i = 0; i < graph.length; i++) {
-        for (var j = 0; j < graph[i].length; j++) {
-            var k = graph[i][j];
-            if (k <= i) continue;
-            if (built.players[i].team === built.players[k].team) continue;
-            if (!passesGraphEdgePairFilter(frame, built.players[i], built.players[k])) continue;
-            pairs[getPlayerPairKey(built.players[i], built.players[k])] = true;
-        }
-    }
-    return pairs;
-}
-
-function graphToCanvasEdges(graph, players, opponentsOnly, frame) {
+function graphToCanvasEdges(graph, players, opponentsOnly, frame) { //converts the graph to canvas edges
     var edges = [];
     for (var i = 0; i < graph.length; i++) {
         for (var j = 0; j < graph[i].length; j++) {
@@ -128,22 +80,17 @@ function graphToCanvasEdges(graph, players, opponentsOnly, frame) {
 }
 
 function drawGraphEdges(edges, color) {
-    if (!edges || edges.length === 0) return;
-
-    gameCanvas.ctx.strokeStyle = color != null ? color : GRAPH_EDGE_COLOR;
-    gameCanvas.ctx.lineWidth = 2;
-
-    for (var i = 0; i < edges.length; i++) {
-        var edge = edges[i];
-        gameCanvas.drawLine(edge.x1, edge.y1, edge.x2, edge.y2);
-    }
-
-    gameCanvas.ctx.lineWidth = 1;
+    drawCanvasEdges(edges, {
+        color: color != null ? color : GRAPH_EDGE_COLOR,
+        dashedSupport: false,
+    });
 }
 
 var attackingGraphMode = "delaunay";
 var allOutfieldGraphMode = "delaunay";
 var shapeGraphOpponentsOnly = false;
+
+//-------------------------------- setup functions --------------------------------//
 
 function setupAttackingGraphMode() {
     var radios = document.querySelectorAll('input[name="attacking_graph_mode"]');

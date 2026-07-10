@@ -4,6 +4,9 @@
 
 //code partly from: https://www.delftstack.com/howto/javascript/priority-queue-javascript/
 
+//this was used by Louis Epplers work https://github.com/louiseppler/FootballPlayerPositions
+// i am using the same implementation to keep the code consistent
+
 class QueueElement {
   constructor(element, priority) {
     this.element = element;

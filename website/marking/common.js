@@ -98,18 +98,58 @@ function getAngleAtBallDegrees(ball, pointA, pointB) {
     return Math.acos(cos) * (180 / Math.PI);
 }
 
-function drawMarkingEdges(edges, color) {
-    gameCanvas.ctx.strokeStyle = color;
-    gameCanvas.ctx.lineWidth = 2;
+function drawCanvasEdges(edges, options) { // draws the edges on the canvas
+    if (!edges || edges.length === 0) return;
+    options = options || {};
 
+    var ctx = gameCanvas.ctx;
+    var prevWidth = ctx.lineWidth;
+    var prevStroke = ctx.strokeStyle;
+    var prevDash = ctx.getLineDash();
+
+    ctx.strokeStyle = options.color != null ? options.color : MARKING_EDGE_COLOR;
+    ctx.lineWidth = options.lineWidth != null ? options.lineWidth : 2;
+
+    var dashedSupport = options.dashedSupport !== false;
     for (var i = 0; i < edges.length; i++) {
         var edge = edges[i];
-        gameCanvas.ctx.setLineDash(edge.dashed ? [6, 4] : []);
+        if (dashedSupport) {
+            ctx.setLineDash(edge.dashed ? [6, 4] : []);
+        }
         gameCanvas.drawLine(edge.x1, edge.y1, edge.x2, edge.y2);
     }
 
-    gameCanvas.ctx.setLineDash([]);
-    gameCanvas.ctx.lineWidth = 1;
+    ctx.setLineDash(prevDash);
+    ctx.strokeStyle = prevStroke;
+    ctx.lineWidth = prevWidth;
+}
+
+function drawMarkingEdges(edges, color) {
+    drawCanvasEdges(edges, { color: color, dashedSupport: true });
+}
+
+function collectKnnOpponentEdges(sources, targets, k, useProjected, processMatch) { //used to collect the edges for the knn algorithm
+    for (var i = 0; i < sources.length; i++) {
+        var player = sources[i];
+        var distances = [];
+
+        for (var j = 0; j < targets.length; j++) {
+            var opp = targets[j];
+            distances.push({
+                opponent: opp,
+                distSq: getMarkingPairDistanceSquared(player, opp, useProjected),
+            });
+        }
+
+        distances.sort(function (a, b) {
+            return a.distSq - b.distSq;
+        });
+
+        var count = Math.min(k, distances.length);
+        for (var n = 0; n < count; n++) {
+            processMatch(player, distances[n].opponent);
+        }
+    }
 }
 
 const GLOBAL_MAX_EDGE_LENGTH_METERS = 15;
@@ -136,6 +176,15 @@ function passesGlobalMaxEdgeLengthFilter(playerA, playerB) {
     return getMarkingPairDistanceSquared(playerA, playerB, useProjectedPositions) <= maxM * maxM;
 }
 
+function getTeamGoalLineH(frame, team) { //gets the horizontal coordinate of the goal line for the given team and frame
+    var halfLength = gameData.pitch.length / 2;
+    var homeAttacksRight = getHomeAttacksRight(frame);
+    if (team === 1) {
+        return homeAttacksRight ? halfLength : -halfLength;
+    }
+    return homeAttacksRight ? -halfLength : halfLength;
+}
+
 function passesGlobalBackwardEdgeFilter(frame, defender, attacker) {
     if (!backwardEdgeFilterEnabled) return true;
 
@@ -159,7 +208,7 @@ function passesMarkingEdgeFilters(frame, defender, attacker) {
     return true;
 }
 
-function passesGraphEdgePairFilter(frame, playerA, playerB) {
+function passesGraphEdgePairFilter(frame, playerA, playerB) { //used to filter the edges for the graph algorithm
     if (!passesGlobalMaxEdgeLengthFilter(playerA, playerB)) return false;
     if (playerA.team == null || playerB.team == null || playerA.team === playerB.team) return true;
 

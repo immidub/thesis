@@ -5,6 +5,8 @@ var frameDelta = 0;
 
 var timestampOffset = 0;
 
+//---------------- frame & UI element handling ----------------//
+
 function setFrameNr(frameNrLoc) {
     if (frameNrLoc != null) frameNr = frameNrLoc;
     $("#duration_slider").val(frameNr);
@@ -108,25 +110,7 @@ function setupPlaybackKeyboard() {
     });
 }
 
-function getPeriod(frame) {
-    if (!gameData.periods || gameData.periods.length === 0) {
-        return 0;
-    }
-    for (var i = 0; i < gameData.periods.length; i++) {
-        var period = gameData.periods[i];
-        var start = period.startFrame != null ? period.startFrame : 0;
-        var end = period.endFrame;
-        if (frame >= start && frame <= end) {
-            return i;
-        }
-    }
-    if (frame < gameData.periods[0].startFrame) return 0;
-    return gameData.periods.length - 1;
-}
-
-function getPeriodRegulationSeconds(periodIndex) {
-    return periodIndex > 2 ? 15 * 60 : 45 * 60;
-}
+//---------------- time display handling ----------------//
 
 function getPeriodMatchClockOffset(periodIndex) {
     var offset = 0;
@@ -134,20 +118,6 @@ function getPeriodMatchClockOffset(periodIndex) {
     if (periodIndex >= 2) offset += 45 * 60;
     if (periodIndex >= 3) offset += 15 * 60;
     return offset;
-}
-
-function getPeriodFrameRange(periodIndex) {
-    if (!gameData.periods || gameData.periods.length === 0) {
-        return { start: 0, end: maxFrame };
-    }
-    if (periodIndex < 0 || periodIndex >= gameData.periods.length) {
-        return null;
-    }
-    var period = gameData.periods[periodIndex];
-    return {
-        start: period.startFrame != null ? period.startFrame : 0,
-        end: Math.min(maxFrame, period.endFrame),
-    };
 }
 
 function periodIndexFromStoppageBaseMinutes(baseMin) {
@@ -169,7 +139,7 @@ function frameToTime(frame) {
         return (m < 10 ? "0" : "") + m + ":" + (sec < 10 ? "0" : "") + sec;
     }
 
-    var p = getPeriod(frame);
+    var p = gameData.tracking[frame].period - 1;
     var pTime = 45;
     if (p > 2) pTime = 15;
 
@@ -211,11 +181,12 @@ function getMatchClockSeconds(frame) {
     if (!gameData.periods || gameData.periods.length === 0) {
         return ts;
     }
-    return getPeriodMatchClockOffset(getPeriod(frame)) + ts;
+    return getPeriodMatchClockOffset(gameData.tracking[frame].period - 1) + ts;
 }
 
-// Parses playback-style game times. Stoppage uses "45+2:15" / "90+1:00".
-// Returns { seconds, periodIndex } so first-half stoppage is not confused with early second half.
+//---------------- time handling for clip export ----------------//
+
+//read game times
 function parseGameTime(str) {
     str = (str || "").trim();
     if (!str) return null;
@@ -248,18 +219,32 @@ function parseGameTime(str) {
     };
 }
 
-function timeToFrameInRange(seconds, startFrame, endFrame) {
+//calculate frame from game time
+function timeToFrame(parsed) {
+    if (!parsed) return 0;
+
+    var startFrame = 0;
+    var endFrame = maxFrame;
+    if (parsed.periodIndex != null && gameData.periods && gameData.periods.length > 0) {
+        var period = gameData.periods[parsed.periodIndex];
+        if (period) {
+            startFrame = period.startFrame != null ? period.startFrame : 0;
+            endFrame = Math.min(maxFrame, period.endFrame);
+        }
+    }
+
     var lo = startFrame;
     var hi = endFrame;
     while (lo < hi) {
         var mid = Math.floor((lo + hi) / 2);
-        if (getMatchClockSeconds(mid) < seconds) lo = mid + 1;
+        if (getMatchClockSeconds(mid) < parsed.seconds) lo = mid + 1;
         else hi = mid;
     }
     return lo;
 }
 
-// Broadcast wall-clock anchors in the MP4 (halftime break excluded between halves).
+// Broadcast wall-clock anchors in the MP4 of Qat - SUI (halftime break excluded between halves).
+//hardcoded for now, (video_kickoff_time in metadata isn't correct for Qat - SUI so couldn't use it)
 var VIDEO_FIRST_HALF_START_SEC = 23 * 60 + 39; // 23:39
 var VIDEO_FIRST_HALF_END_SEC = 1 * 3600 + 14 * 60 + 45; // 1:14:45
 var VIDEO_SECOND_HALF_START_SEC = 91 * 60; // 1:31:00
@@ -314,7 +299,7 @@ function frameToVideoSeconds(frame) {
     if (!gameData.periods || gameData.periods.length === 0) {
         return Math.max(0, mapGameClockToVideoSeconds(0, ts));
     }
-    return Math.max(0, mapGameClockToVideoSeconds(getPeriod(frame), ts));
+    return Math.max(0, mapGameClockToVideoSeconds(gameData.tracking[frame].period - 1, ts));
 }
 
 function formatVideoWallTime(seconds) {
@@ -330,11 +315,13 @@ function formatVideoWallTime(seconds) {
     return mStr + ":" + sStr;
 }
 
+
 function frameToVideoTime(frame) {
     if (gameData == null) return "--:--";
     return formatVideoWallTime(frameToVideoSeconds(frame));
 }
 
+//update time labels in the UI
 function updateTimeLabels(frame) {
     var gameEl = document.getElementById("time_label_text");
     var videoEl = document.getElementById("video_time_label_text");

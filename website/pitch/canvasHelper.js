@@ -1,9 +1,34 @@
+//canvasHelper.js handles the canvas setup and defines drawing functions for the pitch view
+
 var gameCanvases = [];
 var gameCanvas;
 var drawLoopStarted = false;
 
-const PITCH_COUNT = 6;
-const PITCHES_PER_ROW = 2;
+var canvasLayout = {
+    pitchCount: 6,
+    pitchesPerRow: 2,
+    maxWidth: 1500,
+    minWidth: 600,
+    gap: 12,
+};
+
+function configureCanvasLayout(options) {
+    if (!options) return;
+    for (var key in options) {
+        if (Object.prototype.hasOwnProperty.call(canvasLayout, key)) {
+            canvasLayout[key] = options[key];
+        }
+    }
+}
+
+// Backward-compatible alias for modules that still read PITCH_COUNT.
+Object.defineProperty(window, "PITCH_COUNT", {
+    configurable: true,
+    enumerable: true,
+    get: function () {
+        return canvasLayout.pitchCount;
+    },
+});
 
 class CanvasHelper {
     constructor(id, width, height) {
@@ -85,19 +110,27 @@ function startDrawLoop() {
 }
 
 function setupCanvases() {
-    var availableWidth = Math.min($(window).width() - 32, 1500);
-    if (availableWidth < 600) {
-        availableWidth = 600;
+    var layout = canvasLayout;
+    var availableWidth = Math.min($(window).width() - 32, layout.maxWidth);
+    if (availableWidth < layout.minWidth) {
+        availableWidth = layout.minWidth;
     }
 
-    var gap = 12;
-    var pitchWidth = Math.floor((availableWidth - gap * (PITCHES_PER_ROW - 1)) / PITCHES_PER_ROW);
-    // Landscape pitch: length (105 m) horizontal, width (68 m) vertical.
-    var pitchHeight = Math.floor(pitchWidth * (68 / 105));
+    var pitchWidth;
+    var pitchHeight;
+
+    if (layout.pitchCount === 1) {
+        pitchWidth = availableWidth;
+        pitchHeight = Math.floor(pitchWidth * (68 / 105));
+    } else {
+        var gap = layout.gap;
+        pitchWidth = Math.floor((availableWidth - gap * (layout.pitchesPerRow - 1)) / layout.pitchesPerRow);
+        pitchHeight = Math.floor(pitchWidth * (68 / 105));
+    }
 
     gameCanvases = [];
 
-    for (var i = 0; i < PITCH_COUNT; i++) {
+    for (var i = 0; i < layout.pitchCount; i++) {
         var canvas = new CanvasHelper("canvas" + (i + 1), pitchWidth, pitchHeight);
         canvas.clearCanvas();
         gameCanvases.push(canvas);

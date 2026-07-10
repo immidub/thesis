@@ -1,84 +1,9 @@
-// Zone of mutual help: Delaunay neighbors on the contestant's own team.
-
-function buildAllOutfieldPlayers(frame) {
-    if (!isBallLive(frame)) return null;
-
-    var team1Players = getTeamPlayerPositions(frame, 1);
-    var team2Players = getTeamPlayerPositions(frame, 2);
-
-    for (var i = 0; i < team1Players.length; i++) {
-        team1Players[i].team = 1;
-    }
-    for (var j = 0; j < team2Players.length; j++) {
-        team2Players[j].team = 2;
-    }
-
-    var players = team1Players.concat(team2Players);
-    if (players.length < 2) return null;
-
-    var points = [];
-    for (var k = 0; k < players.length; k++) {
-        points.push([players[k].v, players[k].h]);
-    }
-
-    return {
-        delaunay: d3.Delaunay.from(points),
-        players: players,
-    };
-}
-
-function getAllOutfieldDelaunayOpponentPairSet(frame) {
-    var built = buildAllOutfieldPlayers(frame);
-    if (!built) return {};
-
-    var graph = computeTeamDelaunayGraph(built.delaunay);
-    var pairs = {};
-
-    for (var i = 0; i < graph.length; i++) {
-        for (var j = 0; j < graph[i].length; j++) {
-            var k = graph[i][j];
-            if (k <= i) continue;
-            if (built.players[i].team === built.players[k].team) continue;
-            pairs[getMutualHelpPairKey(built.players[i].id, built.players[k].id)] = true;
-        }
-    }
-
-    return pairs;
-}
-
-function buildTeamDelaunay(frame, team) {
-    var players = getTeamPlayerPositions(frame, team);
-    if (players.length < 2) return null;
-
-    var points = [];
-    for (var i = 0; i < players.length; i++) {
-        points.push([players[i].v, players[i].h]);
-    }
-
-    return {
-        delaunay: d3.Delaunay.from(points),
-        players: players,
-    };
-}
-
-function computeTeamDelaunayGraph(delaunay) {
-    var graph = [];
-    var n = delaunay.points.length / 2;
-    for (var i = 0; i < n; i++) {
-        graph.push(Array.from(delaunay.neighbors(i)));
-    }
-    return graph;
-}
-
-function getMutualHelpPairKey(idA, idB) {
-    var a = String(idA);
-    var b = String(idB);
-    return a < b ? a + ":" + b : b + ":" + a;
-}
+// Zone of mutual help: teammates linked by Delaunay edges around each ball contestant.
 
 function getMutualHelpEdges(frame, contestants) {
     if (!contestants || contestants.length === 0) return [];
 
+    // Build one Delaunay graph per team (cached so we don't rebuild for every contestant).
     var teamBuilt = {};
     var teamGraph = {};
     var teamIndexById = {};
@@ -87,11 +12,11 @@ function getMutualHelpEdges(frame, contestants) {
         var team = contestants[t].team;
         if (teamBuilt[team]) continue;
 
-        var built = buildTeamDelaunay(frame, team);
+        var built = buildDelaunayFromPlayers(getTeamPlayerPositions(frame, team));
         teamBuilt[team] = built;
         if (!built) continue;
 
-        teamGraph[team] = computeTeamDelaunayGraph(built.delaunay);
+        teamGraph[team] = computeDelaunayNeighborGraph(built.delaunay); // computes the delaunay neighbor graph for the given team
 
         var byId = {};
         for (var i = 0; i < built.players.length; i++) {
@@ -103,6 +28,7 @@ function getMutualHelpEdges(frame, contestants) {
     var seen = {};
     var edges = [];
 
+    // For each contestant, draw edges to their same-team Delaunay neighbors.
     for (var c = 0; c < contestants.length; c++) {
         var contestant = contestants[c];
         if (!contestant || contestant.id == null || contestant.team == null) continue;
@@ -120,8 +46,8 @@ function getMutualHelpEdges(frame, contestants) {
             var neighbor = builtTeam.players[neighbors[n]];
             if (!neighbor) continue;
 
-            var pairKey = getMutualHelpPairKey(contestant.id, neighbor.id);
-            if (seen[pairKey]) continue;
+            var pairKey = getUndirectedPairKey(contestant.id, neighbor.id);
+            if (seen[pairKey]) continue; // avoid duplicate edges when two contestants share a neighbor
             seen[pairKey] = true;
 
             edges.push({
@@ -136,6 +62,7 @@ function getMutualHelpEdges(frame, contestants) {
     return edges;
 }
 
+// Returns the set of player IDs in the mutual-help zone: contestants plus their Delaunay neighbors.
 function getMutualHelpZonePlayerIds(frame, contestants) {
     var ids = {};
     if (!contestants || contestants.length === 0) return ids;
@@ -146,12 +73,13 @@ function getMutualHelpZonePlayerIds(frame, contestants) {
 
         ids[String(contestant.id)] = true;
 
-        var built = buildTeamDelaunay(frame, contestant.team);
+        // Neighbors on the same team's Delaunay triangulation are in the help zone.
+        var built = buildDelaunayFromPlayers(getTeamPlayerPositions(frame, contestant.team));
         if (!built) continue;
 
-        var graph = computeTeamDelaunayGraph(built.delaunay);
+        var graph = computeDelaunayNeighborGraph(built.delaunay);
         var indexById = {};
-        for (var i = 0; i < built.players.length; i++) {
+        for (var i = 0; i < built.players.length; i++) { // builds the index by id for the given built
             indexById[String(built.players[i].id)] = i;
         }
 
@@ -159,7 +87,7 @@ function getMutualHelpZonePlayerIds(frame, contestants) {
         if (idx == null) continue;
 
         var neighbors = graph[idx];
-        for (var n = 0; n < neighbors.length; n++) {
+        for (var n = 0; n < neighbors.length; n++) { // adds the neighbors to the ids
             var neighbor = built.players[neighbors[n]];
             if (neighbor) {
                 ids[String(neighbor.id)] = true;

@@ -1,5 +1,3 @@
-var isExporting = false;
-
 function draw() {
     if (gameCanvases.length === 0) return;
     if (gameData == null) return;
@@ -26,39 +24,24 @@ function draw() {
 
     drawTeam(1, null);
     drawTeam(2, null);
-    drawGoalKeepers(getGoalKeepers(frameNr), null);
+    drawGoalKeepers(frameNr, null);
     drawPlayerLabels(frameNr);
     drawBall(frameNr, ballLive);
 
-    // Debug: highlight controller / contestants (reachability-to-ball).
     if (ballLive) {
         drawBallContestOverlay(frameNr);
     }
     gameCanvas.ctx.restore();
 }
 
-const DEFENDING_PLAYER_BORDER_COLOR = "#1a1a1a";
-const DEFENDING_PLAYER_BORDER_WIDTH = 2.5;
-const PLAYER_DOT_RADIUS = 8;
-
-const CONTEST_CONTROLLER_RING_COLOR = "#16A34A"; // green
-const CONTEST_CONTESTANT_RING_COLOR = "#F59E0B"; // amber
+const CONTEST_CONTROLLER_RING_COLOR = "#16A34A";
+const CONTEST_CONTESTANT_RING_COLOR = "#F59E0B";
 const CONTEST_RING_WIDTH = 3.0;
 const CONTEST_RING_EXTRA_RADIUS = 3.5;
 
 const MUTUAL_HELP_EDGE_COLOR = "#94A3B8";
 const MUTUAL_HELP_EDGE_WIDTH = 1;
 const RESPONSIBILITY_MARKING_EDGE_WIDTH = 2;
-
-function getPlayerScreenPosition(frame, playerId) {
-    var dataLine = gameData.tracking[frame];
-    if (!dataLine || !dataLine.objects) return null;
-    var obj = dataLine.objects[String(playerId)];
-    if (!obj) return null;
-    var [h, v] = getCoordinates(obj, obj);
-    var [x, y] = pt(h, v);
-    return { x: x, y: y };
-}
 
 function drawRingAt(x, y, radius, color) {
     var ctx = gameCanvas.ctx;
@@ -73,45 +56,7 @@ function drawRingAt(x, y, radius, color) {
     ctx.lineWidth = prevWidth;
 }
 
-function drawResponsibilityMarkingEdges(edges) {
-    if (!edges || edges.length === 0) return;
-
-    var ctx = gameCanvas.ctx;
-    var prevWidth = ctx.lineWidth;
-    var prevStroke = ctx.strokeStyle;
-
-    ctx.lineWidth = RESPONSIBILITY_MARKING_EDGE_WIDTH;
-    ctx.strokeStyle = MARKING_EDGE_COLOR;
-
-    for (var i = 0; i < edges.length; i++) {
-        var edge = edges[i];
-        gameCanvas.drawLine(edge.x1, edge.y1, edge.x2, edge.y2);
-    }
-
-    ctx.strokeStyle = prevStroke;
-    ctx.lineWidth = prevWidth;
-}
-
-function drawMutualHelpEdges(edges) {
-    if (!edges || edges.length === 0) return;
-
-    var ctx = gameCanvas.ctx;
-    var prevWidth = ctx.lineWidth;
-    var prevStroke = ctx.strokeStyle;
-
-    ctx.lineWidth = MUTUAL_HELP_EDGE_WIDTH;
-    ctx.strokeStyle = MUTUAL_HELP_EDGE_COLOR;
-
-    for (var i = 0; i < edges.length; i++) {
-        var edge = edges[i];
-        gameCanvas.drawLine(edge.x1, edge.y1, edge.x2, edge.y2);
-    }
-
-    ctx.strokeStyle = prevStroke;
-    ctx.lineWidth = prevWidth;
-}
-
-function drawBallContestOverlay(frame) {
+function drawBallContestOverlay(frame) { // draws the ball contest overlay
     if (typeof inferBallContest !== "function") return;
     var res = inferBallContest(frame);
     if (!res || !res.ball) return;
@@ -119,12 +64,20 @@ function drawBallContestOverlay(frame) {
 
     if (!res.contestants || res.contestants.length === 0) return;
 
-    if (typeof getMutualHelpEdges === "function") {
-        drawMutualHelpEdges(getMutualHelpEdges(frame, res.contestants));
+    if (typeof getMutualHelpEdges === "function") { // draws the mutual help edges between the contestants
+        drawCanvasEdges(getMutualHelpEdges(frame, res.contestants), {
+            color: MUTUAL_HELP_EDGE_COLOR,
+            lineWidth: MUTUAL_HELP_EDGE_WIDTH,
+            dashedSupport: false,
+        });
     }
 
-    if (typeof getResponsibilityMarkingEdges === "function") {
-        drawResponsibilityMarkingEdges(getResponsibilityMarkingEdges(frame, res.contestants));
+    if (typeof getResponsibilityMarkingEdges === "function") { // draws the responsibility marking edges between the contestants
+        drawCanvasEdges(getResponsibilityMarkingEdges(frame, res.contestants), {
+            color: MARKING_EDGE_COLOR,
+            lineWidth: RESPONSIBILITY_MARKING_EDGE_WIDTH,
+            dashedSupport: false,
+        });
     }
 
     var ringColor = res.contestants.length === 1
@@ -136,43 +89,11 @@ function drawBallContestOverlay(frame) {
         if (!c || c.id == null) continue;
         var pos = getPlayerScreenPosition(frame, c.id);
         if (!pos) continue;
-        drawRingAt(
+        drawRingAt( // draws the ring at the position of the contestant
             pos.x,
             pos.y,
             PLAYER_DOT_RADIUS + CONTEST_RING_EXTRA_RADIUS,
             ringColor
         );
-    }
-}
-
-function drawTeam(team, defendingTeam) {
-    const [points] = getGamePoints(frameNr, team);
-    if (points == null || points.length === 0) return;
-
-    const fill = team == 1 ? gameData.homeTeam.colorShirt : gameData.awayTeam.colorShirt;
-    const isDefending = team === defendingTeam;
-
-    gameCanvas.ctx.fillStyle = fill;
-
-    for (var i = 0; i < points.length; i += 2) {
-        var x = points[i];
-        var y = points[i + 1];
-        gameCanvas.drawDot(x, y, PLAYER_DOT_RADIUS);
-        if (isDefending) {
-            gameCanvas.drawDotWithStroke(x, y, PLAYER_DOT_RADIUS, DEFENDING_PLAYER_BORDER_COLOR, DEFENDING_PLAYER_BORDER_WIDTH);
-        }
-    }
-}
-
-function drawGoalKeepers(points, defendingTeam) {
-    if (points == null) return;
-
-    gameCanvas.ctx.fillStyle = "#575757";
-
-    for (const point of points) {
-        gameCanvas.drawDot(point[0], point[1], PLAYER_DOT_RADIUS);
-        if (point[2] === defendingTeam) {
-            gameCanvas.drawDotWithStroke(point[0], point[1], PLAYER_DOT_RADIUS, DEFENDING_PLAYER_BORDER_COLOR, DEFENDING_PLAYER_BORDER_WIDTH);
-        }
     }
 }

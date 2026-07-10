@@ -14,6 +14,7 @@
         <script src="algorithms/priorityQueue.js"></script>
         <script src="algorithms/munkres.js"></script>
         <script src="pitch/canvasHelper.js"></script>
+        <script src="algorithms/delaunay.js"></script>
         <script src="algorithms/shapeGraph.js"></script>
         <script src="pitch/pitchView.js"></script>
         <script src="marking/common.js"></script>
@@ -25,6 +26,7 @@
         <script src="core/timeline.js"></script>
         <script src="core/clipExport.js"></script>
         <script src="core/uiElements.js"></script>
+        <script src="pitch/drawPlayers.js"></script>
         <script src="pitch/drawPitch.js"></script>
 
         <link rel="stylesheet" type="text/css" href="styles.css" />
@@ -191,12 +193,6 @@
                                     <select class="form-select form-select-sm" id="clip_pitch_select"></select>
                                 </label>
                                 <label class="clip-export-field">
-                                    Compare with
-                                    <select class="form-select form-select-sm" id="clip_pitch_select_2">
-                                        <option value="" selected>—</option>
-                                    </select>
-                                </label>
-                                <label class="clip-export-field">
                                     Start
                                     <div class="clip-export-time">
                                         <input type="text" class="form-control form-control-sm" id="clip_start_time" placeholder="23:45">
@@ -212,7 +208,7 @@
                                 </label>
                                 <button type="button" class="btn btn-secondary btn-sm" id="clip_export_btn">Export clips</button>
                             </div>
-                            <div class="clip-export-hint">Game time (same as playback clock), e.g. 23:45, 45+2:15 (1st-half stoppage), or 90+1:00. Use the + form for stoppage so it is not confused with the next half. Saves one stacked MP4 (game on top, pitch below) into <code>clips/</code>. Set <strong>Compare with</strong> to export two pitch views side by side below the game. Requires <code>python3 serve.py</code> and ffmpeg.</div>
+                            <div class="clip-export-hint">Game time (same as playback clock), e.g. 23:45, 45+2:15 (1st-half stoppage), or 90+1:00. Use the + form for stoppage so it is not confused with the next half. Saves one stacked MP4 (game on top, pitch below) into <code>clips/</code>. Requires <code>python3 serve.py</code> and ffmpeg.</div>
                             <div id="clip_export_progress_wrap" class="clip-export-progress" hidden>
                                 <div class="clip-export-progress-label" id="clip_export_progress_label">Preparing clip…</div>
                                 <div class="progress" id="clip_export_progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
