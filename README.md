@@ -14,16 +14,21 @@ input/
   20260613_FWC_XX_ABC-XYZ_FIFA_Unified_Event_Data_Metadata.json
 ```
 
-2. Convert (from repo root):
+2. Convert (from repo root). Parquet export needs pyarrow once:
 
 ```bash
-python3 convert_fwc_match.py
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python convert_fwc_match.py
 ```
+
+Or with system Python if pyarrow is already installed: `python3 convert_fwc_match.py`.
 
 Writes:
 
 - `data/tracking.jsonl` — frame-by-frame tracking for the viewer (jump fixer runs automatically: small 1-frame spikes are interpolated; large/systemic teleports set `live` to false; mismatched player speeds (if difference is over 5 m/s) are replaced from position deltas)
 - `data/metaData.json` — teams, goalkeepers, kit colours, and optional `videoSync`
+- `data/tracking.parquet` — same post-fix data for analysis (all frames, live and not; one row per player/ball per frame)
 
 3. Run the viewer:
 
@@ -64,6 +69,10 @@ One JSON object per line. Coordinates are metres on a 105×68 m pitch (origin at
 - `ball` — `xyz` required. `speed` optional from enriched data. `direction` is inferred by the converter from consecutive ball positions (including non-live previous frames; enriched ball direction was unreliable); first/untracked prior frame uses 0, and a stationary ball reuses the previous direction. Used by ball reachability when present.
 
 Distance to the ball is not stored; the viewer computes it from player and ball positions when needed.
+
+### Analysis parquet (`tracking.parquet`)
+
+Written by the converter after JSONL fix/validation. One row per entity (home player, away player, or ball) per frame — includes non-live frames. Columns: `period`, `frameIdx`, `gameClock`, `live`, `lastTouch`, `team` (`home` / `away` / `ball`), `playerId`, `number`, `isGoalie`, `x`, `y`, `z`, `speed`, `direction`. Coordinates match the JSONL (metres, pitch centre origin).
 
 ### Metadata (`metaData.json`)
 
