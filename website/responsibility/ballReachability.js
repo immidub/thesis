@@ -15,7 +15,7 @@ function getBallState(frame) { // gets the ball state for the given frame
     var [h1, v1] = getCoordinates(object1, object1);
     frameDelta = savedDelta;
 
-    // Use speed/direction from tracking (ball direction is precomputed in the converter).
+    // Use speed/direction from tracking (forward position deltas from the fixer).
     var vel = getPlayerVelocityVector(object1);
     return { h: h1, v: v1, vel: vel };
 }

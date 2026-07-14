@@ -5,8 +5,8 @@ expected by the website (tracking.jsonl and metaData.json), plus an analysis
 parquet (tracking.parquet) with one row per entity per frame.
 
 Usage (from repo root):
-    python3 convert_fwc_match.py
-    python3 convert_fwc_match.py --input-dir input --output-dir data
+    python3 preprocess/convert_fwc_match.py
+    python3 preprocess/convert_fwc_match.py --input-dir input --output-dir data
 
 Parquet writing requires pyarrow (see requirements.txt).
 """
@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
 import sys
 from collections import defaultdict
@@ -238,15 +237,6 @@ def derive_live(enriched_model: list[dict]) -> bool:
     return bool(ball.get("ballAlive"))
 
 
-def direction_from_positions(prev_xyz: list[float], xyz: list[float]) -> float | None:
-    """Infer direction degrees (-180..180) from frame-to-frame position delta."""
-    dx = xyz[0] - prev_xyz[0]
-    dy = xyz[1] - prev_xyz[1]
-    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
-        return None
-    return round(math.degrees(math.atan2(dy, dx)), 2)
-
-
 def sample_to_frame(
     sample: dict,
     frame_idx: int,
@@ -263,15 +253,12 @@ def sample_to_frame(
     home_players: list[dict] = []
     away_players: list[dict] = []
     ball_xyz: list[float] | None = None
-    ball_speed: float | None = None
     enriched_model = sample["enrichedModel"]
 
     for entity in enriched_model:
         position = entity.get("position")
         if position == "BALL":
             ball_xyz = convert_coords(entity["x"], entity["y"], entity["z"])
-            speed = entity.get("speed")
-            ball_speed = round(float(speed), 1) if speed is not None else None
             continue
         if position not in PLAYER_POSITIONS:
             continue
@@ -302,10 +289,8 @@ def sample_to_frame(
         frame["lastTouch"] = last_touch
 
     if ball_xyz is not None:
-        ball: dict = {"xyz": ball_xyz}
-        if ball_speed is not None:
-            ball["speed"] = ball_speed
-        frame["ball"] = ball
+        # speed/direction filled later by fix_tracking.recompute_ball_kinematics
+        frame["ball"] = {"xyz": ball_xyz}
     return frame
 
 
@@ -328,8 +313,6 @@ def write_tracking_jsonl(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     frame_total = len(frame_refs)
     frames_written = 0
-    prev_ball_xyz: list[float] | None = None
-    prev_ball_direction: float = 0.0
 
     with output_path.open("w", encoding="utf-8") as output_handle:
         for file_index, enriched_path in enumerate(enriched_files):
@@ -350,23 +333,8 @@ def write_tracking_jsonl(
                     period_two_start=period_two_start,
                     player_id_map=player_id_map,
                 )
-                # Infer ball direction from position deltas; enriched direction values for the ball were unreliable.
-                # Uses previous-frame coords even when that frame was not live. No prior ball track → 0;
-                # stationary ball → reuse previous direction.
-                ball = frame.get("ball")
-                if isinstance(ball, dict) and isinstance(ball.get("xyz"), list):
-                    if prev_ball_xyz is None:
-                        direction = 0.0
-                    else:
-                        direction = direction_from_positions(prev_ball_xyz, ball["xyz"])
-                        if direction is None:
-                            direction = prev_ball_direction
-                    ball["direction"] = direction
-                    prev_ball_xyz = ball["xyz"]
-                    prev_ball_direction = direction
-                else:
-                    prev_ball_xyz = None
-                    prev_ball_direction = 0.0
+                # Ball speed/direction come from forward position deltas in
+                # fix_tracking.recompute_ball_kinematics (enriched ball kinematics were unreliable).
 
                 output_handle.write(json.dumps(frame, separators=(",", ":")))
                 output_handle.write("\n")
@@ -641,7 +609,7 @@ def convert_match(input_dir: Path, output_dir: Path) -> None:
 
 
 def main() -> int:
-    repo_root = Path(__file__).resolve().parent
+    repo_root = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--input-dir",

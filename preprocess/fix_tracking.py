@@ -7,9 +7,12 @@ teleports) set live=false so analysis that only uses live ball skips them.
 When reported player speed disagrees with position deltas by more than 5 m/s,
 speed is replaced by the value implied from consecutive positions.
 
-Usage:
-    python3 fix_tracking.py
-    python3 fix_tracking.py data/tracking.jsonl
+Ball speed and direction are always recomputed from the forward position delta
+(current → next frame). Enriched ball kinematics are not used since they were unreliable.
+
+Usage (from repo root):
+    python3 preprocess/fix_tracking.py
+    python3 preprocess/fix_tracking.py data/tracking.jsonl
 """
 
 from __future__ import annotations
@@ -53,6 +56,26 @@ def direction_from_positions(prev_xyz: list[float], xyz: list[float]) -> float |
     if abs(dx) < 1e-9 and abs(dy) < 1e-9:
         return None
     return round(math.degrees(math.atan2(dy, dx)), 2)
+
+
+def ball_kinematics_from_positions(
+    curr_xyz: list[float],
+    next_xyz: list[float] | None,
+) -> tuple[float, float]:
+    """Ball speed/direction from current → next frame (matches old viewer getBallState).
+
+    Enriched ball speed/direction are not used. No next position or no movement → (0, 0).
+    """
+    if next_xyz is None:
+        return 0.0, 0.0
+    dx = next_xyz[0] - curr_xyz[0]
+    dy = next_xyz[1] - curr_xyz[1]
+    dist = math.hypot(dx, dy)
+    if dist < 1e-9:
+        return 0.0, 0.0
+    speed = round(dist * FRAME_RATE, 1)
+    direction = round(math.degrees(math.atan2(dy, dx)), 2)
+    return speed, direction
 
 
 def interpolate_xyz(prev_xyz: list[float], next_xyz: list[float]) -> list[float]:
@@ -124,25 +147,22 @@ def correct_player_speed_mismatches(frames: list[dict]) -> int:
     return corrected
 
 
-def recompute_ball_directions(frames: list[dict]) -> None:
-    prev_xyz: list[float] | None = None
-    prev_direction = 0.0
-    for frame in frames:
+def recompute_ball_kinematics(frames: list[dict]) -> None:
+    """Set ball speed and direction from forward position deltas on every frame."""
+    for index, frame in enumerate(frames):
         ball = frame.get("ball")
-        if isinstance(ball, dict) and valid_xyz(ball.get("xyz")):
-            xyz = ball["xyz"]
-            if prev_xyz is None:
-                direction = 0.0
-            else:
-                direction = direction_from_positions(prev_xyz, xyz)
-                if direction is None:
-                    direction = prev_direction
-            ball["direction"] = direction
-            prev_xyz = xyz
-            prev_direction = direction
-        else:
-            prev_xyz = None
-            prev_direction = 0.0
+        if not (isinstance(ball, dict) and valid_xyz(ball.get("xyz"))):
+            continue
+
+        next_xyz: list[float] | None = None
+        if index + 1 < len(frames):
+            next_ball = frames[index + 1].get("ball")
+            if isinstance(next_ball, dict) and valid_xyz(next_ball.get("xyz")):
+                next_xyz = next_ball["xyz"]
+
+        speed, direction = ball_kinematics_from_positions(ball["xyz"], next_xyz)
+        ball["speed"] = speed
+        ball["direction"] = direction
 
 
 def fix_tracking_frames(frames: list[dict]) -> dict[str, int]:
@@ -241,9 +261,9 @@ def fix_tracking_frames(frames: list[dict]) -> dict[str, int]:
                 stats["masked_not_live"] += 1
                 break
 
-    # After positions are settled, fix speed only where it disagrees with movement.
+    # After positions are settled, fix player speed mismatches and ball kinematics.
     stats["player_speed_corrected"] = correct_player_speed_mismatches(frames)
-    recompute_ball_directions(frames)
+    recompute_ball_kinematics(frames)
     return stats
 
 
@@ -281,7 +301,7 @@ def print_fix_stats(stats: dict[str, int], path: Path) -> None:
 
 
 def main() -> int:
-    repo_root = Path(__file__).resolve().parent
+    repo_root = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "tracking_path",

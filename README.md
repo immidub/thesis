@@ -19,14 +19,14 @@ input/
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python convert_fwc_match.py
+.venv/bin/python preprocess/convert_fwc_match.py
 ```
 
-Or with system Python if pyarrow is already installed: `python3 convert_fwc_match.py`.
+Or with system Python if pyarrow is already installed: `python3 preprocess/convert_fwc_match.py`.
 
 Writes:
 
-- `data/tracking.jsonl` — frame-by-frame tracking for the viewer (jump fixer runs automatically: small 1-frame spikes are interpolated; large/systemic teleports set `live` to false; mismatched player speeds (if difference is over 5 m/s) are replaced from position deltas)
+- `data/tracking.jsonl` — frame-by-frame tracking for the viewer (When converting the data the jump fixer runs automatically: small 1-frame spikes are interpolated; large/systemic teleports set `live` to false; mismatched player speeds (if difference is over 5 m/s) are replaced from position deltas)
 - `data/metaData.json` — teams, goalkeepers, kit colours, and optional `videoSync`
 - `data/tracking.parquet` — same post-fix data for analysis (all frames, live and not; one row per player/ball per frame)
 
@@ -66,9 +66,8 @@ One JSON object per line. Coordinates are metres on a 105×68 m pitch (origin at
 - `gameClock` — seconds from kickoff in that period.
 - `lastTouch` — `"home"` or `"away"` (optional).
 - `homePlayers` / `awayPlayers` — `playerId`, `number`, `xyz` required for playback. `speed` and `direction` are optional in custom JSONL (viewer falls back to zero velocity) but always written by the FIFA converter and needed for projected marking / reachability.
-- `ball` — `xyz` required. `speed` optional from enriched data. `direction` is inferred by the converter from consecutive ball positions (including non-live previous frames; enriched ball direction was unreliable); first/untracked prior frame uses 0, and a stationary ball reuses the previous direction. Used by ball reachability when present.
+- `ball` — `xyz` required. `speed` and `direction` are written by the fixer from the forward position delta (this frame → next). Enriched ball kinematics are not used.
 
-Distance to the ball is not stored; the viewer computes it from player and ball positions when needed.
 
 ### Analysis parquet (`tracking.parquet`)
 
@@ -107,7 +106,7 @@ Optional. Team names, kit colours, goalkeeper flags, and video sync. `players[].
 }
 ```
 
-Without metadata, teams default to “Home” / “Away” and goalkeepers are inferred from positions. Without `videoSync` in metadata, the viewer uses defaults in `website/core/timeline.js`.
+Without metadata, teams default to “Home” / “Away” and goalkeepers are inferred from positions. Without `videoSync` in metadata, the viewer uses defaults in `website/core/timeline.js`. More on that in [Video sync](#Video-sync)
 
 Then run `python3 serve.py` and open the URL above (or upload the JSONL from the entry screen).
 
@@ -127,6 +126,6 @@ Some behaviour is still match-specific. Update these when using a different matc
 |------|--------|----------------|
 | Broadcast MP4 for clip export | `serve.py` → `find_source_video()` | Filename in `clips/` (currently `281-M08-QAT-SUI-camera1-720p.mp4`) |
 | Video time label & clip sync (fallback) | `website/core/timeline.js` | `VIDEO_*_SEC` — used only when `metaData.json` has no `videoSync` (or a key is missing) |
-| Frame rate | `convert_fwc_match.py`, `website/core/trackingJsonl.js` | Assumes 50 Hz |
-| Pitch size | `convert_fwc_match.py`, `trackingJsonl.js` | 105×68 m |
-| Default kit colours | `convert_fwc_match.py` | Home `#B73B92`, away `#3395AB` |
+| Frame rate | `preprocess/convert_fwc_match.py`, `website/core/trackingJsonl.js` | Assumes 50 Hz |
+| Pitch size | `preprocess/convert_fwc_match.py`, `website/core/trackingJsonl.js` | 105×68 m |
+| Default kit colours | `preprocess/convert_fwc_match.py` | Home `#B73B92`, away `#3395AB` |

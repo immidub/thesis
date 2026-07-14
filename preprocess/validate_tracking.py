@@ -2,9 +2,9 @@
 """
 Validate tracking.jsonl for missing values and live-ball sanity checks.
 
-Usage:
-    python3 validate_tracking.py
-    python3 validate_tracking.py data/tracking.jsonl
+Usage (from repo root):
+    python3 preprocess/validate_tracking.py
+    python3 preprocess/validate_tracking.py data/tracking.jsonl
 """
 
 from __future__ import annotations
@@ -277,7 +277,7 @@ def print_report(report: ValidationReport, path: Path) -> None:
 
 
 def main() -> int:
-    repo_root = Path(__file__).resolve().parent
+    repo_root = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "tracking_path",
