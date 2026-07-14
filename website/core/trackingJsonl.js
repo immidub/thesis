@@ -99,7 +99,6 @@ function buildObject(entry) {
     };
     if (entry.speed != null) obj.speed = +entry.speed;
     if (entry.direction != null) obj.direction = +entry.direction;
-    if (entry.distToBall != null) obj.distToBall = +entry.distToBall;
     return obj;
 }
 

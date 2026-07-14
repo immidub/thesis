@@ -21,7 +21,6 @@ function getTeamPlayerPositions(frame, team, includeGoalkeepers) {
         };
         if (object.speed != null) player.speed = object.speed;
         if (object.direction != null) player.direction = object.direction;
-        if (object.distToBall != null) player.distToBall = object.distToBall;
         players.push(player);
     }
 

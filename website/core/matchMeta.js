@@ -23,6 +23,30 @@ function applyMatchMetadata(gameData, meta) {
 	if (meta.awayTeam) {
 		gameData.awayTeam = mergeTeamMetadata(gameData.awayTeam, meta.awayTeam);
 	}
+
+	applyVideoSyncFromMetadata(meta);
+}
+
+function applyVideoSyncFromMetadata(meta) {
+	if (!meta || !meta.videoSync) return;
+
+	var sync = meta.videoSync;
+	if (typeof VIDEO_FIRST_HALF_START_SEC !== "undefined" &&
+		Number.isFinite(sync.firstHalfStartSec)) {
+		VIDEO_FIRST_HALF_START_SEC = sync.firstHalfStartSec;
+	}
+	if (typeof VIDEO_FIRST_HALF_END_SEC !== "undefined" &&
+		Number.isFinite(sync.firstHalfEndSec)) {
+		VIDEO_FIRST_HALF_END_SEC = sync.firstHalfEndSec;
+	}
+	if (typeof VIDEO_SECOND_HALF_START_SEC !== "undefined" &&
+		Number.isFinite(sync.secondHalfStartSec)) {
+		VIDEO_SECOND_HALF_START_SEC = sync.secondHalfStartSec;
+	}
+	if (typeof VIDEO_SECOND_HALF_END_SEC !== "undefined" &&
+		Number.isFinite(sync.secondHalfEndSec)) {
+		VIDEO_SECOND_HALF_END_SEC = sync.secondHalfEndSec;
+	}
 }
 
 function mergeTeamMetadata(trackingTeam, metaTeam) {

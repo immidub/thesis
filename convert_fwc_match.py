@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Convert FIFA enriched tracking + unified match metadata into the formats
-expected by the website (tracking-produced.jsonl and metaData.json).
+expected by the website (tracking.jsonl and metaData.json).
 
 Usage (from repo root):
     python3 convert_fwc_match.py
@@ -12,10 +12,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+from validate_tracking import print_report, validate_tracking_jsonl
+from fix_tracking import fix_tracking_jsonl, print_fix_stats
 
 PITCH_LENGTH_M = 105.0
 PITCH_WIDTH_M = 68.0
@@ -37,6 +41,71 @@ def parse_enriched_filename(path: Path) -> tuple[int, int, int] | None:
 
 def title_case_team(name: str) -> str:
     return " ".join(part.capitalize() for part in name.strip().split())
+
+
+def parse_wall_clock_time(value: str | None) -> int | None:
+    """Parse HH:MM:SS (or MM:SS) into seconds"""
+    if not value or not isinstance(value, str):
+        return None
+
+    parts = value.strip().split(":")
+    try:
+        if len(parts) == 3:
+            hours, minutes, seconds = (int(part) for part in parts)
+        elif len(parts) == 2:
+            hours = 0
+            minutes, seconds = (int(part) for part in parts)
+        else:
+            return None
+    except ValueError:
+        return None
+
+    if minutes < 0 or minutes >= 60 or seconds < 0 or seconds >= 60 or hours < 0:
+        return None
+
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def find_phase(phases: list[dict] | None, phase_id: int) -> dict | None:
+    if not phases:
+        return None
+
+    for phase in phases:
+        if phase.get("phase_id") == phase_id:
+            return phase
+    return None
+
+
+def build_video_sync(match_metadata: dict) -> dict[str, int]:
+    """Map FIFA video_kickoff_time + phase anchors to MP4 wall-clock seconds."""
+    kickoff_sec = parse_wall_clock_time(match_metadata.get("video_kickoff_time"))
+    if kickoff_sec is None:
+        return {}
+
+    phases = match_metadata.get("phases")
+    phase_one = find_phase(phases, 1)
+    phase_two = find_phase(phases, 2)
+
+    video_sync: dict[str, int] = {
+        "firstHalfStartSec": kickoff_sec,
+    }
+
+    if phase_one:
+        phase_one_start = parse_wall_clock_time(phase_one.get("phase_start"))
+        phase_one_end = parse_wall_clock_time(phase_one.get("phase_end"))
+        if phase_one_end is not None:
+            phase_one_start_sec = phase_one_start if phase_one_start is not None else 0
+            video_sync["firstHalfEndSec"] = kickoff_sec + (phase_one_end - phase_one_start_sec)
+
+    if phase_two:
+        phase_two_start = parse_wall_clock_time(phase_two.get("phase_start"))
+        phase_two_end = parse_wall_clock_time(phase_two.get("phase_end"))
+        if phase_two_start is not None:
+            video_sync["secondHalfStartSec"] = kickoff_sec + phase_two_start
+        if phase_two_end is not None:
+            video_sync["secondHalfEndSec"] = kickoff_sec + phase_two_end
+
+    return video_sync
 
 
 def build_player_id_map(match_metadata: dict) -> dict[int, str]:
@@ -120,14 +189,12 @@ def build_player_entry(entity: dict, player_id_map: dict[int, str]) -> dict | No
 
     speed = entity.get("speed")
     direction = entity.get("direction")
-    dist_to_ball = entity.get("distToBall")
     return {
         "playerId": player_id,
         "number": entity["jerseyNumber"],
         "xyz": convert_coords(entity["x"], entity["y"], entity["z"]),
         "speed": round(float(speed), 1) if speed is not None else 0.0,
         "direction": round(float(direction), 2) if direction is not None else 0.0,
-        "distToBall": round(float(dist_to_ball) / 100.0, 2) if dist_to_ball is not None else 0.0,
     }
 
 
@@ -161,6 +228,15 @@ def derive_live(enriched_model: list[dict]) -> bool:
     return bool(ball.get("ballAlive"))
 
 
+def direction_from_positions(prev_xyz: list[float], xyz: list[float]) -> float | None:
+    """Infer direction degrees (-180..180) from frame-to-frame position delta."""
+    dx = xyz[0] - prev_xyz[0]
+    dy = xyz[1] - prev_xyz[1]
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return None
+    return round(math.degrees(math.atan2(dy, dx)), 2)
+
+
 def sample_to_frame(
     sample: dict,
     frame_idx: int,
@@ -177,7 +253,6 @@ def sample_to_frame(
     home_players: list[dict] = []
     away_players: list[dict] = []
     ball_xyz: list[float] | None = None
-    ball_direction: float | None = None
     ball_speed: float | None = None
     enriched_model = sample["enrichedModel"]
 
@@ -185,9 +260,7 @@ def sample_to_frame(
         position = entity.get("position")
         if position == "BALL":
             ball_xyz = convert_coords(entity["x"], entity["y"], entity["z"])
-            direction = entity.get("direction")
             speed = entity.get("speed")
-            ball_direction = round(float(direction), 2) if direction is not None else None
             ball_speed = round(float(speed), 1) if speed is not None else None
             continue
         if position not in PLAYER_POSITIONS:
@@ -220,8 +293,6 @@ def sample_to_frame(
 
     if ball_xyz is not None:
         ball: dict = {"xyz": ball_xyz}
-        if ball_direction is not None:
-            ball["direction"] = ball_direction
         if ball_speed is not None:
             ball["speed"] = ball_speed
         frame["ball"] = ball
@@ -247,6 +318,8 @@ def write_tracking_jsonl(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     frame_total = len(frame_refs)
     frames_written = 0
+    prev_ball_xyz: list[float] | None = None
+    prev_ball_direction: float = 0.0
 
     with output_path.open("w", encoding="utf-8") as output_handle:
         for file_index, enriched_path in enumerate(enriched_files):
@@ -267,6 +340,24 @@ def write_tracking_jsonl(
                     period_two_start=period_two_start,
                     player_id_map=player_id_map,
                 )
+                # Infer ball direction from position deltas; enriched direction values for the ball were unreliable.
+                # Uses previous-frame coords even when that frame was not live. No prior ball track → 0;
+                # stationary ball → reuse previous direction.
+                ball = frame.get("ball")
+                if isinstance(ball, dict) and isinstance(ball.get("xyz"), list):
+                    if prev_ball_xyz is None:
+                        direction = 0.0
+                    else:
+                        direction = direction_from_positions(prev_ball_xyz, ball["xyz"])
+                        if direction is None:
+                            direction = prev_ball_direction
+                    ball["direction"] = direction
+                    prev_ball_xyz = ball["xyz"]
+                    prev_ball_direction = direction
+                else:
+                    prev_ball_xyz = None
+                    prev_ball_direction = 0.0
+
                 output_handle.write(json.dumps(frame, separators=(",", ":")))
                 output_handle.write("\n")
                 frames_written += 1
@@ -323,6 +414,10 @@ def write_metadata_json(
         },
     }
 
+    video_sync = build_video_sync(match_metadata)
+    if video_sync:
+        metadata["videoSync"] = video_sync
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(metadata, handle, indent=2)
@@ -345,10 +440,10 @@ def convert_match(input_dir: Path, output_dir: Path) -> None:
     print(f"Period 2 starts at frameCount {period_two_start}")
     print(f"Goalkeepers detected: {len(goalkeepers)}")
 
-    tracking_path = output_dir / "tracking-produced.jsonl"
+    tracking_path = output_dir / "tracking.jsonl"
     metadata_output_path = output_dir / "metaData.json"
 
-    print("Writing tracking-produced.jsonl...")
+    print("Writing tracking.jsonl...")
     frames_written = write_tracking_jsonl(
         enriched_files,
         frame_refs,
@@ -359,6 +454,14 @@ def convert_match(input_dir: Path, output_dir: Path) -> None:
 
     print("Writing metaData.json...")
     write_metadata_json(match_metadata, goalkeepers, metadata_output_path)
+
+    print("Fixing tracking jumps...")
+    fix_stats = fix_tracking_jsonl(tracking_path)
+    print_fix_stats(fix_stats, tracking_path)
+
+    print("Validating tracking.jsonl...")
+    validation_report = validate_tracking_jsonl(tracking_path)
+    print_report(validation_report, tracking_path)
 
     print("Done.")
     print(f"  {tracking_path} ({frames_written} frames)")
@@ -378,7 +481,7 @@ def main() -> int:
         "--output-dir",
         type=Path,
         default=repo_root / "data",
-        help="Directory for tracking-produced.jsonl and metaData.json",
+        help="Directory for tracking.jsonl and metaData.json",
     )
     args = parser.parse_args()
 

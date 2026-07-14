@@ -9,20 +9,14 @@ function getBallState(frame) { // gets the ball state for the given frame
     if (!dataLine || !dataLine.objects || !dataLine.objects[gameData.ballId]) return null;
 
     var object1 = dataLine.objects[gameData.ballId];
-    var object2 = (gameData.tracking[frame + 1] ?? dataLine).objects[gameData.ballId] ?? object1;
 
     var savedDelta = frameDelta;
     frameDelta = 0;
     var [h1, v1] = getCoordinates(object1, object1);
-    var [h2, v2] = getCoordinates(object2, object2);
     frameDelta = savedDelta;
 
-    var dtSec = gameData && gameData.frameRate ? 1 / gameData.frameRate : 0.02;
-    var vel = { h: (h2 - h1) / dtSec, v: (v2 - v1) / dtSec };
-    if (!isFinite(vel.h) || !isFinite(vel.v)) {
-        vel = { h: 0, v: 0 };
-    }
-
+    // Use speed/direction from tracking (ball direction is precomputed in the converter).
+    var vel = getPlayerVelocityVector(object1);
     return { h: h1, v: v1, vel: vel };
 }
 

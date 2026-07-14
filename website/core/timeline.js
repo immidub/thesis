@@ -243,8 +243,8 @@ function timeToFrame(parsed) {
     return lo;
 }
 
-// Broadcast wall-clock anchors in the MP4 of Qat - SUI (halftime break excluded between halves).
-//hardcoded for now, (video_kickoff_time in metadata isn't correct for Qat - SUI so couldn't use it)
+// Broadcast wall-clock anchors in the MP4 (halftime break excluded between halves).
+// Defaults for QAT-SUI; overridden at load time from metaData.json videoSync when present.
 var VIDEO_FIRST_HALF_START_SEC = 23 * 60 + 39; // 23:39
 var VIDEO_FIRST_HALF_END_SEC = 1 * 3600 + 14 * 60 + 45; // 1:14:45
 var VIDEO_SECOND_HALF_START_SEC = 91 * 60; // 1:31:00

@@ -140,13 +140,10 @@ function getClosestAttackerToBall(attackers, frame) {
 }
 
 function attackerDistToBallSquared(attacker, frame) {
-    if (attacker.distToBall != null) {
-        return attacker.distToBall * attacker.distToBall;
-    }
-
     var ball = getBallPitchPosition(frame);
     if (!ball) return Infinity;
-    return getPitchDistanceSquared(ball.h, ball.v, attacker.h, attacker.v);
+    var pos = getPlayerMarkingPosition(attacker);
+    return getPitchDistanceSquared(ball.h, ball.v, pos.h, pos.v);
 }
 
 function buildDefenderOpponentCostMatrix(defenders, opponents, useProjected, allowedPairSet) {

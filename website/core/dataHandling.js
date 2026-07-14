@@ -13,7 +13,7 @@ function getLocalDataDir() {
 //try to load local data if not available then returns
 async function tryLoadLocalData() {
 	try {
-		var response = await fetch(getLocalDataDir() + "/tracking-produced.jsonl");
+		var response = await fetch(getLocalDataDir() + "/tracking.jsonl");
 		if (!response.ok) return;
 		await loadTrackingData(response);
 	} catch (err) {
