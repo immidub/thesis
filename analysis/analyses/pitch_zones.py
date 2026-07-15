@@ -1,0 +1,173 @@
+"""Marking metrics by fixed 12×8 pitch grid cells (attacker location)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from analysis.analyses.base import AnalysisContext
+from analysis.assignments.base import Edge
+from analysis.data import Frame
+from analysis.pitch import (
+    PITCH_ZONE_COLS,
+    PITCH_ZONE_ROWS,
+    pitch_cell,
+    pitch_cell_center,
+    pitch_cell_id,
+)
+from analysis.zone_metrics import (
+    accumulate_zone_frame,
+    attacker_degrees,
+    edge_lengths_by_attacker,
+    finalize_zone_stats,
+    style_ax,
+)
+
+
+class PitchZonesAnalysis:
+    name = "pitch_zones"
+
+    def run(
+        self,
+        frames: list[Frame],
+        edges_by_frame: list[list[Edge]],
+        ctx: AnalysisContext,
+    ) -> dict:
+        if len(frames) != len(edges_by_frame):
+            raise ValueError("frames and edges_by_frame length mismatch")
+
+        totals: dict[str, dict] = {}
+        assigned_frames = 0
+
+        for frame, edges in zip(frames, edges_by_frame):
+            defending = frame.defending_team
+            if defending is None:
+                continue
+            assigned_frames += 1
+            attacking = "away" if defending == "home" else "home"
+            attackers = frame.outfield_players(attacking)
+            degrees = attacker_degrees(edges)
+            lengths = edge_lengths_by_attacker(edges)
+
+            zone_of_attacker: dict[str, str] = {}
+            for attacker in attackers:
+                col, row = pitch_cell(attacker.x, attacker.y)
+                zone_of_attacker[attacker.player_id] = pitch_cell_id(col, row)
+
+            accumulate_zone_frame(
+                zone_of_attacker=zone_of_attacker,
+                degrees=degrees,
+                lengths_by_attacker=lengths,
+                totals=totals,
+            )
+
+        zone_order = [
+            pitch_cell_id(col, row)
+            for row in range(PITCH_ZONE_ROWS)
+            for col in range(PITCH_ZONE_COLS)
+        ]
+        rows = finalize_zone_stats(
+            totals, assigned_frames=assigned_frames, zone_order=zone_order
+        )
+
+        # Attach grid indices / centres for plotting
+        enriched: list[dict] = []
+        for row in rows:
+            # c{col}_r{row}
+            label = row["zone"]
+            col = int(label.split("_")[0][1:])
+            r = int(label.split("_")[1][1:])
+            cx, cy = pitch_cell_center(col, r)
+            enriched.append({**row, "col": col, "row": r, "centerX": cx, "centerY": cy})
+
+        per_zone = pd.DataFrame(enriched)
+        out_dir = ctx.out_dir
+        out_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = out_dir / "pitch_zones_summary.csv"
+        per_zone.to_csv(csv_path, index=False)
+
+        summary = {
+            "analysis": "pitch_zones",
+            "assignment": ctx.assignment.name,
+            "threshold_m": getattr(ctx.assignment, "threshold_m", None),
+            "grid": {"cols": PITCH_ZONE_COLS, "rows": PITCH_ZONE_ROWS},
+            "assignedFrames": assigned_frames,
+            "anchor": "attacker_position",
+            "metricsNote": (
+                "Attackers are binned by their (x,y) pitch cell. Assignments/edge "
+                "lengths are those edges whose attacker lies in the cell."
+            ),
+            "zones": enriched,
+            "outputs": {
+                "summaryCsv": str(Path("pitch_zones_summary.csv")),
+                "summaryJson": str(Path("pitch_zones_summary.json")),
+            },
+        }
+
+        plot_paths = _write_plots(per_zone, summary, out_dir)
+        summary["outputs"].update(plot_paths)
+
+        (out_dir / "pitch_zones_summary.json").write_text(
+            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+        )
+        return summary
+
+
+def _grid_matrix(per_zone: pd.DataFrame, column: str) -> np.ndarray:
+    mat = np.full((PITCH_ZONE_ROWS, PITCH_ZONE_COLS), np.nan, dtype=np.float64)
+    if per_zone.empty:
+        return mat
+    for _, row in per_zone.iterrows():
+        value = row[column]
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            continue
+        mat[int(row["row"]), int(row["col"])] = float(value)
+    return mat
+
+
+def _write_plots(per_zone: pd.DataFrame, summary: dict, out_dir: Path) -> dict[str, str]:
+    import matplotlib.pyplot as plt
+
+    assignment = summary.get("assignment", "assignment")
+    outputs: dict[str, str] = {}
+
+    heatmaps = [
+        ("meanAttackerDegree", "Mean attacker degree", "pitch_zones_mean_degree.png", "viridis"),
+        ("pctUnmarkedAttackers", "% unmarked attackers", "pitch_zones_pct_unmarked.png", "YlOrRd"),
+        ("meanEdgeLength", "Mean edge length (m)", "pitch_zones_mean_edge_length.png", "magma"),
+        (
+            "meanAssignmentsPerAssignedFrame",
+            "Mean assignments / frame",
+            "pitch_zones_mean_assignments.png",
+            "Blues",
+        ),
+        ("doubleMarkingRate", "Double-marking rate (%)", "pitch_zones_double_marking.png", "Oranges"),
+    ]
+
+    for column, title, filename, cmap in heatmaps:
+        path = out_dir / filename
+        fig, ax = plt.subplots(figsize=(10, 5.2))
+        mat = _grid_matrix(per_zone, column)
+        masked = np.ma.masked_invalid(mat)
+        im = ax.imshow(
+            masked,
+            origin="lower",
+            aspect="equal",
+            cmap=cmap,
+            interpolation="nearest",
+        )
+        ax.set_xticks(range(PITCH_ZONE_COLS))
+        ax.set_yticks(range(PITCH_ZONE_ROWS))
+        ax.set_xlabel("Pitch cell column (along length)")
+        ax.set_ylabel("Pitch cell row (along width)")
+        ax.set_title(f"{title} — {assignment}")
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        fig.tight_layout()
+        fig.savefig(path, dpi=150)
+        plt.close(fig)
+        outputs[column + "Png"] = str(Path(filename))
+
+    return outputs

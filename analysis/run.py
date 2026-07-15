@@ -156,6 +156,18 @@ def main(argv: list[str] | None = None) -> int:
                 + f"totalSwitches={s.get('totalSwitches', 0)}",
                 flush=True,
             )
+        elif name == "pitch_zones":
+            print(
+                f"pitch_zones: assignedFrames={run_summaries[name].get('assignedFrames', 0)} "
+                f"cells={len(run_summaries[name].get('zones', []))}",
+                flush=True,
+            )
+        elif name == "ball_zones":
+            zones = run_summaries[name].get("zones") or []
+            brief = ", ".join(
+                f"{z['zone']}={z.get('meanAttackerDegree')}" for z in zones
+            )
+            print(f"ball_zones: {brief}", flush=True)
 
     return 0
 
@@ -213,7 +225,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--analyses",
         nargs="+",
         default=["edge_counts"],
-        choices=["edge_counts", "edge_lengths", "goal_side", "temporal_stability"],
+        choices=[
+            "edge_counts",
+            "edge_lengths",
+            "goal_side",
+            "temporal_stability",
+            "pitch_zones",
+            "ball_zones",
+        ],
         help="Analyses to run",
     )
     parser.add_argument(

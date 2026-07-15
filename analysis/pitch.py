@@ -11,6 +11,47 @@ PITCH_WIDTH_M = 68.0
 HALF_LENGTH_M = PITCH_LENGTH_M / 2.0
 HALF_WIDTH_M = PITCH_WIDTH_M / 2.0
 
+PITCH_ZONE_COLS = 12  # along length (x)
+PITCH_ZONE_ROWS = 8   # along width (y)
+CELL_LENGTH_M = PITCH_LENGTH_M / PITCH_ZONE_COLS
+CELL_WIDTH_M = PITCH_WIDTH_M / PITCH_ZONE_ROWS
+
+BALL_ZONE_NEAR_M = 5.0
+BALL_ZONE_COOPERATION_M = 20.0
+
+
+def pitch_cell(x: float, y: float) -> tuple[int, int]:
+    """Return (col, row) on a 12×8 grid. col along x, row along y; origin = bottom-left of pitch."""
+    col = int(np.floor((x + HALF_LENGTH_M) / CELL_LENGTH_M))
+    row = int(np.floor((y + HALF_WIDTH_M) / CELL_WIDTH_M))
+    col = int(np.clip(col, 0, PITCH_ZONE_COLS - 1))
+    row = int(np.clip(row, 0, PITCH_ZONE_ROWS - 1))
+    return col, row
+
+
+def pitch_cell_id(col: int, row: int) -> str:
+    return f"c{col}_r{row}"
+
+
+def pitch_cell_center(col: int, row: int) -> tuple[float, float]:
+    x = -HALF_LENGTH_M + (col + 0.5) * CELL_LENGTH_M
+    y = -HALF_WIDTH_M + (row + 0.5) * CELL_WIDTH_M
+    return x, y
+
+
+def ball_zone(distance_m: float) -> str:
+    """Mutually exclusive ball zones around the ball.
+
+    - zone1_near: ≤ 5 m
+    - zone2_cooperation: (5 m, 20 m]
+    - zone3_far: > 20 m
+    """
+    if distance_m <= BALL_ZONE_NEAR_M:
+        return "zone1_near"
+    if distance_m <= BALL_ZONE_COOPERATION_M:
+        return "zone2_cooperation"
+    return "zone3_far"
+
 
 def goalkeeper(frame: Frame, team: str) -> Player | None:
     players = frame.home_players if team == "home" else frame.away_players

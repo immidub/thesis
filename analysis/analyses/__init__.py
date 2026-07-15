@@ -1,7 +1,4 @@
 """Per-match analyses over marking edges.
-
-Planned (not yet implemented):
-- ball_zone / threat awareness
 """
 
 from __future__ import annotations
@@ -9,9 +6,11 @@ from __future__ import annotations
 from typing import Callable
 
 from analysis.analyses.base import Analysis, AnalysisContext
+from analysis.analyses.ball_zones import BallZonesAnalysis
 from analysis.analyses.edge_counts import EdgeCountsAnalysis
 from analysis.analyses.edge_lengths import EdgeLengthsAnalysis
 from analysis.analyses.goal_side import GoalSideAnalysis
+from analysis.analyses.pitch_zones import PitchZonesAnalysis
 from analysis.analyses.temporal_stability import TemporalStabilityAnalysis
 
 ANALYSES: dict[str, Callable[..., Analysis]] = {
@@ -19,6 +18,8 @@ ANALYSES: dict[str, Callable[..., Analysis]] = {
     "edge_lengths": EdgeLengthsAnalysis,
     "goal_side": GoalSideAnalysis,
     "temporal_stability": TemporalStabilityAnalysis,
+    "pitch_zones": PitchZonesAnalysis,
+    "ball_zones": BallZonesAnalysis,
 }
 
 
@@ -35,9 +36,11 @@ __all__ = [
     "ANALYSES",
     "Analysis",
     "AnalysisContext",
+    "BallZonesAnalysis",
     "EdgeCountsAnalysis",
     "EdgeLengthsAnalysis",
     "GoalSideAnalysis",
+    "PitchZonesAnalysis",
     "TemporalStabilityAnalysis",
     "create_analysis",
 ]
