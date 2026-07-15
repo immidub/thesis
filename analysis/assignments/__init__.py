@@ -6,9 +6,13 @@ from typing import Callable
 
 from analysis.assignments.base import Assignment, Edge
 from analysis.assignments.distance_threshold import DistanceThresholdAssignment
+from analysis.assignments.knn import KNN_MODES, KnnAssignment
+from analysis.assignments.perfect_match import PerfectMatchAssignment
 
 ASSIGNMENTS: dict[str, Callable[..., Assignment]] = {
     "distance_threshold": DistanceThresholdAssignment,
+    "perfect_match": PerfectMatchAssignment,
+    "knn": KnnAssignment,
 }
 
 
@@ -26,5 +30,8 @@ __all__ = [
     "Assignment",
     "DistanceThresholdAssignment",
     "Edge",
+    "KNN_MODES",
+    "KnnAssignment",
+    "PerfectMatchAssignment",
     "create_assignment",
 ]

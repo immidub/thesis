@@ -19,6 +19,7 @@ from pathlib import Path
 from analysis.analyses import create_analysis
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments import create_assignment
+from analysis.assignments.knn import KNN_MODES
 from analysis.data import Frame, iter_frames, load_tracking
 
 
@@ -28,10 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = args.out.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    assignment_kwargs: dict = {}
-    if args.assignment == "distance_threshold":
-        assignment_kwargs["threshold_m"] = args.threshold
-
+    assignment_kwargs = _assignment_kwargs(args)
     assignment = create_assignment(args.assignment, **assignment_kwargs)
     analysis_names = args.analyses
 
@@ -81,6 +79,14 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def _assignment_kwargs(args: argparse.Namespace) -> dict:
+    if args.assignment == "distance_threshold":
+        return {"threshold_m": args.threshold}
+    if args.assignment == "knn":
+        return {"k": args.k, "mode": args.knn_mode}
+    return {}
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(
@@ -95,14 +101,32 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--assignment",
         default="distance_threshold",
-        choices=["distance_threshold"],
-        help="Marking assignment algorithm",
+        choices=["distance_threshold", "perfect_match", "knn"],
+        help=(
+            "Marking assignment: distance_threshold, perfect_match "
+            "(all-outfield min-cost matching), or knn"
+        ),
     )
     parser.add_argument(
         "--threshold",
         type=float,
         default=10.0,
         help="Distance threshold in metres (distance_threshold only)",
+    )
+    parser.add_argument(
+        "--k",
+        type=int,
+        default=1,
+        help="Number of nearest neighbours (knn only)",
+    )
+    parser.add_argument(
+        "--knn-mode",
+        default="defender-to-attacker",
+        choices=list(KNN_MODES),
+        help=(
+            "knn direction mode: defender-to-attacker, attacker-to-defender, "
+            "both-mutual (intersection), both-all (union)"
+        ),
     )
     parser.add_argument(
         "--analyses",

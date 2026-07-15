@@ -34,10 +34,20 @@ Writes:
 
 ```bash
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m analysis.run --threshold 10 --analyses edge_counts
+.venv/bin/python -m analysis.run --assignment distance_threshold --threshold 10 --analyses edge_counts --live-only
+.venv/bin/python -m analysis.run --assignment perfect_match --analyses edge_counts --live-only
+.venv/bin/python -m analysis.run --assignment knn --k 1 --knn-mode defender-to-attacker --analyses edge_counts --live-only
 ```
 
 Writes per-frame and aggregate edge counts under `analysis/output/edge_counts/`.
+
+Assignments:
+
+| `--assignment` | Options |
+|----------------|---------|
+| `distance_threshold` | `--threshold` metres (all pairs within range) |
+| `perfect_match` | min-cost matching of all outfield defenders ↔ attackers |
+| `knn` | `--k`; `--knn-mode` one of `defender-to-attacker`, `attacker-to-defender`, `both-mutual`, `both-all` |
 
 4. Run the viewer:
 
