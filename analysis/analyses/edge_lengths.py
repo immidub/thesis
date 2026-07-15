@@ -67,9 +67,8 @@ class EdgeLengthsAnalysis:
 
         summary = _build_summary(per_frame, all_lengths, lengths_by_period, ctx)
 
-        hist_path = out_dir / "edge_lengths_histogram.png"
-        _write_histogram_plot(summary, hist_path)
-        summary["outputs"]["histogramPng"] = str(Path("edge_lengths_histogram.png"))
+        plot_paths = _write_plots(per_frame, summary, out_dir)
+        summary["outputs"].update(plot_paths)
 
         summary_path = out_dir / "edge_lengths_summary.json"
         summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
@@ -136,7 +135,152 @@ def _bin_label(bin_start: float, bin_end: float | None) -> str:
     return f"{bin_start:.0f}–{bin_end:.0f}"
 
 
-def _write_histogram_plot(summary: dict, path: Path) -> None:
+def _style_ax(ax) -> None:
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+
+def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[str, str]:
+    import matplotlib.pyplot as plt
+
+    assignment = summary.get("assignment", "assignment")
+    assigned = per_frame.loc[
+        (per_frame["hasAssignment"] == True) & (per_frame["edgeCount"] > 0)
+    ]
+    outputs: dict[str, str] = {}
+
+    # 1) All-edge distance histogram (existing)
+    path = out_dir / "edge_lengths_histogram.png"
+    _write_distance_histogram_plot(summary, path)
+    outputs["histogramPng"] = str(Path(path.name))
+
+    # 2) Histogram of per-frame max marking distance
+    path = out_dir / "edge_lengths_max_histogram.png"
+    fig, ax = plt.subplots(figsize=(8.5, 4.2))
+    if not assigned.empty:
+        maxima = assigned["maxDistance"].dropna().to_numpy(dtype=np.float64)
+        finite_edges = list(HIST_EDGES_M[:-1]) + [
+            max(float(maxima.max()) + 1.0, HIST_EDGES_M[-2] + 1.0)
+        ]
+        counts, _ = np.histogram(maxima, bins=finite_edges)
+        labels = [
+            _bin_label(
+                HIST_EDGES_M[i],
+                None if HIST_EDGES_M[i + 1] == float("inf") else HIST_EDGES_M[i + 1],
+            )
+            for i in range(len(HIST_EDGES_M) - 1)
+        ]
+        total = int(counts.sum())
+        shares = [100.0 * c / total if total else 0.0 for c in counts]
+        bars = ax.bar(labels, shares, color="#5b8fd9", edgecolor="white", linewidth=0.6)
+        for bar, count in zip(bars, counts):
+            if count <= 0:
+                continue
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"{int(count):,}",
+                ha="center",
+                va="bottom",
+                fontsize=7.5,
+                color="#333333",
+            )
+        ax.set_ylim(0, max(shares) * 1.18 if shares else 1.0)
+    ax.set_xlabel("Max marking distance in frame (m)")
+    ax.set_ylabel("Share of frames (%)")
+    ax.set_title(f"Per-frame maximum distance — {assignment}")
+    _style_ax(ax)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    outputs["maxHistogramPng"] = str(Path(path.name))
+
+    # 3) Mean / p95 / max distance per live clock-minute
+    path = out_dir / "edge_lengths_per_minute.png"
+    fig, ax = plt.subplots(figsize=(10, 4.2))
+    per_minute = _per_minute_distance_table(per_frame)
+    if not per_minute.empty:
+        x = np.arange(len(per_minute))
+        ax.plot(x, per_minute["meanDistance"], color="#3d6b8c", linewidth=1.6, label="mean")
+        ax.plot(x, per_minute["p95Distance"], color="#c0392b", linewidth=1.2, linestyle="--", label="p95")
+        ax.plot(x, per_minute["maxDistance"], color="#7f8c8d", linewidth=1.0, alpha=0.8, label="max")
+        step = max(1, len(per_minute) // 12)
+        tick_idx = list(range(0, len(per_minute), step))
+        ax.set_xticks(tick_idx)
+        ax.set_xticklabels(
+            [per_minute.iloc[i]["label"] for i in tick_idx],
+            rotation=45,
+            ha="right",
+            fontsize=8,
+        )
+        ax.legend(frameon=False, fontsize=8)
+        per_minute.to_csv(out_dir / "edge_lengths_per_minute.csv", index=False)
+        outputs["perMinuteCsv"] = str(Path("edge_lengths_per_minute.csv"))
+    ax.set_ylabel("Distance (m)")
+    ax.set_xlabel("Match clock minute (live / assigned only)")
+    ax.set_title(f"Marking distance over live minutes — {assignment}")
+    _style_ax(ax)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    outputs["perMinutePng"] = str(Path(path.name))
+
+    # 4) Share of edges above distance thresholds
+    path = out_dir / "edge_lengths_threshold_shares.png"
+    fig, ax = plt.subplots(figsize=(7, 4.2))
+    thresholds = [5, 10, 15, 20, 25]
+    n_edges = summary.get("nEdges") or 0
+    if n_edges and assigned is not None:
+        # recompute from summary histogram approximately? Better use all lengths via hist bins —
+        # we only have summary histogram. Use per-frame isn't all edges.
+        # Reconstruct from summary histogram is approximate for inequality.
+        # Store threshold shares in summary during build; plot from summary.
+        shares = summary.get("thresholdShares") or {}
+        labels = [f">{t}" for t in thresholds]
+        vals = [100.0 * float(shares.get(str(t), 0.0)) for t in thresholds]
+        ax.bar(labels, vals, color="#3d6b8c", edgecolor="white", linewidth=0.6)
+        for i, v in enumerate(vals):
+            ax.text(i, v, f"{v:.1f}%", ha="center", va="bottom", fontsize=8, color="#333333")
+        ax.set_ylim(0, max(vals) * 1.2 if vals else 1.0)
+    ax.set_xlabel("Distance threshold (m)")
+    ax.set_ylabel("Share of edges longer than threshold (%)")
+    ax.set_title(f"Long marking edges — {assignment}")
+    _style_ax(ax)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    outputs["thresholdSharesPng"] = str(Path(path.name))
+
+    return outputs
+
+
+def _per_minute_distance_table(per_frame: pd.DataFrame) -> pd.DataFrame:
+    assigned = per_frame.loc[
+        (per_frame["hasAssignment"] == True) & (per_frame["edgeCount"] > 0)
+    ].copy()
+    if assigned.empty:
+        return pd.DataFrame(
+            columns=["period", "minute", "label", "assignedFrames", "meanDistance", "p95Distance", "maxDistance"]
+        )
+    assigned["minute"] = np.floor(assigned["gameClock"].to_numpy(dtype=np.float64) / 60.0).astype(int)
+    rows: list[dict] = []
+    for (period, minute), group in assigned.groupby(["period", "minute"], sort=True):
+        # Frame-level aggregates: mean of frame means; max of frame maxes; mean of frame p95s
+        rows.append(
+            {
+                "period": int(period),
+                "minute": int(minute),
+                "label": f"P{int(period)} {int(minute)}'",
+                "assignedFrames": int(len(group)),
+                "meanDistance": float(group["meanDistance"].mean()),
+                "p95Distance": float(group["p95Distance"].mean()),
+                "maxDistance": float(group["maxDistance"].max()),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _write_distance_histogram_plot(summary: dict, path: Path) -> None:
     import matplotlib.pyplot as plt
 
     bins = summary.get("histogram") or []
@@ -156,8 +300,7 @@ def _write_histogram_plot(summary: dict, path: Path) -> None:
     ax.set_ylabel("Share of edges (%)")
     ax.set_title(f"Marking distance distribution — {assignment}")
     ax.set_ylim(0, max(shares) * 1.18 if shares else 1.0)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
+    _style_ax(ax)
 
     for bar, count in zip(bars, counts):
         if count <= 0:
@@ -195,6 +338,14 @@ def _write_histogram_plot(summary: dict, path: Path) -> None:
     plt.close(fig)
 
 
+def _threshold_shares(lengths: list[float], thresholds: tuple[int, ...] = (5, 10, 15, 20, 25)) -> dict[str, float]:
+    if not lengths:
+        return {str(t): 0.0 for t in thresholds}
+    arr = np.asarray(lengths, dtype=np.float64)
+    n = float(arr.size)
+    return {str(t): float(np.mean(arr > t)) for t in thresholds}
+
+
 def _build_summary(
     per_frame: pd.DataFrame,
     all_lengths: list[float],
@@ -218,6 +369,12 @@ def _build_summary(
         for period, lengths in sorted(lengths_by_period.items())
     }
 
+    max_per_frame = (
+        per_frame.loc[assigned_mask & (per_frame["edgeCount"] > 0), "maxDistance"]
+        .dropna()
+        .tolist()
+    )
+
     return {
         "analysis": "edge_lengths",
         "assignment": assignment.name,
@@ -228,6 +385,8 @@ def _build_summary(
         "framesWithAtLeastOneEdge": frames_with_edges,
         **_distance_stats(all_lengths),
         "histogram": _histogram(all_lengths),
+        "maxDistanceHistogram": _histogram(max_per_frame),
+        "thresholdShares": _threshold_shares(all_lengths),
         "byPeriod": by_period,
         "outputs": {
             "perFrameCsv": str(Path("edge_lengths_per_frame.csv")),

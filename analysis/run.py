@@ -90,11 +90,23 @@ def main(argv: list[str] | None = None) -> int:
 
         if name == "edge_counts":
             s = run_summaries[name]
+            mean_deg = s.get("meanDegree")
+            max_deg = s.get("maxDegreeAcrossFrames")
+            max_def = s.get("maxDefenderDegreeAcrossFrames")
+            max_att = s.get("maxAttackerDegreeAcrossFrames")
+            extra = ""
+            if mean_deg is not None:
+                extra = f" meanDegree={mean_deg:.2f}"
+            if max_deg is not None:
+                extra += f" maxDegree={max_deg}"
+            if max_def is not None and max_att is not None:
+                extra += f" maxDef/Att={max_def}/{max_att}"
             print(
                 "edge_counts: "
                 f"assignedFrames={s['assignedFrames']} "
                 f"meanEdges={s['meanEdgesPerAssignedFrame']:.2f} "
-                f"maxEdges={s['maxEdgesPerAssignedFrame']}",
+                f"maxEdges={s['maxEdgesPerAssignedFrame']}"
+                + extra,
                 flush=True,
             )
         elif name == "edge_lengths":
@@ -124,6 +136,26 @@ def main(argv: list[str] | None = None) -> int:
                     f"notGoalSide={s['notGoalSidePercent']:.1f}%",
                     flush=True,
                 )
+        elif name == "temporal_stability":
+            s = run_summaries[name]
+            mean_dur = s.get("meanDurationSec")
+            mean_sw = s.get("meanSwitchesPerMinutePerPlayer")
+            print(
+                "temporal_stability: "
+                f"spells={s.get('nSpells', 0)} "
+                + (
+                    f"meanDuration={mean_dur:.2f}s "
+                    if mean_dur is not None
+                    else ""
+                )
+                + (
+                    f"meanSwitchRate={mean_sw:.2f}/min "
+                    if mean_sw is not None
+                    else ""
+                )
+                + f"totalSwitches={s.get('totalSwitches', 0)}",
+                flush=True,
+            )
 
     return 0
 
@@ -181,8 +213,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--analyses",
         nargs="+",
         default=["edge_counts"],
-        choices=["edge_counts", "edge_lengths", "goal_side"],
-        help="Analyses to run (edge_counts, edge_lengths, goal_side)",
+        choices=["edge_counts", "edge_lengths", "goal_side", "temporal_stability"],
+        help="Analyses to run",
     )
     parser.add_argument(
         "--out",

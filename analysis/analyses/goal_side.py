@@ -102,6 +102,10 @@ class GoalSideAnalysis:
             goal_side_by_period,
             ctx,
         )
+
+        plot_paths = _write_plots(per_frame, summary, out_dir)
+        summary["outputs"].update(plot_paths)
+
         summary_path = out_dir / "goal_side_summary.json"
         summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
@@ -174,3 +178,94 @@ def _build_summary(
             "summaryJson": str(Path("goal_side_summary.json")),
         },
     }
+
+
+def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[str, str]:
+    import matplotlib.pyplot as plt
+
+    assignment = summary.get("assignment", "assignment")
+    outputs: dict[str, str] = {}
+
+    # Match-level goal-side vs not
+    path = out_dir / "goal_side_share.png"
+    fig, ax = plt.subplots(figsize=(5.5, 4.2))
+    goal_pct = summary.get("goalSidePercent")
+    not_pct = summary.get("notGoalSidePercent")
+    if goal_pct is not None and not_pct is not None:
+        labels = ["Goal-side", "Not goal-side"]
+        vals = [goal_pct, not_pct]
+        colors = ["#3d6b8c", "#c0392b"]
+        bars = ax.bar(labels, vals, color=colors, edgecolor="white", width=0.55)
+        for bar, v in zip(bars, vals):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"{v:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=11,
+                fontweight="bold",
+                color="#333333",
+            )
+        ax.set_ylim(0, max(vals) * 1.2)
+    ax.set_ylabel("Share of marking edges (%)")
+    ax.set_title(f"Goal-side assignments — {assignment}")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    outputs["sharePng"] = str(Path(path.name))
+
+    # Per-frame goal-side share histogram
+    path = out_dir / "goal_side_per_frame_share_histogram.png"
+    fig, ax = plt.subplots(figsize=(7.5, 4.2))
+    assigned = per_frame.loc[
+        (per_frame["hasAssignment"] == True) & (per_frame["edgeCount"] > 0)
+    ]
+    if not assigned.empty:
+        shares = (100.0 * assigned["goalSideShare"].dropna()).to_numpy(dtype=float)
+        ax.hist(shares, bins=20, range=(0, 100), color="#3d6b8c", edgecolor="white", linewidth=0.6)
+        ax.axvline(
+            float(shares.mean()),
+            color="#c0392b",
+            linestyle="--",
+            linewidth=1.2,
+            label=f"mean frame share = {shares.mean():.1f}%",
+        )
+        ax.legend(frameon=False, fontsize=8)
+    ax.set_xlabel("Goal-side share in frame (%)")
+    ax.set_ylabel("Frames")
+    ax.set_title(f"Per-frame goal-side share — {assignment}")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    outputs["perFrameShareHistogramPng"] = str(Path(path.name))
+
+    # By period comparison
+    path = out_dir / "goal_side_by_period.png"
+    fig, ax = plt.subplots(figsize=(6, 4.2))
+    by_period = summary.get("byPeriod") or {}
+    if by_period:
+        periods = sorted(by_period.keys(), key=int)
+        goal_vals = [float(by_period[p]["goalSidePercent"] or 0.0) for p in periods]
+        not_vals = [float(by_period[p]["notGoalSidePercent"] or 0.0) for p in periods]
+        x = range(len(periods))
+        ax.bar(x, goal_vals, width=0.55, color="#3d6b8c", label="Goal-side")
+        ax.bar(x, not_vals, width=0.55, bottom=goal_vals, color="#c0392b", label="Not goal-side")
+        ax.set_xticks(list(x))
+        ax.set_xticklabels([f"Period {p}" for p in periods])
+        ax.set_ylim(0, 100)
+        ax.legend(frameon=False, fontsize=8)
+    ax.set_ylabel("Share of edges (%)")
+    ax.set_title(f"Goal-side by period — {assignment}")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    outputs["byPeriodPng"] = str(Path(path.name))
+
+    return outputs
