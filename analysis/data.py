@@ -1,4 +1,4 @@
-"""Load tracking parquet and iterate match frames for analysis."""
+"""Load tracking parquet and iterate match frames and players for analysis."""
 
 from __future__ import annotations
 

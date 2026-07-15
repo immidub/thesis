@@ -18,6 +18,7 @@ import pandas as pd
 
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments.base import Edge
+from analysis.assignments.meta import assignment_plot_label, assignment_summary_fields
 from analysis.data import Frame
 
 # Used only as fallback when gameClock does not advance.
@@ -245,7 +246,6 @@ def _build_summary(
     ctx: AnalysisContext,
 ) -> dict:
     assignment = ctx.assignment
-    threshold_m = getattr(assignment, "threshold_m", None)
 
     durations = (
         spells_df["durationSec"].astype(float).tolist() if not spells_df.empty else []
@@ -262,8 +262,7 @@ def _build_summary(
 
     return {
         "analysis": "temporal_stability",
-        "assignment": assignment.name,
-        "threshold_m": threshold_m,
+        **assignment_summary_fields(assignment),
         "definitions": {
             "spell": (
                 "Maximal run of consecutive assigned frames with the same "
@@ -317,7 +316,7 @@ def _write_plots(
 ) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    assignment = summary.get("assignment", "assignment")
+    assignment_label = assignment_plot_label(summary)
     outputs: dict[str, str] = {}
 
     durations = (
@@ -351,7 +350,7 @@ def _write_plots(
         ax.set_ylim(0, max(shares) * 1.18 if shares else 1.0)
     ax.set_xlabel("Assignment duration (s)")
     ax.set_ylabel("Share of spells (%)")
-    ax.set_title(f"Assignment duration distribution — {assignment}")
+    ax.set_title(f"Assignment duration distribution — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
@@ -376,7 +375,7 @@ def _write_plots(
         ax.set_ylim(0, 1.02)
     ax.set_xlabel("Assignment duration (s)")
     ax.set_ylabel("CDF")
-    ax.set_title(f"Assignment duration CDF — {assignment}")
+    ax.set_title(f"Assignment duration CDF — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
@@ -395,7 +394,7 @@ def _write_plots(
             ax.set_xticks(range(lo, hi + 1))
     ax.set_xlabel("Switches per player (as defender)")
     ax.set_ylabel("Players")
-    ax.set_title(f"Switches per defender — {assignment}")
+    ax.set_title(f"Switches per defender — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
@@ -420,7 +419,7 @@ def _write_plots(
             ax.legend(frameon=False, fontsize=8)
     ax.set_xlabel("Switches per active defending minute")
     ax.set_ylabel("Players")
-    ax.set_title(f"Switch rate per defender — {assignment}")
+    ax.set_title(f"Switch rate per defender — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
@@ -454,7 +453,7 @@ def _write_plots(
             ax.legend(frameon=False, fontsize=8)
     ax.set_ylabel("Switches")
     ax.set_xlabel("Match clock minute (assigned play only)")
-    ax.set_title(f"Switches per live minute — {assignment}")
+    ax.set_title(f"Switches per live minute — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)

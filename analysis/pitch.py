@@ -1,4 +1,10 @@
-"""Pitch geometry helpers for spatial analyses."""
+"""Pitch geometry helpers for spatial analyses.
+
+Consists of pitch zone and ball zone definitions
+
+Also includes helpers for finding the direction of play and goal side marking edges.
+
+"""
 
 from __future__ import annotations
 

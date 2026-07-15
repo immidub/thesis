@@ -12,6 +12,7 @@ import pandas as pd
 
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments.base import Edge
+from analysis.assignments.meta import assignment_plot_label, assignment_summary_fields
 from analysis.data import Frame
 
 
@@ -38,13 +39,9 @@ class EdgeCountsAnalysis:
         per_frame_path = out_dir / "edge_counts_per_frame.csv"
         per_frame.to_csv(per_frame_path, index=False)
 
-        per_minute = _per_minute_table(per_frame)
-        per_minute_path = out_dir / "edge_counts_per_minute.csv"
-        per_minute.to_csv(per_minute_path, index=False)
+        summary = _build_summary(per_frame, ctx)
 
-        summary = _build_summary(per_frame, per_minute, ctx)
-
-        plot_paths = _write_plots(per_frame, per_minute, summary, out_dir)
+        plot_paths = _write_plots(per_frame, summary, out_dir)
         summary["outputs"].update(plot_paths)
 
         summary_path = out_dir / "edge_counts_summary.json"
@@ -53,6 +50,7 @@ class EdgeCountsAnalysis:
         return summary
 
 
+# Helper function to compute the share of players in each degree bucket
 def _degree_bucket_shares(degrees: list[int]) -> dict[str, float | None]:
     n = len(degrees)
     if n == 0:
@@ -74,6 +72,7 @@ def _degree_bucket_shares(degrees: list[int]) -> dict[str, float | None]:
     }
 
 
+# Helper function to compute the edge counts for a frame
 def _frame_row(frame: Frame, edges: list[Edge]) -> dict:
     defending = frame.defending_team
     base = {
@@ -87,7 +86,6 @@ def _frame_row(frame: Frame, edges: list[Edge]) -> dict:
         "hasAssignment": defending is not None,
         "nDefenders": None,
         "nAttackers": None,
-        "meanDegree": None,
         "maxDegree": None,
         "maxDefenderDegree": None,
         "maxAttackerDegree": None,
@@ -121,15 +119,9 @@ def _frame_row(frame: Frame, edges: list[Edge]) -> dict:
 
     n_def = len(defender_degrees)
     n_att = len(attacker_degrees)
-    n_nodes = n_def + n_att
 
     att_shares = _degree_bucket_shares(attacker_degrees)
     def_shares = _degree_bucket_shares(defender_degrees)
-
-    if n_nodes:
-        mean_degree = 2.0 * len(edges) / n_nodes
-    else:
-        mean_degree = None
 
     max_def = max(defender_degrees) if defender_degrees else None
     max_att = max(attacker_degrees) if attacker_degrees else None
@@ -139,7 +131,6 @@ def _frame_row(frame: Frame, edges: list[Edge]) -> dict:
         {
             "nDefenders": n_def,
             "nAttackers": n_att,
-            "meanDegree": mean_degree,
             "maxDegree": max_all,
             "maxDefenderDegree": max_def,
             "maxAttackerDegree": max_att,
@@ -159,63 +150,17 @@ def _frame_row(frame: Frame, edges: list[Edge]) -> dict:
 def _mean_or_none(values: list[float]) -> float | None:
     return statistics.fmean(values) if values else None
 
-
-def _per_minute_table(per_frame: pd.DataFrame) -> pd.DataFrame:
-    """Mean assignments per clock minute, using assigned (live + possession) frames only.
-
-    Clock minutes with no assigned frames are omitted (stoppages / no-possession gaps).
-    """
-    assigned = per_frame.loc[per_frame["hasAssignment"] == True].copy()
-    if assigned.empty:
-        return pd.DataFrame(
-            columns=[
-                "period",
-                "minute",
-                "label",
-                "assignedFrames",
-                "meanEdges",
-                "totalEdges",
-                "meanDegree",
-                "meanMaxDegree",
-            ]
-        )
-
-    assigned["minute"] = np.floor(assigned["gameClock"].to_numpy(dtype=np.float64) / 60.0).astype(
-        int
-    )
-    rows: list[dict] = []
-    for (period, minute), group in assigned.groupby(["period", "minute"], sort=True):
-        rows.append(
-            {
-                "period": int(period),
-                "minute": int(minute),
-                "label": f"P{int(period)} {int(minute)}'",
-                "assignedFrames": int(len(group)),
-                "meanEdges": float(group["edgeCount"].mean()),
-                "totalEdges": int(group["edgeCount"].sum()),
-                "meanDegree": float(group["meanDegree"].mean())
-                if group["meanDegree"].notna().any()
-                else None,
-                "meanMaxDegree": float(group["maxDegree"].mean())
-                if group["maxDegree"].notna().any()
-                else None,
-            }
-        )
-    return pd.DataFrame(rows)
-
-
+# Helper function to aggregate maximum degree values and degree shares
 def _agg_degree_block(group: pd.DataFrame) -> dict:
-    mean_degree_vals = group["meanDegree"].dropna().tolist()
     max_degree_vals = group["maxDegree"].dropna().tolist()
     max_def_vals = group["maxDefenderDegree"].dropna().tolist()
     max_att_vals = group["maxAttackerDegree"].dropna().tolist()
 
     return {
-        "meanDegree": _mean_or_none(mean_degree_vals),
         "meanMaxDegreePerFrame": _mean_or_none(max_degree_vals),
-        "maxDegreeAcrossFrames": int(max(max_degree_vals)) if max_degree_vals else None,
         "meanMaxDefenderDegreePerFrame": _mean_or_none(max_def_vals),
         "meanMaxAttackerDegreePerFrame": _mean_or_none(max_att_vals),
+        "maxDegreeAcrossFrames": int(max(max_degree_vals)) if max_degree_vals else None,
         "maxDefenderDegreeAcrossFrames": int(max(max_def_vals)) if max_def_vals else None,
         "maxAttackerDegreeAcrossFrames": int(max(max_att_vals)) if max_att_vals else None,
         "attackerDegreeShares": {
@@ -237,28 +182,11 @@ def _agg_degree_block(group: pd.DataFrame) -> dict:
     }
 
 
-def _integer_histogram(values: list[int]) -> list[dict]:
-    if not values:
-        return []
-    counts = Counter(values)
-    total = len(values)
-    return [
-        {
-            "value": int(v),
-            "count": int(counts[v]),
-            "share": float(counts[v] / total),
-        }
-        for v in sorted(counts)
-    ]
-
-
 def _build_summary(
     per_frame: pd.DataFrame,
-    per_minute: pd.DataFrame,
     ctx: AnalysisContext,
 ) -> dict:
     assignment = ctx.assignment
-    threshold_m = getattr(assignment, "threshold_m", None)
 
     total_frames = int(len(per_frame))
     live_mask = per_frame["live"] == True
@@ -283,15 +211,6 @@ def _build_summary(
         _agg_degree_block(assigned) if assigned_frames else _agg_degree_block(per_frame.iloc[0:0])
     )
 
-    max_degrees = (
-        assigned["maxDegree"].dropna().astype(int).tolist() if assigned_frames else []
-    )
-    edge_hist = _integer_histogram([int(c) for c in counts])
-    max_degree_hist = _integer_histogram(max_degrees)
-
-    minute_means = per_minute["meanEdges"].dropna().tolist() if not per_minute.empty else []
-    mean_edges_per_live_minute = _mean_or_none(minute_means)
-
     by_period: dict[str, dict] = {}
     if assigned_frames:
         for period, group in assigned.groupby("period"):
@@ -308,8 +227,7 @@ def _build_summary(
 
     return {
         "analysis": "edge_counts",
-        "assignment": assignment.name,
-        "threshold_m": threshold_m,
+        **assignment_summary_fields(assignment),
         "totalFrames": total_frames,
         "liveFrames": live_frames,
         "assignedFrames": assigned_frames,
@@ -323,21 +241,9 @@ def _build_summary(
             frames_with_edges / assigned_frames if assigned_frames else 0.0
         ),
         **degree_block,
-        "edgeCountHistogram": edge_hist,
-        "maxDegreeHistogram": max_degree_hist,
-        "perMinute": {
-            "liveMinutes": int(len(per_minute)),
-            "meanAssignmentsPerLiveMinute": mean_edges_per_live_minute,
-            "note": (
-                "Each row is a (period, clock-minute) with ≥1 assigned frame "
-                "(live ball + known possession). Minutes with only non-live play "
-                "or no possession are omitted."
-            ),
-        },
         "byPeriod": by_period,
         "outputs": {
             "perFrameCsv": str(Path("edge_counts_per_frame.csv")),
-            "perMinuteCsv": str(Path("edge_counts_per_minute.csv")),
             "summaryJson": str(Path("edge_counts_summary.json")),
         },
     }
@@ -348,15 +254,25 @@ def _style_ax(ax) -> None:
     ax.spines["right"].set_visible(False)
 
 
+def _ticks_0_or_5(lo: int, hi: int) -> list[int]:
+    """Integer axis ticks that are multiples of 5 (or 10 for wide spans)."""
+    span = max(hi - lo, 0)
+    step = 5 if span <= 50 else 10
+    start = (lo // step) * step
+    end = ((hi + step - 1) // step) * step
+    if start == end:
+        return [start]
+    return list(range(start, end + 1, step))
+
+
 def _write_plots(
     per_frame: pd.DataFrame,
-    per_minute: pd.DataFrame,
     summary: dict,
     out_dir: Path,
 ) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    assignment = summary.get("assignment", "assignment")
+    assignment_label = assignment_plot_label(summary)
     assigned = per_frame.loc[per_frame["hasAssignment"] == True]
     outputs: dict[str, str] = {}
 
@@ -367,72 +283,53 @@ def _write_plots(
         values = assigned["edgeCount"].to_numpy(dtype=int)
         lo, hi = int(values.min()), int(values.max())
         bins = np.arange(lo, hi + 2) - 0.5
-        ax.hist(values, bins=bins, color="#3d6b8c", edgecolor="white", linewidth=0.6)
-        ax.set_xticks(range(lo, hi + 1))
-    ax.set_xlabel("Marking assignments per frame")
+        # Unit-width bins → density heights are fractions of frames.
+        ax.hist(
+            values,
+            bins=bins,
+            density=True,
+            color="#3d6b8c",
+            edgecolor="white",
+            linewidth=0.6,
+        )
+        ax.set_xticks(_ticks_0_or_5(lo, hi))
+    ax.set_xlabel("Marking edges")
     ax.set_ylabel("Frames")
-    ax.set_title(f"Assignments per frame — {assignment}")
+    ax.set_title(f"Frequency of edge counts across frames — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
     outputs["edgeCountHistogramPng"] = str(Path(path.name))
 
-    # 2) Mean assignments per live clock-minute
-    path = out_dir / "edge_counts_per_minute.png"
-    fig, ax = plt.subplots(figsize=(10, 4.2))
-    if not per_minute.empty:
-        x = np.arange(len(per_minute))
-        ax.bar(x, per_minute["meanEdges"], color="#3d6b8c", width=0.85, edgecolor="white")
-        step = max(1, len(per_minute) // 12)
-        tick_idx = list(range(0, len(per_minute), step))
-        ax.set_xticks(tick_idx)
-        ax.set_xticklabels(
-            [per_minute.iloc[i]["label"] for i in tick_idx],
-            rotation=45,
-            ha="right",
-            fontsize=8,
-        )
-        mean_line = summary.get("perMinute", {}).get("meanAssignmentsPerLiveMinute")
-        if mean_line is not None:
-            ax.axhline(
-                mean_line,
-                color="#c0392b",
-                linewidth=1.2,
-                linestyle="--",
-                label=f"mean over live minutes = {mean_line:.2f}",
-            )
-            ax.legend(frameon=False, fontsize=8)
-    ax.set_ylabel("Mean assignments")
-    ax.set_xlabel("Match clock minute (live / assigned only)")
-    ax.set_title(f"Mean assignments per live minute — {assignment}")
-    _style_ax(ax)
-    fig.tight_layout()
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    outputs["perMinutePng"] = str(Path(path.name))
-
-    # 3) Histogram of max degree per frame
+    # 2) Histogram of max degree per frame
     path = out_dir / "edge_counts_max_degree_histogram.png"
     fig, ax = plt.subplots(figsize=(7, 4.2))
     if not assigned.empty and assigned["maxDegree"].notna().any():
         values = assigned["maxDegree"].dropna().astype(int).to_numpy()
         lo, hi = int(values.min()), int(values.max())
         bins = np.arange(lo, hi + 2) - 0.5
-        ax.hist(values, bins=bins, color="#5b8fd9", edgecolor="white", linewidth=0.6)
-        ax.set_xticks(range(lo, hi + 1))
+        ax.hist(
+            values,
+            bins=bins,
+            density=True,
+            color="#5b8fd9",
+            edgecolor="white",
+            linewidth=0.6,
+        )
+        ax.set_xticks(_ticks_0_or_5(lo, hi))
     ax.set_xlabel("Maximum node degree in frame")
     ax.set_ylabel("Frames")
-    ax.set_title(f"Max degree per frame — {assignment}")
+    ax.set_title(f"Max degree per frame — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
     plt.close(fig)
     outputs["maxDegreeHistogramPng"] = str(Path(path.name))
 
-    # 4) Stacked bar: degree shares for attackers / defenders
+    # 3) Stacked bar: degree shares for attackers / defenders
     path = out_dir / "edge_counts_degree_shares.png"
-    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    fig, ax = plt.subplots(figsize=(7.2, 4.5))
     att = summary.get("attackerDegreeShares") or {}
     defn = summary.get("defenderDegreeShares") or {}
     categories = ["Attackers", "Defenders"]
@@ -450,13 +347,33 @@ def _write_plots(
             float(defn.get(key) or 0.0),
         ]
         ax.bar(x, heights, bottom=bottoms, color=color, edgecolor="white", width=0.55, label=label)
+        for xi, height, bottom in zip(x, heights, bottoms):
+            if height < 4.0:
+                continue
+            # Dark segments get light text; light segments get dark text.
+            text_color = "white" if key in ("pctDegree2", "pctDegree3Plus") else "#1f3d52"
+            ax.text(
+                xi,
+                bottom + height / 2.0,
+                f"{height:.1f}%",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color=text_color,
+            )
         bottoms = [b + h for b, h in zip(bottoms, heights)]
     ax.set_xticks(x)
     ax.set_xticklabels(categories)
     ax.set_ylabel("Share of players (%)")
     ax.set_ylim(0, 100)
-    ax.set_title(f"Degree distribution by role — {assignment}")
-    ax.legend(frameon=False, fontsize=8, loc="upper right")
+    ax.set_title(f"Degree distribution by role — {assignment_label}")
+    ax.legend(
+        frameon=False,
+        fontsize=8,
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1.0),
+        borderaxespad=0.0,
+    )
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)

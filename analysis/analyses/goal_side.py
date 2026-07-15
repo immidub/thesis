@@ -10,6 +10,7 @@ import pandas as pd
 
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments.base import Edge
+from analysis.assignments.meta import assignment_plot_label, assignment_summary_fields
 from analysis.data import Frame
 from analysis.pitch import (
     defended_goal_center,
@@ -146,7 +147,6 @@ def _build_summary(
     ctx: AnalysisContext,
 ) -> dict:
     assignment = ctx.assignment
-    threshold_m = getattr(assignment, "threshold_m", None)
 
     total_frames = int(len(per_frame))
     live_mask = per_frame["live"] == True
@@ -165,8 +165,7 @@ def _build_summary(
 
     return {
         "analysis": "goal_side",
-        "assignment": assignment.name,
-        "threshold_m": threshold_m,
+        **assignment_summary_fields(assignment),
         "totalFrames": total_frames,
         "liveFrames": live_frames,
         "assignedFrames": assigned_frames,
@@ -183,7 +182,7 @@ def _build_summary(
 def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    assignment = summary.get("assignment", "assignment")
+    assignment_label = assignment_plot_label(summary)
     outputs: dict[str, str] = {}
 
     # Match-level goal-side vs not
@@ -209,7 +208,7 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
             )
         ax.set_ylim(0, max(vals) * 1.2)
     ax.set_ylabel("Share of marking edges (%)")
-    ax.set_title(f"Goal-side assignments — {assignment}")
+    ax.set_title(f"Goal-side assignments — {assignment_label}")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     fig.tight_layout()
@@ -236,7 +235,7 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
         ax.legend(frameon=False, fontsize=8)
     ax.set_xlabel("Goal-side share in frame (%)")
     ax.set_ylabel("Frames")
-    ax.set_title(f"Per-frame goal-side share — {assignment}")
+    ax.set_title(f"Per-frame goal-side share — {assignment_label}")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     fig.tight_layout()
@@ -260,7 +259,7 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
         ax.set_ylim(0, 100)
         ax.legend(frameon=False, fontsize=8)
     ax.set_ylabel("Share of edges (%)")
-    ax.set_title(f"Goal-side by period — {assignment}")
+    ax.set_title(f"Goal-side by period — {assignment_label}")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     fig.tight_layout()

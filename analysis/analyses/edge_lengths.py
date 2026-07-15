@@ -12,6 +12,7 @@ import pandas as pd
 
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments.base import Edge
+from analysis.assignments.meta import assignment_plot_label, assignment_summary_fields
 from analysis.data import Frame
 
 # Fixed metre bins for the distance histogram (last bin is open-ended).
@@ -143,7 +144,7 @@ def _style_ax(ax) -> None:
 def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    assignment = summary.get("assignment", "assignment")
+    assignment_label = assignment_plot_label(summary)
     assigned = per_frame.loc[
         (per_frame["hasAssignment"] == True) & (per_frame["edgeCount"] > 0)
     ]
@@ -188,7 +189,7 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
         ax.set_ylim(0, max(shares) * 1.18 if shares else 1.0)
     ax.set_xlabel("Max marking distance in frame (m)")
     ax.set_ylabel("Share of frames (%)")
-    ax.set_title(f"Per-frame maximum distance — {assignment}")
+    ax.set_title(f"Per-frame maximum distance — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
@@ -218,7 +219,7 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
         outputs["perMinuteCsv"] = str(Path("edge_lengths_per_minute.csv"))
     ax.set_ylabel("Distance (m)")
     ax.set_xlabel("Match clock minute (live / assigned only)")
-    ax.set_title(f"Marking distance over live minutes — {assignment}")
+    ax.set_title(f"Marking distance over live minutes — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
@@ -244,7 +245,7 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
         ax.set_ylim(0, max(vals) * 1.2 if vals else 1.0)
     ax.set_xlabel("Distance threshold (m)")
     ax.set_ylabel("Share of edges longer than threshold (%)")
-    ax.set_title(f"Long marking edges — {assignment}")
+    ax.set_title(f"Long marking edges — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
     fig.savefig(path, dpi=150)
@@ -288,7 +289,7 @@ def _write_distance_histogram_plot(summary: dict, path: Path) -> None:
     shares = [100.0 * float(b.get("share") or 0.0) for b in bins]
     counts = [int(b.get("count") or 0) for b in bins]
 
-    assignment = summary.get("assignment", "assignment")
+    assignment_label = assignment_plot_label(summary)
     n_edges = summary.get("nEdges") or 0
     mean_d = summary.get("meanDistance")
     median_d = summary.get("medianDistance")
@@ -298,7 +299,7 @@ def _write_distance_histogram_plot(summary: dict, path: Path) -> None:
     bars = ax.bar(labels, shares, color="#3d6b8c", edgecolor="white", linewidth=0.6)
     ax.set_xlabel("Marking distance (m)")
     ax.set_ylabel("Share of edges (%)")
-    ax.set_title(f"Marking distance distribution — {assignment}")
+    ax.set_title(f"Marking distance distribution — {assignment_label}")
     ax.set_ylim(0, max(shares) * 1.18 if shares else 1.0)
     _style_ax(ax)
 
@@ -353,7 +354,6 @@ def _build_summary(
     ctx: AnalysisContext,
 ) -> dict:
     assignment = ctx.assignment
-    threshold_m = getattr(assignment, "threshold_m", None)
 
     total_frames = int(len(per_frame))
     live_mask = per_frame["live"] == True
@@ -377,8 +377,7 @@ def _build_summary(
 
     return {
         "analysis": "edge_lengths",
-        "assignment": assignment.name,
-        "threshold_m": threshold_m,
+        **assignment_summary_fields(assignment),
         "totalFrames": total_frames,
         "liveFrames": live_frames,
         "assignedFrames": assigned_frames,

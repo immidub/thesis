@@ -24,22 +24,8 @@ from analysis.analyses import create_analysis
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments import create_assignment
 from analysis.assignments.knn import KNN_MODES
+from analysis.assignments.meta import assignment_slug, assignment_summary_fields
 from analysis.data import Frame, iter_frames, load_tracking
-
-
-def _assignment_slug(assignment_name: str, params: dict) -> str:
-    """Filesystem-safe folder name for one assignment configuration."""
-    if assignment_name == "distance_threshold":
-        threshold = params.get("threshold_m")
-        if threshold is None:
-            return "distance_threshold"
-        threshold_str = f"{float(threshold):g}".replace(".", "p")
-        return f"distance_threshold__t{threshold_str}m"
-    if assignment_name == "knn":
-        k = params.get("k", 1)
-        mode = str(params.get("mode", "defender-to-attacker")).replace("-", "_")
-        return f"knn__k{k}__{mode}"
-    return assignment_name
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -48,37 +34,47 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = args.out.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    assignment_kwargs = _assignment_kwargs(args)
-    assignment = create_assignment(args.assignment, **assignment_kwargs)
-    assignment_slug = _assignment_slug(assignment.name, assignment_kwargs)
+    assignment_kwargs = _assignment_kwargs(args) # get the assignment parameters from the arguments
+    assignment = create_assignment(args.assignment, **assignment_kwargs) # create the assignment objects
+    slug = assignment_slug(assignment)
     analysis_names = args.analyses
 
+# load the tracking data from the parquet file
     print(f"Loading {parquet_path}...", flush=True)
     df = load_tracking(parquet_path)
     print(f"  {len(df)} entity rows", flush=True)
 
+# build the frames from the tracking data
     print("Building frames...", flush=True)
     frames: list[Frame] = list(iter_frames(df, live_only=args.live_only))
     print(f"  {len(frames)} frames", flush=True)
 
+# compute the edges for the assignment for each frame
     print(f"Computing edges ({assignment.name})...", flush=True)
     edges_by_frame = [assignment.edges_for_frame(frame) for frame in frames]
     total_edges = sum(len(edges) for edges in edges_by_frame)
     print(f"  {total_edges} edges across all frames", flush=True)
 
+# run the analyses
     run_summaries: dict[str, dict] = {}
     for name in analysis_names:
-        analysis = create_analysis(name)
-        analysis_out = out_dir / name / assignment_slug
+        analysis = create_analysis(name) # main call to the analysis module
+        analysis_out = out_dir / name / slug
         ctx = AnalysisContext(assignment=assignment, out_dir=analysis_out)
         print(f"Running analysis: {name} → {analysis_out}", flush=True)
-        run_summaries[name] = analysis.run(frames, edges_by_frame, ctx)
+        run_summaries[name] = analysis.run(frames, edges_by_frame, ctx) # run the analysis
 
+# write the manifest file
+        assignment_fields = assignment_summary_fields(assignment)
         manifest = {
             "data": str(parquet_path),
             "assignment": assignment.name,
-            "assignmentSlug": assignment_slug,
-            "assignmentParams": assignment_kwargs,
+            "assignmentSlug": slug,
+            "assignmentParams": {
+                "threshold_m": assignment_fields["threshold_m"],
+                "k": assignment_fields["k"],
+                "mode": assignment_fields["knnMode"],
+            },
             "analysis": name,
             "frameCount": len(frames),
             "liveOnly": args.live_only,
@@ -90,15 +86,12 @@ def main(argv: list[str] | None = None) -> int:
 
         if name == "edge_counts":
             s = run_summaries[name]
-            mean_deg = s.get("meanDegree")
             max_deg = s.get("maxDegreeAcrossFrames")
             max_def = s.get("maxDefenderDegreeAcrossFrames")
             max_att = s.get("maxAttackerDegreeAcrossFrames")
             extra = ""
-            if mean_deg is not None:
-                extra = f" meanDegree={mean_deg:.2f}"
             if max_deg is not None:
-                extra += f" maxDegree={max_deg}"
+                extra = f" maxDegree={max_deg}"
             if max_def is not None and max_att is not None:
                 extra += f" maxDef/Att={max_def}/{max_att}"
             print(

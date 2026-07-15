@@ -10,6 +10,7 @@ import pandas as pd
 
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments.base import Edge
+from analysis.assignments.meta import assignment_plot_label, assignment_summary_fields
 from analysis.data import Frame
 from analysis.pitch import (
     PITCH_ZONE_COLS,
@@ -91,8 +92,7 @@ class PitchZonesAnalysis:
 
         summary = {
             "analysis": "pitch_zones",
-            "assignment": ctx.assignment.name,
-            "threshold_m": getattr(ctx.assignment, "threshold_m", None),
+            **assignment_summary_fields(ctx.assignment),
             "grid": {"cols": PITCH_ZONE_COLS, "rows": PITCH_ZONE_ROWS},
             "assignedFrames": assigned_frames,
             "anchor": "attacker_position",
@@ -131,7 +131,7 @@ def _grid_matrix(per_zone: pd.DataFrame, column: str) -> np.ndarray:
 def _write_plots(per_zone: pd.DataFrame, summary: dict, out_dir: Path) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    assignment = summary.get("assignment", "assignment")
+    assignment_label = assignment_plot_label(summary)
     outputs: dict[str, str] = {}
 
     heatmaps = [
@@ -163,7 +163,7 @@ def _write_plots(per_zone: pd.DataFrame, summary: dict, out_dir: Path) -> dict[s
         ax.set_yticks(range(PITCH_ZONE_ROWS))
         ax.set_xlabel("Pitch cell column (along length)")
         ax.set_ylabel("Pitch cell row (along width)")
-        ax.set_title(f"{title} — {assignment}")
+        ax.set_title(f"{title} — {assignment_label}")
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
         fig.tight_layout()
         fig.savefig(path, dpi=150)

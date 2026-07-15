@@ -10,6 +10,7 @@ import pandas as pd
 
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments.base import Edge
+from analysis.assignments.meta import assignment_plot_label, assignment_summary_fields
 from analysis.data import Frame
 from analysis.pitch import (
     BALL_ZONE_COOPERATION_M,
@@ -89,8 +90,7 @@ class BallZonesAnalysis:
 
         summary = {
             "analysis": "ball_zones",
-            "assignment": ctx.assignment.name,
-            "threshold_m": getattr(ctx.assignment, "threshold_m", None),
+            **assignment_summary_fields(ctx.assignment),
             "zonesDefinition": {
                 "zone1_near": f"attacker–ball distance ≤ {BALL_ZONE_NEAR_M} m",
                 "zone2_cooperation": (
@@ -121,7 +121,7 @@ class BallZonesAnalysis:
 def _write_plots(per_zone: pd.DataFrame, summary: dict, out_dir: Path) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
-    assignment = summary.get("assignment", "assignment")
+    assignment_label = assignment_plot_label(summary)
     outputs: dict[str, str] = {}
     labels = [BALL_ZONE_LABELS.get(z, z) for z in per_zone["zone"].tolist()]
 
@@ -163,7 +163,7 @@ def _write_plots(per_zone: pd.DataFrame, summary: dict, out_dir: Path) -> dict[s
                 color="#333333",
             )
         ax.set_ylabel(title)
-        ax.set_title(f"{title} — {assignment}")
+        ax.set_title(f"{title} — {assignment_label}")
         style_ax(ax)
         fig.tight_layout()
         fig.savefig(path, dpi=150)
