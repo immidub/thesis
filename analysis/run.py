@@ -5,7 +5,7 @@ Example:
     --data data/tracking.parquet \\
     --assignment distance_threshold \\
     --threshold 10 \\
-    --analyses edge_counts \\
+    --analyses edge_counts edge_lengths \\
     --out analysis/output
 """
 
@@ -76,6 +76,22 @@ def main(argv: list[str] | None = None) -> int:
             flush=True,
         )
 
+    if "edge_lengths" in run_summaries:
+        s = run_summaries["edge_lengths"]
+        mean_d = s.get("meanDistance")
+        if mean_d is None:
+            print(f"edge_lengths: nEdges={s['nEdges']}", flush=True)
+        else:
+            print(
+                "edge_lengths: "
+                f"nEdges={s['nEdges']} "
+                f"mean={mean_d:.2f}m "
+                f"median={s['medianDistance']:.2f}m "
+                f"p95={s['p95Distance']:.2f}m "
+                f"max={s['maxDistance']:.2f}m",
+                flush=True,
+            )
+
     return 0
 
 
@@ -132,8 +148,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--analyses",
         nargs="+",
         default=["edge_counts"],
-        choices=["edge_counts"],
-        help="Analyses to run",
+        choices=["edge_counts", "edge_lengths"],
+        help="Analyses to run (edge_counts, edge_lengths)",
     )
     parser.add_argument(
         "--out",

@@ -1,7 +1,6 @@
 """Per-match analyses over marking edges.
 
 Planned (not yet implemented):
-- edge_lengths
 - node_degrees
 - goal_side
 - ball_zone
@@ -15,9 +14,11 @@ from typing import Callable
 
 from analysis.analyses.base import Analysis, AnalysisContext
 from analysis.analyses.edge_counts import EdgeCountsAnalysis
+from analysis.analyses.edge_lengths import EdgeLengthsAnalysis
 
 ANALYSES: dict[str, Callable[..., Analysis]] = {
     "edge_counts": EdgeCountsAnalysis,
+    "edge_lengths": EdgeLengthsAnalysis,
 }
 
 
@@ -35,5 +36,6 @@ __all__ = [
     "Analysis",
     "AnalysisContext",
     "EdgeCountsAnalysis",
+    "EdgeLengthsAnalysis",
     "create_analysis",
 ]
