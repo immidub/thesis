@@ -66,6 +66,11 @@ class EdgeLengthsAnalysis:
         per_frame.to_csv(per_frame_path, index=False)
 
         summary = _build_summary(per_frame, all_lengths, lengths_by_period, ctx)
+
+        hist_path = out_dir / "edge_lengths_histogram.png"
+        _write_histogram_plot(summary, hist_path)
+        summary["outputs"]["histogramPng"] = str(Path("edge_lengths_histogram.png"))
+
         summary_path = out_dir / "edge_lengths_summary.json"
         summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
 
@@ -123,6 +128,71 @@ def _histogram(lengths: list[float]) -> list[dict]:
             }
         )
     return bins
+
+
+def _bin_label(bin_start: float, bin_end: float | None) -> str:
+    if bin_end is None:
+        return f"{bin_start:.0f}+"
+    return f"{bin_start:.0f}–{bin_end:.0f}"
+
+
+def _write_histogram_plot(summary: dict, path: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    bins = summary.get("histogram") or []
+    labels = [_bin_label(b["binStart"], b.get("binEnd")) for b in bins]
+    shares = [100.0 * float(b.get("share") or 0.0) for b in bins]
+    counts = [int(b.get("count") or 0) for b in bins]
+
+    assignment = summary.get("assignment", "assignment")
+    n_edges = summary.get("nEdges") or 0
+    mean_d = summary.get("meanDistance")
+    median_d = summary.get("medianDistance")
+    p95_d = summary.get("p95Distance")
+
+    fig, ax = plt.subplots(figsize=(9, 4.5))
+    bars = ax.bar(labels, shares, color="#3d6b8c", edgecolor="white", linewidth=0.6)
+    ax.set_xlabel("Marking distance (m)")
+    ax.set_ylabel("Share of edges (%)")
+    ax.set_title(f"Marking distance distribution — {assignment}")
+    ax.set_ylim(0, max(shares) * 1.18 if shares else 1.0)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    for bar, count in zip(bars, counts):
+        if count <= 0:
+            continue
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"{count:,}",
+            ha="center",
+            va="bottom",
+            fontsize=7.5,
+            color="#333333",
+        )
+
+    stats_parts = [f"n = {n_edges:,}"]
+    if mean_d is not None:
+        stats_parts.append(f"mean = {mean_d:.2f} m")
+    if median_d is not None:
+        stats_parts.append(f"median = {median_d:.2f} m")
+    if p95_d is not None:
+        stats_parts.append(f"p95 = {p95_d:.2f} m")
+    ax.text(
+        0.99,
+        0.97,
+        "  ·  ".join(stats_parts),
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=8,
+        color="#555555",
+    )
+
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
 
 
 def _build_summary(

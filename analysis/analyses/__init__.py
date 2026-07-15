@@ -2,7 +2,6 @@
 
 Planned (not yet implemented):
 - node_degrees
-- goal_side
 - ball_zone
 - assignment_switches
 - assignment_durations
@@ -15,10 +14,12 @@ from typing import Callable
 from analysis.analyses.base import Analysis, AnalysisContext
 from analysis.analyses.edge_counts import EdgeCountsAnalysis
 from analysis.analyses.edge_lengths import EdgeLengthsAnalysis
+from analysis.analyses.goal_side import GoalSideAnalysis
 
 ANALYSES: dict[str, Callable[..., Analysis]] = {
     "edge_counts": EdgeCountsAnalysis,
     "edge_lengths": EdgeLengthsAnalysis,
+    "goal_side": GoalSideAnalysis,
 }
 
 
@@ -37,5 +38,6 @@ __all__ = [
     "AnalysisContext",
     "EdgeCountsAnalysis",
     "EdgeLengthsAnalysis",
+    "GoalSideAnalysis",
     "create_analysis",
 ]

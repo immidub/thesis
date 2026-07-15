@@ -39,7 +39,18 @@ Writes:
 .venv/bin/python -m analysis.run --assignment knn --k 1 --knn-mode defender-to-attacker --analyses edge_counts --live-only
 ```
 
-Writes per-frame and aggregate edge counts under `analysis/output/edge_counts/`.
+Writes results under `analysis/output/{analysis}/{assignment_slug}/`, for example:
+
+```
+analysis/output/
+  edge_counts/
+    perfect_match/
+    distance_threshold__t10m/
+    knn__k1__defender_to_attacker/
+  edge_lengths/
+    perfect_match/
+    ...
+```
 
 Assignments:
 

@@ -6,7 +6,11 @@ Example:
     --assignment distance_threshold \\
     --threshold 10 \\
     --analyses edge_counts edge_lengths \\
-    --out analysis/output
+    --live-only
+
+Outputs:
+  analysis/output/{analysis}/{assignment_slug}/
+  e.g. analysis/output/edge_lengths/distance_threshold__t10m/
 """
 
 from __future__ import annotations
@@ -23,6 +27,21 @@ from analysis.assignments.knn import KNN_MODES
 from analysis.data import Frame, iter_frames, load_tracking
 
 
+def _assignment_slug(assignment_name: str, params: dict) -> str:
+    """Filesystem-safe folder name for one assignment configuration."""
+    if assignment_name == "distance_threshold":
+        threshold = params.get("threshold_m")
+        if threshold is None:
+            return "distance_threshold"
+        threshold_str = f"{float(threshold):g}".replace(".", "p")
+        return f"distance_threshold__t{threshold_str}m"
+    if assignment_name == "knn":
+        k = params.get("k", 1)
+        mode = str(params.get("mode", "defender-to-attacker")).replace("-", "_")
+        return f"knn__k{k}__{mode}"
+    return assignment_name
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     parquet_path = args.data.resolve()
@@ -31,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
 
     assignment_kwargs = _assignment_kwargs(args)
     assignment = create_assignment(args.assignment, **assignment_kwargs)
+    assignment_slug = _assignment_slug(assignment.name, assignment_kwargs)
     analysis_names = args.analyses
 
     print(f"Loading {parquet_path}...", flush=True)
@@ -49,48 +69,61 @@ def main(argv: list[str] | None = None) -> int:
     run_summaries: dict[str, dict] = {}
     for name in analysis_names:
         analysis = create_analysis(name)
-        analysis_out = out_dir / name
+        analysis_out = out_dir / name / assignment_slug
         ctx = AnalysisContext(assignment=assignment, out_dir=analysis_out)
         print(f"Running analysis: {name} → {analysis_out}", flush=True)
         run_summaries[name] = analysis.run(frames, edges_by_frame, ctx)
 
-    manifest = {
-        "data": str(parquet_path),
-        "assignment": assignment.name,
-        "assignmentParams": assignment_kwargs,
-        "frameCount": len(frames),
-        "liveOnly": args.live_only,
-        "analyses": run_summaries,
-    }
-    manifest_path = out_dir / "run_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {manifest_path}", flush=True)
+        manifest = {
+            "data": str(parquet_path),
+            "assignment": assignment.name,
+            "assignmentSlug": assignment_slug,
+            "assignmentParams": assignment_kwargs,
+            "analysis": name,
+            "frameCount": len(frames),
+            "liveOnly": args.live_only,
+            "summary": run_summaries[name],
+        }
+        manifest_path = analysis_out / "run_manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote {manifest_path}", flush=True)
 
-    if "edge_counts" in run_summaries:
-        s = run_summaries["edge_counts"]
-        print(
-            "edge_counts: "
-            f"assignedFrames={s['assignedFrames']} "
-            f"meanEdges={s['meanEdgesPerAssignedFrame']:.2f} "
-            f"maxEdges={s['maxEdgesPerAssignedFrame']}",
-            flush=True,
-        )
-
-    if "edge_lengths" in run_summaries:
-        s = run_summaries["edge_lengths"]
-        mean_d = s.get("meanDistance")
-        if mean_d is None:
-            print(f"edge_lengths: nEdges={s['nEdges']}", flush=True)
-        else:
+        if name == "edge_counts":
+            s = run_summaries[name]
             print(
-                "edge_lengths: "
-                f"nEdges={s['nEdges']} "
-                f"mean={mean_d:.2f}m "
-                f"median={s['medianDistance']:.2f}m "
-                f"p95={s['p95Distance']:.2f}m "
-                f"max={s['maxDistance']:.2f}m",
+                "edge_counts: "
+                f"assignedFrames={s['assignedFrames']} "
+                f"meanEdges={s['meanEdgesPerAssignedFrame']:.2f} "
+                f"maxEdges={s['maxEdgesPerAssignedFrame']}",
                 flush=True,
             )
+        elif name == "edge_lengths":
+            s = run_summaries[name]
+            mean_d = s.get("meanDistance")
+            if mean_d is None:
+                print(f"edge_lengths: nEdges={s['nEdges']}", flush=True)
+            else:
+                print(
+                    "edge_lengths: "
+                    f"nEdges={s['nEdges']} "
+                    f"mean={mean_d:.2f}m "
+                    f"median={s['medianDistance']:.2f}m "
+                    f"p95={s['p95Distance']:.2f}m "
+                    f"max={s['maxDistance']:.2f}m",
+                    flush=True,
+                )
+        elif name == "goal_side":
+            s = run_summaries[name]
+            if s.get("nEdges", 0) == 0:
+                print("goal_side: nEdges=0", flush=True)
+            else:
+                print(
+                    "goal_side: "
+                    f"nEdges={s['nEdges']} "
+                    f"goalSide={s['goalSidePercent']:.1f}% "
+                    f"notGoalSide={s['notGoalSidePercent']:.1f}%",
+                    flush=True,
+                )
 
     return 0
 
@@ -148,14 +181,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--analyses",
         nargs="+",
         default=["edge_counts"],
-        choices=["edge_counts", "edge_lengths"],
-        help="Analyses to run (edge_counts, edge_lengths)",
+        choices=["edge_counts", "edge_lengths", "goal_side"],
+        help="Analyses to run (edge_counts, edge_lengths, goal_side)",
     )
     parser.add_argument(
         "--out",
         type=Path,
         default=repo_root / "analysis" / "output",
-        help="Output directory (default: analysis/output)",
+        help=(
+            "Base output directory (default: analysis/output). "
+            "Each run writes to {out}/{analysis}/{assignment_slug}/"
+        ),
     )
     parser.add_argument(
         "--live-only",
