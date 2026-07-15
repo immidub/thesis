@@ -1,1 +1,2 @@
 pyarrow>=14
+pandas>=2.0

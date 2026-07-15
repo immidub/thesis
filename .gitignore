@@ -6,3 +6,5 @@ input/*
 clips/*
 !clips/.gitkeep
 .venv/
+analysis/output/
+analysis/**/__pycache__/

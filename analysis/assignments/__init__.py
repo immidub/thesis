@@ -1,0 +1,30 @@
+"""Marking assignment algorithms (Python ports of website/marking)."""
+
+from __future__ import annotations
+
+from typing import Callable
+
+from analysis.assignments.base import Assignment, Edge
+from analysis.assignments.distance_threshold import DistanceThresholdAssignment
+
+ASSIGNMENTS: dict[str, Callable[..., Assignment]] = {
+    "distance_threshold": DistanceThresholdAssignment,
+}
+
+
+def create_assignment(name: str, **kwargs) -> Assignment:
+    try:
+        cls = ASSIGNMENTS[name]
+    except KeyError as exc:
+        known = ", ".join(sorted(ASSIGNMENTS))
+        raise ValueError(f"Unknown assignment {name!r}. Known: {known}") from exc
+    return cls(**kwargs)
+
+
+__all__ = [
+    "ASSIGNMENTS",
+    "Assignment",
+    "DistanceThresholdAssignment",
+    "Edge",
+    "create_assignment",
+]

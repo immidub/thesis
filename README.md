@@ -30,7 +30,16 @@ Writes:
 - `data/metaData.json` — teams, goalkeepers, kit colours, and optional `videoSync`
 - `data/tracking.parquet` — same post-fix data for analysis (all frames, live and not; one row per player/ball per frame)
 
-3. Run the viewer:
+3. Full-match analysis (optional):
+
+```bash
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m analysis.run --threshold 10 --analyses edge_counts
+```
+
+Writes per-frame and aggregate edge counts under `analysis/output/edge_counts/`.
+
+4. Run the viewer:
 
 ```bash
 python3 serve.py
