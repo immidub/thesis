@@ -36,7 +36,8 @@ def accumulate_zone_frame(
     """Update pooled zone totals from one frame's attackers.
 
     totals[zone] keys:
-      attackers, degreeSum, unmarked, doubleMarked, edges, lengthSum, framesPresent
+      attackers, degreeSum, unmarked, doubleMarked, tripleOrMoreMarked,
+      edges, lengthSum, framesPresent
     """
     zones_seen: set[str] = set()
     for attacker_id, zone in zone_of_attacker.items():
@@ -47,6 +48,7 @@ def accumulate_zone_frame(
                 "degreeSum": 0,
                 "unmarked": 0,
                 "doubleMarked": 0,
+                "tripleOrMoreMarked": 0,
                 "edges": 0,
                 "lengthSum": 0.0,
                 "framesPresent": 0,
@@ -57,8 +59,10 @@ def accumulate_zone_frame(
         bucket["degreeSum"] += deg
         if deg == 0:
             bucket["unmarked"] += 1
-        if deg >= 2:
+        if deg == 2:
             bucket["doubleMarked"] += 1
+        if deg >= 3:
+            bucket["tripleOrMoreMarked"] += 1
         edge_lengths = lengths_by_attacker.get(attacker_id, [])
         bucket["edges"] += len(edge_lengths)
         bucket["lengthSum"] += float(sum(edge_lengths))
@@ -84,9 +88,10 @@ def finalize_zone_stats(
                     "zone": zone,
                     "attackerObservations": 0,
                     "framesWithAttackerInZone": 0,
-                    "meanAttackerDegree": None,
+                    "meanDegree": None,
                     "pctUnmarkedAttackers": None,
                     "doubleMarkingRate": None,
+                    "tripleOrMoreMarkingRate": None,
                     "totalAssignments": 0,
                     "meanAssignmentsPerAssignedFrame": 0.0,
                     "meanAssignmentsPerFrameWithAttackerInZone": None,
@@ -103,12 +108,15 @@ def finalize_zone_stats(
                 "zone": zone,
                 "attackerObservations": n_att,
                 "framesWithAttackerInZone": frames_present,
-                "meanAttackerDegree": (b["degreeSum"] / n_att) if n_att else None,
+                "meanDegree": (b["degreeSum"] / n_att) if n_att else None,
                 "pctUnmarkedAttackers": (
                     100.0 * b["unmarked"] / n_att if n_att else None
                 ),
                 "doubleMarkingRate": (
                     100.0 * b["doubleMarked"] / n_att if n_att else None
+                ),
+                "tripleOrMoreMarkingRate": (
+                    100.0 * b["tripleOrMoreMarked"] / n_att if n_att else None
                 ),
                 "totalAssignments": n_edges,
                 "meanAssignmentsPerAssignedFrame": (

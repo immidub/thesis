@@ -77,8 +77,8 @@ def home_goalkeeper_on_positive_x(frame: Frame) -> bool:
     return True
 
 
-def home_attacks_right_by_period(frames: list[Frame]) -> dict[int, bool]:
-    """Attack-direction flag per period, from the first frame of each half."""
+def home_goalkeeper_on_positive_x_by_period(frames: list[Frame]) -> dict[int, bool]:
+    """Home-GK-on-+x flag per period, from the first frame of each half."""
     by_period: dict[int, bool] = {}
     for frame in frames:
         if frame.period not in by_period:
@@ -86,7 +86,32 @@ def home_attacks_right_by_period(frames: list[Frame]) -> dict[int, bool]:
     return by_period
 
 
-def defended_goal_center(frame: Frame, *, home_attacks_right_flag: bool) -> tuple[float, float]:
+def attack_oriented_xy(
+    x: float,
+    y: float,
+    *,
+    attacking_team: str,
+    home_goalkeeper_on_positive_x_flag: bool,
+) -> tuple[float, float]:
+    """Rotate pitch coords so the attacking team always attacks toward +x.
+
+    When the attacking team is playing toward -x (period side / team orientation),
+    apply a 180° rotation (-x, -y). That keeps left/right wings consistent from
+    the attacker's perspective across teams and half-time side switches.
+    """
+    if attacking_team == "home":
+        attacks_toward_positive_x = not home_goalkeeper_on_positive_x_flag
+    else:
+        attacks_toward_positive_x = home_goalkeeper_on_positive_x_flag
+
+    if attacks_toward_positive_x:
+        return float(x), float(y)
+    return -float(x), -float(y)
+
+
+def defended_goal_center(
+    frame: Frame, *, home_goalkeeper_on_positive_x_flag: bool
+) -> tuple[float, float]:
     """Centre of the goal defended by the team without possession.
 
     Matches website getTeamGoalLineH: when home GK is on +x, home's goal is at
@@ -97,9 +122,9 @@ def defended_goal_center(frame: Frame, *, home_attacks_right_flag: bool) -> tupl
         raise ValueError("frame has no defending team")
 
     if defending == "home":
-        goal_x = HALF_LENGTH_M if home_attacks_right_flag else -HALF_LENGTH_M
+        goal_x = HALF_LENGTH_M if home_goalkeeper_on_positive_x_flag else -HALF_LENGTH_M
     else:
-        goal_x = -HALF_LENGTH_M if home_attacks_right_flag else HALF_LENGTH_M
+        goal_x = -HALF_LENGTH_M if home_goalkeeper_on_positive_x_flag else HALF_LENGTH_M
     return (goal_x, 0.0)
 
 
@@ -127,11 +152,11 @@ def is_defender_goal_side(
     if ga_len_sq < eps:
         return False
 
-    t = float(np.dot(d - g, ga) / ga_len_sq)
-    if t < 0.0 or t > 1.0:
+    t = float(np.dot(d - g, ga) / ga_len_sq) # projection of d onto ga
+    if t < 0.0 or t > 1.0: # if d is not on the line segment ga
         return False
 
     projection = g + t * ga
     lateral = float(np.linalg.norm(d - projection))
     to_attacker = float(np.linalg.norm(a - projection))
-    return lateral < to_attacker
+    return lateral < to_attacker # if the lateral distance is less than the distance to the attacker, then the defender is goal-side

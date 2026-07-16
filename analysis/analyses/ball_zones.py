@@ -27,8 +27,8 @@ from analysis.zone_metrics import (
 
 BALL_ZONE_ORDER = ["zone1_near", "zone2_cooperation", "zone3_far"]
 BALL_ZONE_LABELS = {
-    "zone1_near": f"Zone 1 (≤{BALL_ZONE_NEAR_M:.0f} m)",
-    "zone2_cooperation": f"Zone 2 ({BALL_ZONE_NEAR_M:.0f}–{BALL_ZONE_COOPERATION_M:.0f} m)",
+    "zone1_near": f"Zone 1 (<={BALL_ZONE_NEAR_M:.0f} m)",
+    "zone2_cooperation": f"Zone 2 ({BALL_ZONE_NEAR_M:.0f}-{BALL_ZONE_COOPERATION_M:.0f} m)",
     "zone3_far": f"Zone 3 (>{BALL_ZONE_COOPERATION_M:.0f} m)",
 }
 
@@ -92,9 +92,9 @@ class BallZonesAnalysis:
             "analysis": "ball_zones",
             **assignment_summary_fields(ctx.assignment),
             "zonesDefinition": {
-                "zone1_near": f"attacker–ball distance ≤ {BALL_ZONE_NEAR_M} m",
+                "zone1_near": f"attacker-ball distance <= {BALL_ZONE_NEAR_M} m",
                 "zone2_cooperation": (
-                    f"{BALL_ZONE_NEAR_M} m < distance ≤ {BALL_ZONE_COOPERATION_M} m"
+                    f"{BALL_ZONE_NEAR_M} m < distance <= {BALL_ZONE_COOPERATION_M} m"
                 ),
                 "zone3_far": f"distance > {BALL_ZONE_COOPERATION_M} m",
                 "partition": "mutually exclusive",
@@ -113,7 +113,7 @@ class BallZonesAnalysis:
         summary["outputs"].update(plot_paths)
 
         (out_dir / "ball_zones_summary.json").write_text(
-            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+            json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
         return summary
 
@@ -126,7 +126,7 @@ def _write_plots(per_zone: pd.DataFrame, summary: dict, out_dir: Path) -> dict[s
     labels = [BALL_ZONE_LABELS.get(z, z) for z in per_zone["zone"].tolist()]
 
     charts = [
-        ("meanAttackerDegree", "Mean attacker degree", "ball_zones_mean_degree.png"),
+        ("meanDegree", "Mean degree", "ball_zones_mean_degree.png"),
         ("pctUnmarkedAttackers", "% unmarked attackers", "ball_zones_pct_unmarked.png"),
         ("meanEdgeLength", "Mean edge length (m)", "ball_zones_mean_edge_length.png"),
         (
@@ -134,8 +134,17 @@ def _write_plots(per_zone: pd.DataFrame, summary: dict, out_dir: Path) -> dict[s
             "Mean assignments / frame",
             "ball_zones_mean_assignments.png",
         ),
+        (
+            "meanAssignmentsPerFrameWithAttackerInZone",
+            "Mean assignments / frame with attacker in zone",
+            "ball_zones_mean_assignments_when_present.png",
+        ),
         ("doubleMarkingRate", "Double-marking rate (%)", "ball_zones_double_marking.png"),
-        ("totalAssignments", "Total assignments", "ball_zones_total_assignments.png"),
+        (
+            "tripleOrMoreMarkingRate",
+            "3+ marking rate (%)",
+            "ball_zones_triple_or_more_marking.png",
+        ),
     ]
 
     colors = ["#c0392b", "#3d6b8c", "#7f8c8d"]

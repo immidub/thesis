@@ -6,6 +6,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from analysis.analyses.base import AnalysisContext
@@ -14,7 +15,7 @@ from analysis.assignments.meta import assignment_plot_label, assignment_summary_
 from analysis.data import Frame
 from analysis.pitch import (
     defended_goal_center,
-    home_attacks_right_by_period,
+    home_goalkeeper_on_positive_x_by_period,
     is_defender_goal_side,
     player_by_id,
 )
@@ -32,7 +33,7 @@ class GoalSideAnalysis:
         if len(frames) != len(edges_by_frame):
             raise ValueError("frames and edges_by_frame length mismatch")
 
-        attack_right_by_period = home_attacks_right_by_period(frames)
+        gk_on_positive_x_by_period = home_goalkeeper_on_positive_x_by_period(frames)
 
         rows: list[dict] = []
         total_edges = 0
@@ -43,8 +44,10 @@ class GoalSideAnalysis:
         for frame, edges in zip(frames, edges_by_frame):
             frame_goal_side = 0
             if frame.defending_team is not None and edges:
-                home_attacks_right_flag = attack_right_by_period[frame.period]
-                goal = defended_goal_center(frame, home_attacks_right_flag=home_attacks_right_flag)
+                home_gk_on_positive_x = gk_on_positive_x_by_period[frame.period]
+                goal = defended_goal_center(
+                    frame, home_goalkeeper_on_positive_x_flag=home_gk_on_positive_x
+                )
 
                 for edge in edges:
                     defender = player_by_id(frame, edge.defender_id)
@@ -216,7 +219,7 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
     plt.close(fig)
     outputs["sharePng"] = str(Path(path.name))
 
-    # Per-frame goal-side share histogram
+    # Per-frame goal-side share histogram (10% bins)
     path = out_dir / "goal_side_per_frame_share_histogram.png"
     fig, ax = plt.subplots(figsize=(7.5, 4.2))
     assigned = per_frame.loc[
@@ -224,17 +227,38 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
     ]
     if not assigned.empty:
         shares = (100.0 * assigned["goalSideShare"].dropna()).to_numpy(dtype=float)
-        ax.hist(shares, bins=20, range=(0, 100), color="#3d6b8c", edgecolor="white", linewidth=0.6)
-        ax.axvline(
-            float(shares.mean()),
+        bin_edges = list(range(0, 110, 10))
+        counts, _ = np.histogram(shares, bins=bin_edges)
+        total = int(counts.sum())
+        fractions = [c / total if total else 0.0 for c in counts]
+        labels = [f"{bin_edges[i]}–{bin_edges[i + 1]}" for i in range(len(counts))]
+        bars = ax.bar(labels, fractions, color="#3d6b8c", edgecolor="white", linewidth=0.6)
+        for bar, frac in zip(bars, fractions):
+            if frac <= 0:
+                continue
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"{frac:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=7.5,
+                color="#333333",
+            )
+        ax.set_ylim(0, max(fractions) * 1.18 if fractions else 1.0)
+        ax.text(
+            0.99,
+            0.97,
+            f"mean frame share = {shares.mean():.1f}%",
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            fontsize=8,
             color="#c0392b",
-            linestyle="--",
-            linewidth=1.2,
-            label=f"mean frame share = {shares.mean():.1f}%",
         )
-        ax.legend(frameon=False, fontsize=8)
+        ax.tick_params(axis="x", labelrotation=45)
     ax.set_xlabel("Goal-side share in frame (%)")
-    ax.set_ylabel("Frames")
+    ax.set_ylabel("Fraction of frames")
     ax.set_title(f"Per-frame goal-side share — {assignment_label}")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -242,29 +266,5 @@ def _write_plots(per_frame: pd.DataFrame, summary: dict, out_dir: Path) -> dict[
     fig.savefig(path, dpi=150)
     plt.close(fig)
     outputs["perFrameShareHistogramPng"] = str(Path(path.name))
-
-    # By period comparison
-    path = out_dir / "goal_side_by_period.png"
-    fig, ax = plt.subplots(figsize=(6, 4.2))
-    by_period = summary.get("byPeriod") or {}
-    if by_period:
-        periods = sorted(by_period.keys(), key=int)
-        goal_vals = [float(by_period[p]["goalSidePercent"] or 0.0) for p in periods]
-        not_vals = [float(by_period[p]["notGoalSidePercent"] or 0.0) for p in periods]
-        x = range(len(periods))
-        ax.bar(x, goal_vals, width=0.55, color="#3d6b8c", label="Goal-side")
-        ax.bar(x, not_vals, width=0.55, bottom=goal_vals, color="#c0392b", label="Not goal-side")
-        ax.set_xticks(list(x))
-        ax.set_xticklabels([f"Period {p}" for p in periods])
-        ax.set_ylim(0, 100)
-        ax.legend(frameon=False, fontsize=8)
-    ax.set_ylabel("Share of edges (%)")
-    ax.set_title(f"Goal-side by period — {assignment_label}")
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    fig.tight_layout()
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    outputs["byPeriodPng"] = str(Path(path.name))
 
     return outputs

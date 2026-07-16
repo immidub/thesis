@@ -5,8 +5,9 @@ Example:
     --data data/tracking.parquet \\
     --assignment distance_threshold \\
     --threshold 10 \\
-    --analyses edge_counts edge_lengths \\
-    --live-only
+    --analyses edge_counts edge_lengths
+
+Non-live frames are skipped by default; pass --no-live-only to include them.
 
 Outputs:
   analysis/output/{analysis}/{assignment_slug}/
@@ -132,7 +133,10 @@ def main(argv: list[str] | None = None) -> int:
         elif name == "temporal_stability":
             s = run_summaries[name]
             mean_dur = s.get("meanDurationSec")
-            mean_sw = s.get("meanSwitchesPerMinutePerPlayer")
+            median_dur = s.get("medianDurationSec")
+            mean_sw = s.get("meanSwitchesPerPlayer")
+            mean_sw_rate = s.get("meanSwitchesPerActiveMinutePerPlayer")
+            mean_spell_rate = s.get("meanSpellsPerActiveMinutePerPlayer")
             print(
                 "temporal_stability: "
                 f"spells={s.get('nSpells', 0)} "
@@ -142,11 +146,25 @@ def main(argv: list[str] | None = None) -> int:
                     else ""
                 )
                 + (
-                    f"meanSwitchRate={mean_sw:.2f}/min "
+                    f"medianDuration={median_dur:.2f}s "
+                    if median_dur is not None
+                    else ""
+                )
+                + (
+                    f"meanSpells/activeMin={mean_spell_rate:.2f} "
+                    if mean_spell_rate is not None
+                    else ""
+                )
+                + (
+                    f"meanSwitches/player={mean_sw:.1f} "
                     if mean_sw is not None
                     else ""
                 )
-                + f"totalSwitches={s.get('totalSwitches', 0)}",
+                + (
+                    f"meanSwitches/activeMin={mean_sw_rate:.2f}"
+                    if mean_sw_rate is not None
+                    else ""
+                ),
                 flush=True,
             )
         elif name == "pitch_zones":
@@ -158,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         elif name == "ball_zones":
             zones = run_summaries[name].get("zones") or []
             brief = ", ".join(
-                f"{z['zone']}={z.get('meanAttackerDegree')}" for z in zones
+                f"{z['zone']}={z.get('meanDegree')}" for z in zones
             )
             print(f"ball_zones: {brief}", flush=True)
 
@@ -239,8 +257,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--live-only",
-        action="store_true",
-        help="Skip non-live frames when iterating (assignment already returns [] when not live)",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Skip non-live frames when building the frame list (default: on). "
+            "Use --no-live-only to include dead-ball frames."
+        ),
     )
     return parser.parse_args(argv)
 

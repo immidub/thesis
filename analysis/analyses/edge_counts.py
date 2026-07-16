@@ -41,7 +41,7 @@ class EdgeCountsAnalysis:
 
         summary = _build_summary(per_frame, ctx)
 
-        plot_paths = _write_plots(per_frame, summary, out_dir)
+        plot_paths = _write_plots(summary, out_dir)
         summary["outputs"].update(plot_paths)
 
         summary_path = out_dir / "edge_counts_summary.json"
@@ -182,6 +182,56 @@ def _agg_degree_block(group: pd.DataFrame) -> dict:
     }
 
 
+def _integer_histogram(values: list[int]) -> list[dict]:
+    if not values:
+        return []
+    counts = Counter(values)
+    total = len(values)
+    return [
+        {
+            "value": int(v),
+            "count": int(counts[v]),
+            "share": float(counts[v] / total),
+        }
+        for v in sorted(counts)
+    ]
+
+
+def _binned_histogram(values: list[int], *, bin_width: int = 5) -> list[dict]:
+    """Histogram with fixed-width bins [start, end). Last bin covers observed max."""
+    if not values:
+        return []
+    if bin_width <= 0:
+        raise ValueError("bin_width must be positive")
+
+    lo = min(values)
+    hi = max(values)
+    start = (lo // bin_width) * bin_width
+    # Right edge of last bin: next multiple of bin_width strictly above hi.
+    end = ((hi // bin_width) + 1) * bin_width
+    edges = list(range(start, end + bin_width, bin_width))
+    arr = np.asarray(values, dtype=np.int64)
+    counts, _ = np.histogram(arr, bins=edges)
+    total = int(counts.sum())
+    bins: list[dict] = []
+    for i, count in enumerate(counts):
+        bins.append(
+            {
+                "binStart": int(edges[i]),
+                "binEnd": int(edges[i + 1]),
+                "count": int(count),
+                "share": float(count / total) if total else 0.0,
+            }
+        )
+    return bins
+
+
+def _bin_label(bin_start: int, bin_end: int | None) -> str:
+    if bin_end is None:
+        return f"{bin_start}+"
+    return f"{bin_start}–{bin_end}"
+
+
 def _build_summary(
     per_frame: pd.DataFrame,
     ctx: AnalysisContext,
@@ -210,6 +260,12 @@ def _build_summary(
     degree_block = (
         _agg_degree_block(assigned) if assigned_frames else _agg_degree_block(per_frame.iloc[0:0])
     )
+
+    max_degrees = (
+        assigned["maxDegree"].dropna().astype(int).tolist() if assigned_frames else []
+    )
+    edge_hist = _binned_histogram([int(c) for c in counts], bin_width=5)
+    max_degree_hist = _integer_histogram(max_degrees)
 
     by_period: dict[str, dict] = {}
     if assigned_frames:
@@ -241,6 +297,8 @@ def _build_summary(
             frames_with_edges / assigned_frames if assigned_frames else 0.0
         ),
         **degree_block,
+        "edgeCountHistogram": edge_hist,
+        "maxDegreeHistogram": max_degree_hist,
         "byPeriod": by_period,
         "outputs": {
             "perFrameCsv": str(Path("edge_counts_per_frame.csv")),
@@ -254,47 +312,39 @@ def _style_ax(ax) -> None:
     ax.spines["right"].set_visible(False)
 
 
-def _ticks_0_or_5(lo: int, hi: int) -> list[int]:
-    """Integer axis ticks that are multiples of 5 (or 10 for wide spans)."""
-    span = max(hi - lo, 0)
-    step = 5 if span <= 50 else 10
-    start = (lo // step) * step
-    end = ((hi + step - 1) // step) * step
-    if start == end:
-        return [start]
-    return list(range(start, end + 1, step))
-
-
 def _write_plots(
-    per_frame: pd.DataFrame,
     summary: dict,
     out_dir: Path,
 ) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
     assignment_label = assignment_plot_label(summary)
-    assigned = per_frame.loc[per_frame["hasAssignment"] == True]
     outputs: dict[str, str] = {}
 
-    # 1) Histogram of edge counts per frame
+    # 1) Histogram of edge counts per frame (bins of 5)
     path = out_dir / "edge_counts_histogram.png"
-    fig, ax = plt.subplots(figsize=(8, 4.2))
-    if not assigned.empty:
-        values = assigned["edgeCount"].to_numpy(dtype=int)
-        lo, hi = int(values.min()), int(values.max())
-        bins = np.arange(lo, hi + 2) - 0.5
-        # Unit-width bins → density heights are fractions of frames.
-        ax.hist(
-            values,
-            bins=bins,
-            density=True,
-            color="#3d6b8c",
-            edgecolor="white",
-            linewidth=0.6,
-        )
-        ax.set_xticks(_ticks_0_or_5(lo, hi))
+    fig, ax = plt.subplots(figsize=(8.5, 4.2))
+    edge_hist = summary.get("edgeCountHistogram") or []
+    if edge_hist:
+        labels = [_bin_label(int(b["binStart"]), int(b["binEnd"])) for b in edge_hist]
+        shares = [100.0 * float(b.get("share") or 0.0) for b in edge_hist]
+        bars = ax.bar(labels, shares, color="#3d6b8c", edgecolor="white", linewidth=0.6)
+        for bar, share in zip(bars, shares):
+            if share <= 0:
+                continue
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"{share:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=7.5,
+                color="#333333",
+            )
+        ax.set_ylim(0, max(shares) * 1.18 if shares else 1.0)
+        ax.tick_params(axis="x", labelrotation=45)
     ax.set_xlabel("Marking edges")
-    ax.set_ylabel("Frames")
+    ax.set_ylabel("Share of frames (%)")
     ax.set_title(f"Frequency of edge counts across frames — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
@@ -305,21 +355,26 @@ def _write_plots(
     # 2) Histogram of max degree per frame
     path = out_dir / "edge_counts_max_degree_histogram.png"
     fig, ax = plt.subplots(figsize=(7, 4.2))
-    if not assigned.empty and assigned["maxDegree"].notna().any():
-        values = assigned["maxDegree"].dropna().astype(int).to_numpy()
-        lo, hi = int(values.min()), int(values.max())
-        bins = np.arange(lo, hi + 2) - 0.5
-        ax.hist(
-            values,
-            bins=bins,
-            density=True,
-            color="#5b8fd9",
-            edgecolor="white",
-            linewidth=0.6,
-        )
-        ax.set_xticks(_ticks_0_or_5(lo, hi))
+    max_hist = summary.get("maxDegreeHistogram") or []
+    if max_hist:
+        labels = [str(int(b["value"])) for b in max_hist]
+        shares = [100.0 * float(b.get("share") or 0.0) for b in max_hist]
+        bars = ax.bar(labels, shares, color="#5b8fd9", edgecolor="white", linewidth=0.6)
+        for bar, share in zip(bars, shares):
+            if share <= 0:
+                continue
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height(),
+                f"{share:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=7.5,
+                color="#333333",
+            )
+        ax.set_ylim(0, max(shares) * 1.18 if shares else 1.0)
     ax.set_xlabel("Maximum node degree in frame")
-    ax.set_ylabel("Frames")
+    ax.set_ylabel("Share of frames (%)")
     ax.set_title(f"Max degree per frame — {assignment_label}")
     _style_ax(ax)
     fig.tight_layout()
