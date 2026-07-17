@@ -86,6 +86,7 @@ def _frame_row(frame: Frame, edges: list[Edge]) -> dict:
         "hasAssignment": defending is not None,
         "nDefenders": None,
         "nAttackers": None,
+        "meanDegree": None,
         "maxDegree": None,
         "maxDefenderDegree": None,
         "maxAttackerDegree": None,
@@ -126,11 +127,13 @@ def _frame_row(frame: Frame, edges: list[Edge]) -> dict:
     max_def = max(defender_degrees) if defender_degrees else None
     max_att = max(attacker_degrees) if attacker_degrees else None
     max_all = max(all_degrees) if all_degrees else None
+    mean_degree = statistics.fmean(all_degrees) if all_degrees else None
 
     base.update(
         {
             "nDefenders": n_def,
             "nAttackers": n_att,
+            "meanDegree": mean_degree,
             "maxDegree": max_all,
             "maxDefenderDegree": max_def,
             "maxAttackerDegree": max_att,
@@ -152,11 +155,13 @@ def _mean_or_none(values: list[float]) -> float | None:
 
 # Helper function to aggregate maximum degree values and degree shares
 def _agg_degree_block(group: pd.DataFrame) -> dict:
+    mean_degree_vals = group["meanDegree"].dropna().tolist()
     max_degree_vals = group["maxDegree"].dropna().tolist()
     max_def_vals = group["maxDefenderDegree"].dropna().tolist()
     max_att_vals = group["maxAttackerDegree"].dropna().tolist()
 
     return {
+        "meanDegree": _mean_or_none(mean_degree_vals),
         "meanMaxDegreePerFrame": _mean_or_none(max_degree_vals),
         "meanMaxDefenderDegreePerFrame": _mean_or_none(max_def_vals),
         "meanMaxAttackerDegreePerFrame": _mean_or_none(max_att_vals),
