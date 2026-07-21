@@ -69,21 +69,29 @@
 
                 <h5></h5>
 
-                <p>Please upload <code>tracking.jsonl</code>.</p>
+                <p>Please upload <code>tracking.jsonl</code> and optionally <code>metaData.json</code>, then press Submit.</p>
                 <div>
                     <div
                         id="drop_zone"
                         ondrop="dropHandler(event);"
                         ondragover="dragOverHandler(event);">
 
-                        <form action="">
-                            <input type="file" id="fileupload" accept=".jsonl" style="display: none;" onchange="handleFileUpload(event)">
+                        <form action="" onsubmit="return false;">
+                            <input type="file" id="fileupload" accept=".jsonl" style="display: none;" onchange="onTrackingFileSelected(event)">
+                            <input type="file" id="metaupload" accept=".json,application/json" style="display: none;" onchange="onMetadataFileSelected(event)">
+
+                            <div class="upload-row">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pickTrackingFile()">Choose tracking</button>
+                                <span id="tracking_file_name" class="upload-file-name">No file selected</span>
+                            </div>
+                            <div class="upload-row">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pickMetadataFile()">Choose metadata</button>
+                                <span id="metadata_file_name" class="upload-file-name">No file selected</span>
+                            </div>
+                            <button type="button" class="btn btn-primary mb-1" onclick="submitUploads()">Submit</button>
                         </form>
-                        <br>
-                        <button type="submit" class="btn btn-primary mb-1" onclick="uploadFileButton()">Upload file</button>
 
-
-                    <p>or drag data file here</p>
+                    <p>or drag files here</p>
 
                   </div>
                 </div>
@@ -208,7 +216,7 @@
                                 </label>
                                 <button type="button" class="btn btn-secondary btn-sm" id="clip_export_btn">Export clips</button>
                             </div>
-                            <div class="clip-export-hint">Game time (same as playback clock), e.g. 23:45, 45+2:15 (1st-half stoppage), or 90+1:00. Use the + form for stoppage so it is not confused with the next half. Saves one stacked MP4 (game on top, pitch below) into <code>clips/</code>. Requires <code>python3 serve.py</code> and ffmpeg.</div>
+                            <div class="clip-export-hint">Saves clip and start-frame image (video above, pitch below).</div>
                             <div id="clip_export_progress_wrap" class="clip-export-progress" hidden>
                                 <div class="clip-export-progress-label" id="clip_export_progress_label">Preparing clip…</div>
                                 <div class="progress" id="clip_export_progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">

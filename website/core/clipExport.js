@@ -78,10 +78,11 @@ function renderPitchForExport(pitchIndex, frame) {
 }
 
 //-------------------------------- export handling --------------------------------//
-async function exportClipOnServer(blob, metadata) {
+async function exportClipOnServer(blob, metadata, imageBlob) {
     var form = new FormData();
     form.append("metadata", JSON.stringify(metadata));
     form.append("pitch", blob, "pitch.webm");
+    if (imageBlob) form.append("image", imageBlob, "start.png");
 
     var response = await fetch("/api/clips/export", {
         method: "POST",
@@ -93,6 +94,12 @@ async function exportClipOnServer(blob, metadata) {
         throw new Error(payload.error || "Server returned " + response.status);
     }
     return payload;
+}
+
+function canvasToPngBlob(canvasEl) {
+    return new Promise(function (resolve) {
+        canvasEl.toBlob(function (blob) { resolve(blob); }, "image/png");
+    });
 }
 
 //if webm recording is not supported, fallback to downloading the clip
@@ -200,9 +207,13 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
 
         recorder.start();
         //render frames while recording
+        var startImageBlob = null;
         var frameIndex = 0;
         for (var f = startFrame; f <= endFrame; f++) {
             renderPitchForExport(pitchIndex, f);
+            if (f === startFrame) {
+                startImageBlob = await canvasToPngBlob(canvasEl);
+            }
             track.requestFrame(); //push frame into recorder
             await new Promise(function (r) { requestAnimationFrame(r); });
             frameIndex++;
@@ -227,9 +238,9 @@ async function exportPitchClip(pitchIndex, startTimeStr, endTimeStr) {
                 targetDurationSec: targetDurationSec,
                 videoStartSec: frameToVideoSeconds(startFrame),
                 videoEndSec: frameToVideoSeconds(endFrame),
-            });
+            }, startImageBlob);
             setClipExportProgress(100, "Done");
-            setClipExportStatus("Saved " + result.path);
+            setClipExportStatus("Saved clip and start-frame image.");
         } catch (err) {
             downloadClipFallback(blob, outputFilename.replace(/\.mp4$/, ".webm"));
             setClipExportStatus("Export failed: " + err.message, true);

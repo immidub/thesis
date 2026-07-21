@@ -8,3 +8,4 @@ clips/*
 .venv/
 analysis/output/
 analysis/**/__pycache__/
+latex_report/

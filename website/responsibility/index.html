@@ -47,18 +47,27 @@
                 <h3>Responsibility</h3>
                 <p class="text-muted"><a href="../index.html">Marking views</a></p>
                 <hr>
-                <p>Please upload <code>tracking.jsonl</code>.</p>
+                <p>Please upload <code>tracking.jsonl</code> and optionally <code>metaData.json</code>, then press Submit.</p>
                 <div>
                     <div
                         id="drop_zone"
                         ondrop="dropHandler(event);"
                         ondragover="dragOverHandler(event);">
-                        <form action="">
-                            <input type="file" id="fileupload" accept=".jsonl" style="display: none;" onchange="handleFileUpload(event)">
+                        <form action="" onsubmit="return false;">
+                            <input type="file" id="fileupload" accept=".jsonl" style="display: none;" onchange="onTrackingFileSelected(event)">
+                            <input type="file" id="metaupload" accept=".json,application/json" style="display: none;" onchange="onMetadataFileSelected(event)">
+
+                            <div class="upload-row">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pickTrackingFile()">Choose tracking</button>
+                                <span id="tracking_file_name" class="upload-file-name">No file selected</span>
+                            </div>
+                            <div class="upload-row">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pickMetadataFile()">Choose metadata</button>
+                                <span id="metadata_file_name" class="upload-file-name">No file selected</span>
+                            </div>
+                            <button type="button" class="btn btn-primary mb-1" onclick="submitUploads()">Submit</button>
                         </form>
-                        <br>
-                        <button type="submit" class="btn btn-primary mb-1" onclick="uploadFileButton()">Upload file</button>
-                        <p>or drag data file here</p>
+                        <p>or drag files here</p>
                     </div>
                 </div>
             </div>

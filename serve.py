@@ -12,6 +12,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
 CLIPS_DIR = REPO_ROOT / "clips"
+CLIP_OUT_DIR = CLIPS_DIR / "clip"
+IMAGE_OUT_DIR = CLIPS_DIR / "image"
 COMBINE_STACK_WIDTH = 1280
 FFMPEG_PRESET = "veryfast"
 FFMPEG_CRF = "20"
@@ -136,6 +138,36 @@ def export_combined_clip(
     )
 
 
+def export_start_image(source, pitch_png_path, output_path, video_start_sec):
+    """Stack one broadcast frame (top) above the pitch PNG (bottom)."""
+    width = COMBINE_STACK_WIDTH
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-ss",
+            f"{video_start_sec:.6f}",
+            "-i",
+            str(source),
+            "-i",
+            str(pitch_png_path),
+            "-filter_complex",
+            (
+                f"[0:v]scale={width}:-2,setsar=1[game];"
+                f"[1:v]scale={width}:-2,setsar=1[pitch];"
+                f"[game][pitch]vstack=inputs=2[v]"
+            ),
+            "-map",
+            "[v]",
+            "-frames:v",
+            "1",
+            str(output_path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(REPO_ROOT), **kwargs)
@@ -191,19 +223,24 @@ class Handler(SimpleHTTPRequestHandler):
             return
 
         pitch_bytes = fields["pitch"] #get the pitch recording
+        image_bytes = fields.get("image")
 
         source = find_source_video() #find the source video
         if source is None:
             self._send_json(404, {"error": "No source game video found in clips/"})
             return
 
-        CLIPS_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = CLIPS_DIR / output_filename #create the output path
+        CLIP_OUT_DIR.mkdir(parents=True, exist_ok=True)
+        IMAGE_OUT_DIR.mkdir(parents=True, exist_ok=True)
+        out_path = CLIP_OUT_DIR / output_filename
+        image_filename = safe_filename("img_" + Path(output_filename).stem, ".png")
+        image_path = IMAGE_OUT_DIR / image_filename
 
         with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as raw_file:
             raw_pitch_path = Path(raw_file.name)
             raw_file.write(pitch_bytes) #write the pitch recording to a temporary file
 
+        pitch_png_path = None
         try:
             export_combined_clip( #combine the pitch and game video
                 source,
@@ -214,6 +251,11 @@ class Handler(SimpleHTTPRequestHandler):
                 video_start,
                 video_end,
             )
+            if image_bytes:
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as png_file:
+                    pitch_png_path = Path(png_file.name)
+                    png_file.write(image_bytes)
+                export_start_image(source, pitch_png_path, image_path, video_start)
         except subprocess.CalledProcessError as err:
             self._ffmpeg_error(err)
             return
@@ -223,28 +265,33 @@ class Handler(SimpleHTTPRequestHandler):
         finally:
             if raw_pitch_path.exists(): 
                 raw_pitch_path.unlink() #delete the temporary file
+            if pitch_png_path and pitch_png_path.exists():
+                pitch_png_path.unlink()
 
         self._send_json( #send the response
             200,
             {
-                "path": f"clips/{output_filename}",
+                "path": f"clips/clip/{output_filename}",
+                "imagePath": f"clips/image/{image_filename}" if image_bytes else None,
                 "durationSec": probe_duration(out_path),
             },
         )
 
     def log_message(self, format, *args):
-        if args and "POST /api/clips" in args[0]:
+        if args and "POST /api/clips" in str(args[0]):
             print(f"Clip API: {args[0]}")
         else:
             super().log_message(format, *args)
 
 
 def main():
-    CLIPS_DIR.mkdir(parents=True, exist_ok=True) #ensure the clips directory exists
+    CLIP_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    IMAGE_OUT_DIR.mkdir(parents=True, exist_ok=True)
     source = find_source_video() #find the source video
     server = ThreadingHTTPServer(("localhost", 8000), Handler) #start the server
     print(f"Serving {REPO_ROOT} at http://localhost:8000/")
-    print(f"Clips saved to {CLIPS_DIR}")
+    print(f"Clips saved to {CLIP_OUT_DIR}")
+    print(f"Images saved to {IMAGE_OUT_DIR}")
     if source:
         print(f"Game video source: {source.name}")
     else:

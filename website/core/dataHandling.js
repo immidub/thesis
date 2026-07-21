@@ -21,18 +21,30 @@ async function tryLoadLocalData() {
 	}
 }
 
-//loads tracking data from source
-async function loadTrackingData(source) {
+//loads tracking data from source; optionalMeta may be a parsed object or a File/Blob
+async function loadTrackingData(source, optionalMeta) {
 	dataReceived();
 	document.getElementById("dataLoadingSubtitle").textContent = "Loading tracking data...";
 	gameData = await parseTrackingJsonl(source);
-	var meta = await loadMatchMetadata(getLocalDataDir() + "/metaData.json");
+	var meta = null;
+	if (optionalMeta) {
+		meta = optionalMeta instanceof Blob
+			? await parseMetadataFile(optionalMeta)
+			: optionalMeta;
+	} else {
+		meta = await loadMatchMetadata(getLocalDataDir() + "/metaData.json");
+	}
 	if (meta) {
 		applyMatchMetadata(gameData, meta);
 	} else {
 		inferGoalkeepersFromPositions();
 	}
 	dataLoaded();
+}
+
+async function parseMetadataFile(file) {
+	var text = await file.text();
+	return JSON.parse(text);
 }
 
 function dataReceived() {
@@ -192,36 +204,75 @@ function setupDefaultTeamNames() {
 //-- File handling ------------------------------------------------------------------------------
 
 //handles the drop event
+var pendingTrackingFile = null;
+var pendingMetadataFile = null;
+
+function pickTrackingFile() {
+	document.getElementById("fileupload").click();
+}
+
+function pickMetadataFile() {
+	document.getElementById("metaupload").click();
+}
+
+function onTrackingFileSelected(event) {
+	var file = event.target.files[0] || null;
+	setPendingTrackingFile(file);
+}
+
+function onMetadataFileSelected(event) {
+	var file = event.target.files[0] || null;
+	setPendingMetadataFile(file);
+}
+
+function setPendingTrackingFile(file) {
+	pendingTrackingFile = file;
+	var label = document.getElementById("tracking_file_name");
+	if (label) {
+		label.textContent = file ? file.name : "No file selected";
+	}
+}
+
+function setPendingMetadataFile(file) {
+	pendingMetadataFile = file;
+	var label = document.getElementById("metadata_file_name");
+	if (label) {
+		label.textContent = file ? file.name : "No file selected";
+	}
+}
+
 function dropHandler(ev) {
 	ev.preventDefault();
 	var files = ev.dataTransfer.files;
 	for (var i = 0; i < files.length; i++) {
-		handleFile(files[i]);
+		assignDroppedFile(files[i]);
 	}
 }
 
-//handles the upload button click
-function uploadFileButton() {
-	document.getElementById("fileupload").click();
+function assignDroppedFile(file) {
+	if (!file || !file.name) return;
+	var name = file.name.toLowerCase();
+	if (name.endsWith(".jsonl")) {
+		setPendingTrackingFile(file);
+	} else if (name.endsWith(".json") || name.indexOf("meta") !== -1) {
+		setPendingMetadataFile(file);
+	} else {
+		setPendingTrackingFile(file);
+	}
 }
 
 function dragOverHandler(ev) {
 	ev.preventDefault();
 }
 
-function handleFileUpload(event) {
-	var file = event.target.files[0];
-	if (file) {
-		handleFile(file);
-	} else {
-		showDataError("No file received");
+async function submitUploads() {
+	if (!pendingTrackingFile) {
+		window.alert("Please choose a tracking.jsonl file before submitting.");
+		return;
 	}
-}
-
-async function handleFile(file) {
 	gameData = null;
 	try {
-		await loadTrackingData(file);
+		await loadTrackingData(pendingTrackingFile, pendingMetadataFile || undefined);
 	} catch (err) {
 		console.error("Failed to load tracking:", err);
 		showDataError("Failed to load tracking data", err.message);
