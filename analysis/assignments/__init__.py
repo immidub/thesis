@@ -6,6 +6,7 @@ from typing import Callable
 
 from analysis.assignments.base import Assignment, Edge
 from analysis.assignments.distance_threshold import DistanceThresholdAssignment
+from analysis.assignments.dynamic_threshold import DynamicThresholdAssignment
 from analysis.assignments.knn import KNN_MODES, KnnAssignment
 from analysis.assignments.meta import (
     assignment_plot_label,
@@ -16,6 +17,7 @@ from analysis.assignments.perfect_match import PerfectMatchAssignment
 
 ASSIGNMENTS: dict[str, Callable[..., Assignment]] = {
     "distance_threshold": DistanceThresholdAssignment,
+    "dynamic_threshold": DynamicThresholdAssignment,
     "perfect_match": PerfectMatchAssignment,
     "knn": KnnAssignment,
 }
@@ -34,6 +36,7 @@ __all__ = [
     "ASSIGNMENTS",
     "Assignment",
     "DistanceThresholdAssignment",
+    "DynamicThresholdAssignment",
     "Edge",
     "KNN_MODES",
     "KnnAssignment",

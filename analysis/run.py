@@ -56,6 +56,12 @@ def main(argv: list[str] | None = None) -> int:
     total_edges = sum(len(edges) for edges in edges_by_frame)
     print(f"  {total_edges} edges across all frames", flush=True)
 
+# assignment variations (e.g. dynamic_threshold) write their extra outputs
+# to {out}/variations/{assignment}/ via this optional hook
+    variation_outputs = getattr(assignment, "write_variation_outputs", None)
+    if variation_outputs is not None:
+        variation_outputs(out_dir)
+
 # run the analyses
     run_summaries: dict[str, dict] = {}
     for name in analysis_names:
@@ -75,6 +81,9 @@ def main(argv: list[str] | None = None) -> int:
                 "threshold_m": assignment_fields["threshold_m"],
                 "k": assignment_fields["k"],
                 "mode": assignment_fields["knnMode"],
+                "dynScale": assignment_fields["dynScale"],
+                "dynMinThreshold_m": assignment_fields["dynMinThreshold_m"],
+                "dynMaxThreshold_m": assignment_fields["dynMaxThreshold_m"],
             },
             "analysis": name,
             "frameCount": len(frames),
@@ -192,6 +201,12 @@ def main(argv: list[str] | None = None) -> int:
 def _assignment_kwargs(args: argparse.Namespace) -> dict:
     if args.assignment == "distance_threshold":
         return {"threshold_m": args.threshold}
+    if args.assignment == "dynamic_threshold":
+        return {
+            "scale": args.dyn_scale,
+            "min_threshold_m": args.dyn_min,
+            "max_threshold_m": args.dyn_max,
+        }
     if args.assignment == "knn":
         return {"k": args.k, "mode": args.knn_mode}
     return {}
@@ -211,9 +226,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--assignment",
         default="distance_threshold",
-        choices=["distance_threshold", "perfect_match", "knn"],
+        choices=["distance_threshold", "dynamic_threshold", "perfect_match", "knn"],
         help=(
-            "Marking assignment: distance_threshold, perfect_match "
+            "Marking assignment: distance_threshold, dynamic_threshold "
+            "(compactness-scaled radius), perfect_match "
             "(all-outfield min-cost matching), or knn"
         ),
     )
@@ -222,6 +238,27 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=10.0,
         help="Distance threshold in metres (distance_threshold only)",
+    )
+    parser.add_argument(
+        "--dyn-scale",
+        type=float,
+        default=1.5,
+        help=(
+            "dynamic_threshold only: multiplier applied to the frame "
+            "compactness (mean nearest-attacker distance of defenders)"
+        ),
+    )
+    parser.add_argument(
+        "--dyn-min",
+        type=float,
+        default=5.0,
+        help="dynamic_threshold only: lower clip for the frame threshold (m)",
+    )
+    parser.add_argument(
+        "--dyn-max",
+        type=float,
+        default=15.0,
+        help="dynamic_threshold only: upper clip for the frame threshold (m)",
     )
     parser.add_argument(
         "--k",

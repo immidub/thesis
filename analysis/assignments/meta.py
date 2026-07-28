@@ -19,9 +19,16 @@ def assignment_summary_fields(assignment: Assignment) -> dict[str, Any]:
         "threshold_m": None,
         "k": None,
         "knnMode": None,
+        "dynScale": None,
+        "dynMinThreshold_m": None,
+        "dynMaxThreshold_m": None,
     }
     if name == "distance_threshold":
         fields["threshold_m"] = float(getattr(assignment, "threshold_m"))
+    elif name == "dynamic_threshold":
+        fields["dynScale"] = float(getattr(assignment, "scale"))
+        fields["dynMinThreshold_m"] = float(getattr(assignment, "min_threshold_m"))
+        fields["dynMaxThreshold_m"] = float(getattr(assignment, "max_threshold_m"))
     elif name == "knn":
         fields["k"] = int(getattr(assignment, "k"))
         fields["knnMode"] = str(getattr(assignment, "mode"))
@@ -40,6 +47,16 @@ def assignment_plot_label(source: Assignment | dict[str, Any]) -> str:
         threshold = fields.get("threshold_m")
         if threshold is not None:
             return f"distance_threshold ({float(threshold):g} m)"
+        return name
+    if name == "dynamic_threshold":
+        scale = fields.get("dynScale")
+        lo = fields.get("dynMinThreshold_m")
+        hi = fields.get("dynMaxThreshold_m")
+        if scale is not None and lo is not None and hi is not None:
+            return (
+                f"dynamic_threshold (x{float(scale):g}, "
+                f"{float(lo):g}-{float(hi):g} m)"
+            )
         return name
     if name == "knn":
         parts: list[str] = []
@@ -64,6 +81,16 @@ def assignment_slug(assignment: Assignment) -> str:
             return "distance_threshold"
         threshold_str = f"{float(threshold):g}".replace(".", "p")
         return f"distance_threshold__t{threshold_str}m"
+    if name == "dynamic_threshold":
+        scale = getattr(assignment, "scale", None)
+        lo = getattr(assignment, "min_threshold_m", None)
+        hi = getattr(assignment, "max_threshold_m", None)
+        if scale is None or lo is None or hi is None:
+            return "dynamic_threshold"
+        scale_str = f"{float(scale):g}".replace(".", "p")
+        lo_str = f"{float(lo):g}".replace(".", "p")
+        hi_str = f"{float(hi):g}".replace(".", "p")
+        return f"dynamic_threshold__s{scale_str}__{lo_str}to{hi_str}m"
     if name == "knn":
         k = getattr(assignment, "k", 1)
         mode = str(getattr(assignment, "mode", "defender-to-attacker")).replace("-", "_")
