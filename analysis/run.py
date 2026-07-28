@@ -25,6 +25,7 @@ from analysis.analyses import create_analysis
 from analysis.analyses.base import AnalysisContext
 from analysis.assignments import create_assignment
 from analysis.assignments.knn import KNN_MODES
+from analysis.assignments.oriented_knn import BEHIND_MODES
 from analysis.assignments.meta import assignment_slug, assignment_summary_fields
 from analysis.data import Frame, iter_frames, load_tracking
 
@@ -84,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
                 "dynScale": assignment_fields["dynScale"],
                 "dynMinThreshold_m": assignment_fields["dynMinThreshold_m"],
                 "dynMaxThreshold_m": assignment_fields["dynMaxThreshold_m"],
+                "orientedAlpha": assignment_fields["orientedAlpha"],
+                "orientedBehindMode": assignment_fields["orientedBehindMode"],
             },
             "analysis": name,
             "frameCount": len(frames),
@@ -209,6 +212,8 @@ def _assignment_kwargs(args: argparse.Namespace) -> dict:
         }
     if args.assignment == "knn":
         return {"k": args.k, "mode": args.knn_mode}
+    if args.assignment == "oriented_knn":
+        return {"k": args.k, "alpha": args.alpha, "behind_mode": args.behind_mode}
     return {}
 
 
@@ -226,11 +231,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--assignment",
         default="distance_threshold",
-        choices=["distance_threshold", "dynamic_threshold", "perfect_match", "knn"],
+        choices=[
+            "distance_threshold",
+            "dynamic_threshold",
+            "perfect_match",
+            "knn",
+            "oriented_knn",
+        ],
         help=(
             "Marking assignment: distance_threshold, dynamic_threshold "
             "(compactness-scaled radius), perfect_match "
-            "(all-outfield min-cost matching), or knn"
+            "(all-outfield min-cost matching), knn, or oriented_knn "
+            "(mutual knn with goal-side oriented cost)"
         ),
     )
     parser.add_argument(
@@ -264,7 +276,25 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--k",
         type=int,
         default=1,
-        help="Number of nearest neighbours (knn only)",
+        help="Number of nearest neighbours (knn / oriented_knn)",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=2.0,
+        help=(
+            "oriented_knn only: goal-side stretch factor (>= 1) of the "
+            "anisotropic ranking cost"
+        ),
+    )
+    parser.add_argument(
+        "--behind-mode",
+        default="neutral",
+        choices=list(BEHIND_MODES),
+        help=(
+            "oriented_knn only: along-axis scale behind the attacker "
+            "(neutral = 1, penalize = 1/alpha)"
+        ),
     )
     parser.add_argument(
         "--knn-mode",

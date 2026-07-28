@@ -22,6 +22,8 @@ def assignment_summary_fields(assignment: Assignment) -> dict[str, Any]:
         "dynScale": None,
         "dynMinThreshold_m": None,
         "dynMaxThreshold_m": None,
+        "orientedAlpha": None,
+        "orientedBehindMode": None,
     }
     if name == "distance_threshold":
         fields["threshold_m"] = float(getattr(assignment, "threshold_m"))
@@ -32,6 +34,8 @@ def assignment_summary_fields(assignment: Assignment) -> dict[str, Any]:
     elif name == "knn":
         fields["k"] = int(getattr(assignment, "k"))
         fields["knnMode"] = str(getattr(assignment, "mode"))
+    elif name == "oriented_knn":
+        fields.update(assignment.summary_fields())
     return fields
 
 
@@ -69,6 +73,13 @@ def assignment_plot_label(source: Assignment | dict[str, Any]) -> str:
         if parts:
             return f"knn ({', '.join(parts)})"
         return name
+    if name == "oriented_knn":
+        k = fields.get("k")
+        alpha = fields.get("orientedAlpha")
+        behind = fields.get("orientedBehindMode")
+        if k is not None and alpha is not None and behind is not None:
+            return f"oriented_knn (k={k}, a={float(alpha):g}, {behind})"
+        return name
     return str(name)
 
 
@@ -95,4 +106,6 @@ def assignment_slug(assignment: Assignment) -> str:
         k = getattr(assignment, "k", 1)
         mode = str(getattr(assignment, "mode", "defender-to-attacker")).replace("-", "_")
         return f"knn__k{k}__{mode}"
+    if name == "oriented_knn":
+        return assignment.slug()
     return name
