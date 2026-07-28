@@ -208,6 +208,7 @@ def collect_summary_row(slug: str, out_dir: Path, **extra: Any) -> dict[str, Any
         row[f"{prefix}_pctUnmarkedAttackers"] = z.get("pctUnmarkedAttackers")
         row[f"{prefix}_doubleMarkingRate"] = z.get("doubleMarkingRate")
         row[f"{prefix}_tripleOrMoreMarkingRate"] = z.get("tripleOrMoreMarkingRate")
+        row[f"{prefix}_goalSidePercent"] = z.get("goalSidePercent")
 
     #update the row with the pitch zone metrics
     pitch_thirds = aggregate_pitch_thirds(pitch_zones.get("zones") or [])

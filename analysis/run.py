@@ -176,7 +176,13 @@ def main(argv: list[str] | None = None) -> int:
         elif name == "ball_zones":
             zones = run_summaries[name].get("zones") or []
             brief = ", ".join(
-                f"{z['zone']}={z.get('meanDegree')}" for z in zones
+                f"{z['zone']}:deg={z.get('meanDegree')}"
+                + (
+                    f",gs={z['goalSidePercent']:.1f}%"
+                    if z.get("goalSidePercent") is not None
+                    else ""
+                )
+                for z in zones
             )
             print(f"ball_zones: {brief}", flush=True)
 

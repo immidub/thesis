@@ -278,6 +278,7 @@ def compare_knn_sweep(
         ("pctUnmarkedAttackers", "Unmarked attackers (ball zones)", "Unmarked attackers (%)"),
         ("doubleMarkingRate", "Double-marked attackers (ball zones)", "Double-marking rate (%)"),
         ("tripleOrMoreMarkingRate", "3+-marked attackers (ball zones)", "3+-marking rate (%)"),
+        ("goalSidePercent", "Goal-side assignments (ball zones)", "Goal-side share (%)"),
     ]
     for metric, title, ylabel in ball_metrics:
         cols = [f"ball_{z}_{metric}" for z in BALL_ZONE_ORDER]

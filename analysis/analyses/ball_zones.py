@@ -16,6 +16,10 @@ from analysis.pitch import (
     BALL_ZONE_COOPERATION_M,
     BALL_ZONE_NEAR_M,
     ball_zone,
+    defended_goal_center,
+    home_goalkeeper_on_positive_x_by_period,
+    is_defender_goal_side,
+    player_by_id,
 )
 from analysis.zone_metrics import (
     accumulate_zone_frame,
@@ -46,8 +50,12 @@ class BallZonesAnalysis:
             raise ValueError("frames and edges_by_frame length mismatch")
 
         totals: dict[str, dict] = {}
+        goal_side_totals: dict[str, dict[str, int]] = {
+            zone: {"edges": 0, "goalSide": 0} for zone in BALL_ZONE_ORDER
+        }
         assigned_frames = 0
         skipped_no_ball = 0
+        gk_on_positive_x_by_period = home_goalkeeper_on_positive_x_by_period(frames)
 
         for frame, edges in zip(frames, edges_by_frame):
             defending = frame.defending_team
@@ -76,11 +84,47 @@ class BallZonesAnalysis:
                 totals=totals,
             )
 
+            if edges:
+                home_gk_on_positive_x = gk_on_positive_x_by_period[frame.period]
+                goal = defended_goal_center(
+                    frame, home_goalkeeper_on_positive_x_flag=home_gk_on_positive_x
+                )
+                for edge in edges:
+                    zone = zone_of_attacker.get(edge.attacker_id)
+                    if zone is None:
+                        continue
+                    defender = player_by_id(frame, edge.defender_id)
+                    attacker = player_by_id(frame, edge.attacker_id)
+                    if defender is None or attacker is None:
+                        continue
+                    bucket = goal_side_totals.setdefault(
+                        zone, {"edges": 0, "goalSide": 0}
+                    )
+                    bucket["edges"] += 1
+                    if is_defender_goal_side(
+                        goal,
+                        (attacker.x, attacker.y),
+                        (defender.x, defender.y),
+                    ):
+                        bucket["goalSide"] += 1
+
         rows = finalize_zone_stats(
             totals, assigned_frames=assigned_frames, zone_order=BALL_ZONE_ORDER
         )
         for row in rows:
             row["label"] = BALL_ZONE_LABELS.get(row["zone"], row["zone"])
+            gs = goal_side_totals.get(row["zone"], {"edges": 0, "goalSide": 0})
+            n_edges = int(gs["edges"])
+            n_goal_side = int(gs["goalSide"])
+            row["goalSideNEdges"] = n_edges
+            row["goalSideCount"] = n_goal_side
+            row["notGoalSideCount"] = n_edges - n_goal_side
+            row["goalSidePercent"] = (
+                100.0 * n_goal_side / n_edges if n_edges else None
+            )
+            row["notGoalSidePercent"] = (
+                100.0 * (n_edges - n_goal_side) / n_edges if n_edges else None
+            )
 
         per_zone = pd.DataFrame(rows)
         out_dir = ctx.out_dir
@@ -145,11 +189,18 @@ def _write_plots(per_zone: pd.DataFrame, summary: dict, out_dir: Path) -> dict[s
             "3+ marking rate (%)",
             "ball_zones_triple_or_more_marking.png",
         ),
+        (
+            "goalSidePercent",
+            "Goal-side share (%)",
+            "ball_zones_goal_side_pct.png",
+        ),
     ]
 
     colors = ["#c0392b", "#3d6b8c", "#7f8c8d"]
 
     for column, title, filename in charts:
+        if column not in per_zone.columns:
+            continue
         path = out_dir / filename
         fig, ax = plt.subplots(figsize=(7.2, 4.2))
         values = []

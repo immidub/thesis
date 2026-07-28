@@ -215,6 +215,7 @@ def compare_threshold_sweep(
         ("pctUnmarkedAttackers", "Unmarked attackers by k (ball zones)", "Unmarked attackers (%)"),
         ("doubleMarkingRate", "Double-marked attackers by k (ball zones)", "Double-marking rate (%)"),
         ("tripleOrMoreMarkingRate", "3+-marked attackers by k (ball zones)", "3+-marking rate (%)"),
+        ("goalSidePercent", "Goal-side assignments by k (ball zones)", "Goal-side share (%)"),
     ]
     for metric, title, ylabel in ball_metrics:
         cols = [f"ball_{z}_{metric}" for z in BALL_ZONE_ORDER]
