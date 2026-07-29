@@ -200,6 +200,13 @@ def main(argv: list[str] | None = None) -> int:
                 for z in zones
             )
             print(f"ball_zones: {brief}", flush=True)
+        elif name == "overlap":
+            comps = run_summaries[name].get("comparisons") or []
+            print(
+                f"overlap: target={run_summaries[name].get('targetSlug')} "
+                f"sources={len(comps)}",
+                flush=True,
+            )
 
     return 0
 
@@ -366,6 +373,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "temporal_stability",
             "pitch_zones",
             "ball_zones",
+            "overlap",
         ],
         help="Analyses to run",
     )
