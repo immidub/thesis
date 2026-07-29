@@ -26,6 +26,7 @@ from analysis.analyses.base import AnalysisContext
 from analysis.assignments import create_assignment
 from analysis.assignments.knn import KNN_MODES
 from analysis.assignments.oriented_knn import BEHIND_MODES
+from analysis.assignments.perfect_match import PERFECT_MATCH_RESTRICT_MODES
 from analysis.assignments.meta import assignment_slug, assignment_summary_fields
 from analysis.data import Frame, iter_frames, load_tracking
 
@@ -87,6 +88,8 @@ def main(argv: list[str] | None = None) -> int:
                 "dynMaxThreshold_m": assignment_fields["dynMaxThreshold_m"],
                 "orientedAlpha": assignment_fields["orientedAlpha"],
                 "orientedBehindMode": assignment_fields["orientedBehindMode"],
+                "pmMaxLength_m": assignment_fields["pmMaxLength_m"],
+                "pmRestrict": assignment_fields["pmRestrict"],
             },
             "analysis": name,
             "frameCount": len(frames),
@@ -214,6 +217,15 @@ def _assignment_kwargs(args: argparse.Namespace) -> dict:
         return {"k": args.k, "mode": args.knn_mode}
     if args.assignment == "oriented_knn":
         return {"k": args.k, "alpha": args.alpha, "behind_mode": args.behind_mode}
+    if args.assignment == "perfect_match":
+        kwargs = {
+            "max_length_m": args.pm_max_length,
+            "restrict": args.pm_restrict,
+        }
+        if args.pm_restrict == "knn":
+            kwargs["k"] = args.pm_k
+            kwargs["knn_mode"] = args.pm_knn_mode
+        return kwargs
     return {}
 
 
@@ -243,7 +255,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "Marking assignment: distance_threshold, dynamic_threshold "
             "(compactness-scaled radius), perfect_match "
-            "(all-outfield min-cost matching), knn, oriented_knn "
+            "(all-outfield min-cost matching; optional --pm-max-length / "
+            "--pm-restrict), knn, oriented_knn "
             "(mutual knn with goal-side oriented cost), delaunay "
             "(bipartite all-outfield Delaunay), or shape_graph "
             "(bipartite all-outfield shape graph)"
@@ -254,6 +267,39 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=10.0,
         help="Distance threshold in metres (distance_threshold only)",
+    )
+    parser.add_argument(
+        "--pm-max-length",
+        type=float,
+        default=None,
+        help=(
+            "perfect_match only: forbid defender–attacker pairs longer than "
+            "this distance in metres (e.g. 20)"
+        ),
+    )
+    parser.add_argument(
+        "--pm-restrict",
+        default="none",
+        choices=list(PERFECT_MATCH_RESTRICT_MODES),
+        help=(
+            "perfect_match only: extra allow-list on candidate pairs "
+            "(none, knn, or delaunay)"
+        ),
+    )
+    parser.add_argument(
+        "--pm-k",
+        type=int,
+        default=2,
+        help="perfect_match --pm-restrict knn: neighbour count (default: 2)",
+    )
+    parser.add_argument(
+        "--pm-knn-mode",
+        default="both-all",
+        choices=list(KNN_MODES),
+        help=(
+            "perfect_match --pm-restrict knn: kNN mode "
+            "(default: both-all)"
+        ),
     )
     parser.add_argument(
         "--dyn-scale",

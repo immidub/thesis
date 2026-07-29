@@ -24,6 +24,8 @@ def assignment_summary_fields(assignment: Assignment) -> dict[str, Any]:
         "dynMaxThreshold_m": None,
         "orientedAlpha": None,
         "orientedBehindMode": None,
+        "pmMaxLength_m": None,
+        "pmRestrict": None,
     }
     if name == "distance_threshold":
         fields["threshold_m"] = float(getattr(assignment, "threshold_m"))
@@ -35,6 +37,8 @@ def assignment_summary_fields(assignment: Assignment) -> dict[str, Any]:
         fields["k"] = int(getattr(assignment, "k"))
         fields["knnMode"] = str(getattr(assignment, "mode"))
     elif name == "oriented_knn":
+        fields.update(assignment.summary_fields())
+    elif name == "perfect_match":
         fields.update(assignment.summary_fields())
     return fields
 
@@ -80,6 +84,20 @@ def assignment_plot_label(source: Assignment | dict[str, Any]) -> str:
         if k is not None and alpha is not None and behind is not None:
             return f"oriented_knn (k={k}, a={float(alpha):g}, {behind})"
         return name
+    if name == "perfect_match":
+        restrict = fields.get("pmRestrict") or "none"
+        if restrict == "knn":
+            k = fields.get("k")
+            mode = fields.get("knnMode")
+            if k is not None and mode is not None:
+                return f"perfect_match (knn k={k}, {mode})"
+            return "perfect_match (knn)"
+        if restrict == "delaunay":
+            return "perfect_match (delaunay)"
+        max_len = fields.get("pmMaxLength_m")
+        if max_len is not None:
+            return f"perfect_match (max {float(max_len):g} m)"
+        return name
     return str(name)
 
 
@@ -107,5 +125,7 @@ def assignment_slug(assignment: Assignment) -> str:
         mode = str(getattr(assignment, "mode", "defender-to-attacker")).replace("-", "_")
         return f"knn__k{k}__{mode}"
     if name == "oriented_knn":
+        return assignment.slug()
+    if name == "perfect_match":
         return assignment.slug()
     return name

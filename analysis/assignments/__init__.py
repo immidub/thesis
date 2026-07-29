@@ -15,7 +15,10 @@ from analysis.assignments.meta import (
     assignment_slug,
     assignment_summary_fields,
 )
-from analysis.assignments.perfect_match import PerfectMatchAssignment
+from analysis.assignments.perfect_match import (
+    PERFECT_MATCH_RESTRICT_MODES,
+    PerfectMatchAssignment,
+)
 
 ASSIGNMENTS: dict[str, Callable[..., Assignment]] = {
     "distance_threshold": DistanceThresholdAssignment,
@@ -48,6 +51,7 @@ __all__ = [
     "Edge",
     "KNN_MODES",
     "KnnAssignment",
+    "PERFECT_MATCH_RESTRICT_MODES",
     "PerfectMatchAssignment",
     "ShapeGraphAssignment",
     "assignment_plot_label",
