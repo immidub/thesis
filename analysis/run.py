@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {total_edges} edges across all frames", flush=True)
 
 # assignment variations (e.g. dynamic_threshold) write their extra outputs
-# to {out}/variations/{assignment}/ via this optional hook
+# to {out}/variations/ via this optional hook
     variation_outputs = getattr(assignment, "write_variation_outputs", None)
     if variation_outputs is not None:
         variation_outputs(out_dir)
@@ -237,12 +237,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "perfect_match",
             "knn",
             "oriented_knn",
+            "delaunay",
+            "shape_graph",
         ],
         help=(
             "Marking assignment: distance_threshold, dynamic_threshold "
             "(compactness-scaled radius), perfect_match "
-            "(all-outfield min-cost matching), knn, or oriented_knn "
-            "(mutual knn with goal-side oriented cost)"
+            "(all-outfield min-cost matching), knn, oriented_knn "
+            "(mutual knn with goal-side oriented cost), delaunay "
+            "(bipartite all-outfield Delaunay), or shape_graph "
+            "(bipartite all-outfield shape graph)"
         ),
     )
     parser.add_argument(

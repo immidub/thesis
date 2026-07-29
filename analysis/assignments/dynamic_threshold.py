@@ -55,7 +55,7 @@ class DynamicThresholdAssignment:
         if not self.frame_thresholds:
             return
 
-        var_dir = out_dir / "variations" / self.name
+        var_dir = out_dir / "variations"
         var_dir.mkdir(parents=True, exist_ok=True)
 
         csv_path = var_dir / "frame_thresholds.csv"

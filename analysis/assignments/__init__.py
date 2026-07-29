@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Callable
 
 from analysis.assignments.base import Assignment, Edge
+from analysis.assignments.delaunay_graph import DelaunayAssignment, ShapeGraphAssignment
 from analysis.assignments.distance_threshold import DistanceThresholdAssignment
 from analysis.assignments.dynamic_threshold import DynamicThresholdAssignment
 from analysis.assignments.knn import KNN_MODES, KnnAssignment
@@ -22,6 +23,8 @@ ASSIGNMENTS: dict[str, Callable[..., Assignment]] = {
     "perfect_match": PerfectMatchAssignment,
     "knn": KnnAssignment,
     "oriented_knn": OrientedKnnAssignment,
+    "delaunay": DelaunayAssignment,
+    "shape_graph": ShapeGraphAssignment,
 }
 
 
@@ -39,12 +42,14 @@ __all__ = [
     "Assignment",
     "BEHIND_MODES",
     "OrientedKnnAssignment",
+    "DelaunayAssignment",
     "DistanceThresholdAssignment",
     "DynamicThresholdAssignment",
     "Edge",
     "KNN_MODES",
     "KnnAssignment",
     "PerfectMatchAssignment",
+    "ShapeGraphAssignment",
     "assignment_plot_label",
     "assignment_slug",
     "assignment_summary_fields",
