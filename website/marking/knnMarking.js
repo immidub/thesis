@@ -1,14 +1,5 @@
 var knnK = 1;
 var knnAssignmentMode = "defender-to-attacker";
-var knnHideDashedEdges = false;
-var knnDelaunayOpponentsOnly = false;
-
-function filterKnnEdges(edges) {
-    if (!knnHideDashedEdges) return edges;
-    return edges.filter(function (edge) {
-        return !edge.dashed;
-    });
-}
 
 function getKnnMarkingEdges(frame, k) { //gets the knn marking edges for the given frame and k
     if (!isBallLive(frame)) return [];
@@ -18,10 +9,9 @@ function getKnnMarkingEdges(frame, k) { //gets the knn marking edges for the giv
 
     var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
     var defenders = getTeamPlayerPositions(frame, defendingTeam);
-    var delaunayPairSet = knnDelaunayOpponentsOnly ? getDelaunayOpponentPairSet(frame) : null; //gets the delaunay opponent pair set for the given frame
 
-    if (knnAssignmentMode === "both") {
-        return filterKnnEdges(getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet));
+    if (knnAssignmentMode === "both-all" || knnAssignmentMode === "both-mutual") {
+        return getKnnBothMarkingEdges(defenders, attackers, k, frame, knnAssignmentMode === "both-mutual");
     }
 
     var attackerToDefender = knnAssignmentMode === "attacker-to-defender";
@@ -29,21 +19,26 @@ function getKnnMarkingEdges(frame, k) { //gets the knn marking edges for the giv
     var targets = attackerToDefender ? defenders : attackers;
     var edges = [];
 
-    addKnnEdgesForDefenders(sources, targets, k, edges, frame, !attackerToDefender, delaunayPairSet);
+    addKnnEdgesForDefenders(sources, targets, k, edges, frame, !attackerToDefender);
 
-    return filterKnnEdges(edges);
+    return edges;
 }
 
 function getKnnPairKey(defenderId, attackerId) {
     return String(defenderId) + ":" + String(attackerId);
 }
 
-function collectKnnBidirectionalPairs(defenders, attackers, k, frame) { // used to collect the bidirectional pairs for the knn algorithm
+function collectKnnBidirectionalPairs(defenders, attackers, k, frame, options) {
+    // options.mode overrides knnAssignmentMode; options.ignoreOriented forces momentum/Euclidean ranking.
+    options = options || {};
+    var mode = options.mode != null ? options.mode : knnAssignmentMode;
+    var collectOpts = options.ignoreOriented ? { ignoreOriented: true } : undefined;
+
     var defenderToAttacker = [];
     var attackerToDefender = [];
 
-    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true);
-    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false);
+    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true, collectOpts);
+    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false, collectOpts);
 
     var inDefenderToAttacker = {};
     var inAttackerToDefender = {};
@@ -58,13 +53,21 @@ function collectKnnBidirectionalPairs(defenders, attackers, k, frame) { // used 
     }
 
     var pairs = {};
-    if (knnHideDashedEdges) {
+    if (mode === "both-mutual") {
         for (var key in inDefenderToAttacker) {
             if (inAttackerToDefender[key]) {
                 pairs[key] = true;
             }
         }
-    } else {
+    } else if (mode === "attacker-to-defender") {
+        for (var key in inAttackerToDefender) {
+            pairs[key] = true;
+        }
+    } else if (mode === "defender-to-attacker") {
+        for (var key in inDefenderToAttacker) {
+            pairs[key] = true;
+        }
+    } else { // both-all
         for (var key in inDefenderToAttacker) {
             pairs[key] = true;
         }
@@ -75,7 +78,7 @@ function collectKnnBidirectionalPairs(defenders, attackers, k, frame) { // used 
     return pairs;
 }
 
-function getKnnBidirectionalPairSet(frame, k) { //gets the bidirectional pair set for the given frame and k for hungarian marking
+function getKnnBidirectionalPairSet(frame, k) {
     if (!isBallLive(frame)) return null;
 
     var defendingTeam = getDefendingTeam(frame);
@@ -86,17 +89,17 @@ function getKnnBidirectionalPairSet(frame, k) { //gets the bidirectional pair se
     return collectKnnBidirectionalPairs(defenders, attackers, k, frame);
 }
 
-function markingPairInKnnSet(pairSet, defender, attacker) { //used to check if the pair is in the knn set
+function markingPairInKnnSet(pairSet, defender, attacker) {
     return pairSet != null &&
         pairSet[getKnnPairKey(String(defender.id), String(attacker.id))] === true;
 }
 
-function getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet) { //gets the both marking edges for the given defenders, attackers, k, frame and delaunay pair set
+function getKnnBothMarkingEdges(defenders, attackers, k, frame, mutualOnly) {
     var defenderToAttacker = [];
     var attackerToDefender = [];
 
-    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true, delaunayPairSet);
-    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false, delaunayPairSet);
+    addKnnEdgesForDefenders(defenders, attackers, k, defenderToAttacker, frame, true);
+    addKnnEdgesForDefenders(attackers, defenders, k, attackerToDefender, frame, false);
 
     var inDefenderToAttacker = {};
     var inAttackerToDefender = {};
@@ -120,30 +123,28 @@ function getKnnBothMarkingEdges(defenders, attackers, k, frame, delaunayPairSet)
 
     var merged = [];
     for (var key in edgeByKey) {
+        var isMutual = inDefenderToAttacker[key] && inAttackerToDefender[key];
+        if (mutualOnly && !isMutual) continue;
         var mergedEdge = edgeByKey[key];
         merged.push({
             x1: mergedEdge.x1,
             y1: mergedEdge.y1,
             x2: mergedEdge.x2,
             y2: mergedEdge.y2,
-            dashed: !(inDefenderToAttacker[key] && inAttackerToDefender[key]),
+            dashed: !isMutual,
+            defenderId: mergedEdge.defenderId,
+            attackerId: mergedEdge.attackerId,
+            lengthM: mergedEdge.lengthM,
         });
     }
 
     return merged;
 }
 
-function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefender, delaunayPairSet) { //runs knn + filters + pushes edges to the array
-    collectKnnOpponentEdges(sources, targets, k, useProjectedPositions, function (player, opp) {
+function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefender, options) {
+    collectKnnOpponentEdges(sources, targets, k, function (player, opp) {
         var defender = sourceIsDefender ? player : opp;
         var attacker = sourceIsDefender ? opp : player;
-        if (!passesMarkingEdgeFilters(frame, defender, attacker)) {
-            return;
-        }
-        if (delaunayPairSet && !markingPairInDelaunaySet(delaunayPairSet, defender, attacker)) {
-            return;
-        }
-
         edges.push({
             x1: player.x,
             y1: player.y,
@@ -151,8 +152,11 @@ function addKnnEdgesForDefenders(sources, targets, k, edges, frame, sourceIsDefe
             y2: opp.y,
             sourceId: player.id,
             targetId: opp.id,
+            defenderId: defender.id,
+            attackerId: attacker.id,
+            lengthM: getEuclideanPairDistance(defender, attacker),
         });
-    });
+    }, sourceIsDefender, frame, options);
 }
 
 //-------------------------------- setup functions --------------------------------//
@@ -183,19 +187,7 @@ function setupKnnMarking() {
         });
     }
 
-    var hideDashedCheckbox = document.getElementById("knn_hide_dashed_edges");
-    if (hideDashedCheckbox) {
-        knnHideDashedEdges = hideDashedCheckbox.checked;
-        hideDashedCheckbox.addEventListener("change", function () {
-            knnHideDashedEdges = hideDashedCheckbox.checked;
-        });
-    }
-
-    var delaunayCheckbox = document.getElementById("knn_delaunay_opponents_only");
-    if (delaunayCheckbox) {
-        knnDelaunayOpponentsOnly = delaunayCheckbox.checked;
-        delaunayCheckbox.addEventListener("change", function () {
-            knnDelaunayOpponentsOnly = delaunayCheckbox.checked;
-        });
+    if (typeof setupOrientedKnn === "function") {
+        setupOrientedKnn();
     }
 }

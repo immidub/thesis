@@ -47,24 +47,23 @@ function getDirectedPairKey(idA, idB) {
     return String(idA) + ":" + String(idB);
 }
 
-function getAllOutfieldDelaunayOpponentPairSet(frame, options) { //gets the all outfield delaunay opponent pair set for the given frame
+function getAllOutfieldDelaunayOpponentPairSet(frame, options) { //gets opponent pair set from all-outfield Delaunay (optional shape prune)
     options = options || {};
     var built = buildAllOutfieldPlayers(frame);
     if (!built) return options.emptyOnMiss === true ? null : {};
 
     var graph = computeDelaunayNeighborGraph(built.delaunay);
+    if (options.pruneShape && built.players.length >= 4) {
+        computeShapeGraph(built.delaunay, graph);
+    }
+
     var pairs = {};
-    var applyGraphEdgeFilter = options.applyGraphEdgeFilter === true;
 
     for (var i = 0; i < graph.length; i++) {
         for (var j = 0; j < graph[i].length; j++) {
             var k = graph[i][j];
             if (k <= i) continue;
             if (built.players[i].team === built.players[k].team) continue;
-            if (applyGraphEdgeFilter &&
-                !passesGraphEdgePairFilter(frame, built.players[i], built.players[k])) {
-                continue;
-            }
             pairs[getUndirectedPairKey(built.players[i].id, built.players[k].id)] = true;
         }
     }

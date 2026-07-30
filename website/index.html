@@ -18,11 +18,13 @@
         <script src="algorithms/shapeGraph.js"></script>
         <script src="pitch/pitchView.js"></script>
         <script src="marking/common.js"></script>
+        <script src="marking/distanceModel.js"></script>
+        <script src="pitch/overlays.js"></script>
         <script src="algorithms/drawGraph.js"></script>
         <script src="marking/distanceMarking.js"></script>
         <script src="marking/knnMarking.js"></script>
-        <script src="marking/allOutfieldKnnMarking.js"></script>
-        <script src="marking/hungarianMarking.js?v=2"></script>
+        <script src="marking/orientedKnn.js"></script>
+        <script src="marking/hungarianMarking.js?v=8"></script>
         <script src="core/timeline.js"></script>
         <script src="core/clipExport.js"></script>
         <script src="core/uiElements.js"></script>
@@ -178,19 +180,110 @@
                             </div>
                         </div>
 
-                        <div class="global-edge-filters">
-                            <label class="pitch-checkbox pitch-checkbox--inline" for="global_max_edge_length_15m">
-                                <input type="checkbox" id="global_max_edge_length_15m">
-                                <span>15 m max edge length</span>
-                            </label>
-                            <label class="pitch-checkbox pitch-checkbox--inline" for="global_backward_edge_filter">
-                                <input type="checkbox" id="global_backward_edge_filter">
-                                <span>Backward edges ≤5 m ahead only</span>
-                            </label>
-                            <label class="pitch-checkbox pitch-checkbox--inline" for="global_projected_positions">
-                                <input type="checkbox" id="global_projected_positions">
-                                <span>Use projected position</span>
-                            </label>
+                        <div class="model-overlays-row mb-4">
+                            <div class="distance-model-bar">
+                                <div class="distance-model-title">Distance model</div>
+                                <div class="distance-model-row">
+                                    <label class="pitch-checkbox pitch-checkbox--inline" for="momentum_distance_enabled">
+                                        <input type="checkbox" id="momentum_distance_enabled">
+                                        <span>Momentum</span>
+                                    </label>
+                                    <div id="momentum_lambda_controls" class="distance-model-controls distance-model-controls--passive">
+                                        <label class="pitch-control-label" for="momentum_lambda_slider">
+                                            λ: <span id="momentum_lambda_label">1.0</span>
+                                        </label>
+                                        <input type="range" min="0" max="2" step="0.1" value="1" class="form-range distance-model-lambda-slider" id="momentum_lambda_slider" disabled>
+                                    </div>
+                                </div>
+                                <div class="pitch-control-hint">Uses closing speed v<sub>towards</sub> along each defender–attacker line: d′ = d − λ·v<sub>towards</sub>. λ is lookahead time in seconds (λ = 0 is plain Euclidean). Applies to threshold, k-NN, and perfect matching.</div>
+                            </div>
+
+                            <div class="overlays-bar">
+                                <div class="overlays-title">Overlays</div>
+                                <ul class="overlays-list">
+                                    <li class="overlays-item">
+                                        <div class="overlays-item-main">
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="overlay_long_edges">
+                                                <input type="checkbox" id="overlay_long_edges">
+                                                <span>Long edges</span>
+                                            </label>
+                                            <div id="overlay_long_edge_controls" class="overlays-inline-controls pitch-control-subsection--passive">
+                                                <label class="pitch-control-label" for="overlay_long_edge_threshold_m">
+                                                    &gt; <span id="overlay_long_edge_label">15</span> m
+                                                </label>
+                                                <input type="number" min="5" max="40" step="1" value="15" class="form-control form-control-sm overlays-number" id="overlay_long_edge_threshold_m" disabled>
+                                            </div>
+                                        </div>
+                                        <span class="overlays-item-legend">
+                                            <span class="overlays-swatch" style="background:#DC2626"></span>
+                                        </span>
+                                    </li>
+                                    <li class="overlays-item">
+                                        <div class="overlays-item-main">
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="overlay_goal_side">
+                                                <input type="checkbox" id="overlay_goal_side">
+                                                <span>Goal-side edges</span>
+                                            </label>
+                                        </div>
+                                        <span class="overlays-item-legend overlays-item-legend--goal">
+                                            <span class="overlays-swatch" style="background:#16A34A"></span>
+                                            <span class="overlays-swatch" style="background:#7C3AED"></span>
+                                            <span class="overlays-item-legend--text">violet = long + goal-side</span>
+                                        </span>
+                                    </li>
+                                    <li class="overlays-item">
+                                        <div class="overlays-item-main">
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="overlay_high_degree">
+                                                <input type="checkbox" id="overlay_high_degree">
+                                                <span>Degree ≥ 3</span>
+                                            </label>
+                                        </div>
+                                        <span class="overlays-item-legend">
+                                            <span class="overlays-swatch overlays-swatch--ring" style="border-color:#F59E0B"></span>
+                                        </span>
+                                    </li>
+                                    <li class="overlays-item">
+                                        <div class="overlays-item-main">
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="overlay_unmarked_attackers">
+                                                <input type="checkbox" id="overlay_unmarked_attackers">
+                                                <span>Unmarked attackers</span>
+                                            </label>
+                                        </div>
+                                        <span class="overlays-item-legend">
+                                            <span class="overlays-swatch overlays-swatch--ring" style="border-color:#9CA3AF"></span>
+                                        </span>
+                                    </li>
+                                    <li class="overlays-item">
+                                        <div class="overlays-item-main">
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="show_velocity_arrows">
+                                                <input type="checkbox" id="show_velocity_arrows">
+                                                <span>Velocity arrows</span>
+                                            </label>
+                                        </div>
+                                        <span class="overlays-item-legend" aria-hidden="true">
+                                            <span class="overlays-swatch overlays-swatch--arrow"></span>
+                                        </span>
+                                    </li>
+                                    <li class="overlays-item">
+                                        <div class="overlays-item-main">
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="overlay_ball_zones">
+                                                <input type="checkbox" id="overlay_ball_zones">
+                                                <span>Ball zones</span>
+                                            </label>
+                                        </div>
+                                        <span class="overlays-item-legend overlays-item-legend--text">5 m / 20 m</span>
+                                    </li>
+                                    <li class="overlays-item">
+                                        <div class="overlays-item-main">
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="overlay_pitch_grid">
+                                                <input type="checkbox" id="overlay_pitch_grid">
+                                                <span>Pitch zone grid</span>
+                                            </label>
+                                        </div>
+                                        <span class="overlays-item-legend overlays-item-legend--text">12×8</span>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
 
                         <div class="clip-export-panel mb-4">
@@ -236,15 +329,13 @@
                                         <label class="pitch-control-label" for="distance_threshold_slider">
                                             Threshold: <span id="distance_threshold_label">10.0</span> m
                                         </label>
-                                        <input type="range" min="5" max="15" step="0.5" value="10" class="form-range pitch-threshold-slider" id="distance_threshold_slider">
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="distance_threshold_angle_filter">
-                                            <input type="checkbox" id="distance_threshold_angle_filter">
-                                            <span>Ball angle filter</span>
+                                        <input type="range" min="5" max="15" step="1" value="10" class="form-range pitch-threshold-slider" id="distance_threshold_slider">
+                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="distance_threshold_density_based">
+                                            <input type="checkbox" id="distance_threshold_density_based">
+                                            <span>Density-based threshold</span>
                                         </label>
-                                        <label class="pitch-control-label mt-2" for="distance_threshold_angle_degrees">
-                                            Max ball angle: <span id="distance_threshold_angle_label">90</span>°
-                                        </label>
-                                        <input type="number" min="0" max="180" step="1" value="90" class="form-control form-control-sm pitch-angle-input" id="distance_threshold_angle_degrees">
+                                        <div class="pitch-control-hint mt-2">t = clip(1.5 × mean nearest-attacker distance of defenders, 5–15 m). Euclidean only (ignores momentum).</div>
+                                        <div class="pitch-control-hint mt-1" id="distance_density_momentum_note" hidden>Density mode ignores global momentum (same as analysis dynamic_threshold).</div>
                                     </div>
                                 </div>
                                 <div class="pitch-panel">
@@ -266,133 +357,95 @@
                                         <select class="form-select form-select-sm pitch-k-select" id="knn_assignment_mode_select">
                                             <option value="defender-to-attacker" selected>Defenders to attackers</option>
                                             <option value="attacker-to-defender">Attackers to defenders</option>
-                                            <option value="both">Both</option>
+                                            <option value="both-all">Both-all</option>
+                                            <option value="both-mutual">Both-mutual</option>
                                         </select>
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="knn_hide_dashed_edges">
-                                            <input type="checkbox" id="knn_hide_dashed_edges">
-                                            <span>Hide dashed edges</span>
+                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="knn_oriented_enabled">
+                                            <input type="checkbox" id="knn_oriented_enabled">
+                                            <span>Oriented (goal-side)</span>
                                         </label>
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="knn_delaunay_opponents_only">
-                                            <input type="checkbox" id="knn_delaunay_opponents_only">
-                                            <span>Outfield Delaunay edges only</span>
-                                        </label>
+                                        <div id="knn_oriented_controls" class="pitch-control-subsection pitch-control-subsection--passive mt-2">
+                                            <label class="pitch-control-label" for="knn_oriented_alpha_slider">
+                                                α: <span id="knn_oriented_alpha_label">2.0</span>
+                                            </label>
+                                            <input type="range" min="1" max="3" step="0.1" value="2" class="form-range pitch-threshold-slider" id="knn_oriented_alpha_slider" disabled>
+                                            <label class="pitch-control-label mt-2" for="knn_oriented_behind_select">
+                                                Behind attacker
+                                            </label>
+                                            <select class="form-select form-select-sm pitch-k-select" id="knn_oriented_behind_select" disabled>
+                                                <option value="neutral" selected>Neutral</option>
+                                                <option value="penalize">Penalize</option>
+                                            </select>
+                                        </div>
+                                        <div class="pitch-control-hint mt-2">Stretches ranking distance toward the defended goal (ellipse). Analysis uses both-mutual. α = 1 is Euclidean.</div>
+                                        <div class="pitch-control-hint mt-1" id="knn_oriented_momentum_note" hidden>Oriented k-NN ignores global momentum (same as analysis).</div>
                                     </div>
                                 </div>
                             </div>
                             <div class="pitches-row">
                                 <div class="pitch-panel">
-                                    <div class="pitch-title">All outfield k-NN</div>
+                                    <div class="pitch-title">Perfect matching</div>
                                     <div class="pitch-direction" id="pitch_direction_3"></div>
                                     <canvas id="canvas3"></canvas>
-                                    <div class="pitch-control">
-                                        <label class="pitch-control-label" for="all_outfield_knn_k_select">
-                                            k: <span id="all_outfield_knn_k_label">1</span>
-                                        </label>
-                                        <select class="form-select form-select-sm pitch-k-select" id="all_outfield_knn_k_select">
-                                            <option value="1" selected>1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                            <option value="5">5</option>
-                                            <option value="6">6</option>
-                                        </select>
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="all_outfield_knn_opponents_only">
-                                            <input type="checkbox" id="all_outfield_knn_opponents_only">
-                                            <span>Opponents only</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="pitch-panel">
-                                    <div class="pitch-title">Perfect matching</div>
-                                    <div class="pitch-direction" id="pitch_direction_4"></div>
-                                    <canvas id="canvas4"></canvas>
                                     <div class="pitch-control pitch-control--sections">
                                         <div class="pitch-control-section">
-                                            <div class="pitch-control-section-title">Attacker selection</div>
-                                            <fieldset class="pitch-radio-group pitch-radio-group--stacked">
-                                                <legend class="visually-hidden">Attacker selection mode</legend>
-                                                <label class="pitch-radio">
-                                                    <input type="radio" name="hungarian_attacker_selection" value="nearest" checked>
-                                                    <span>Nearest attackers to ball</span>
-                                                </label>
-                                                <label class="pitch-radio">
-                                                    <input type="radio" name="hungarian_attacker_selection" value="ball-radius">
-                                                    <span>Within ball radius</span>
-                                                </label>
-                                            </fieldset>
-                                            <div id="hungarian_nearest_controls" class="pitch-control-subsection">
-                                                <label class="pitch-control-label" for="hungarian_attacker_count_select">
-                                                    Attackers matched: <span id="hungarian_attacker_count_label">10</span>
-                                                </label>
-                                                <select class="form-select form-select-sm pitch-k-select" id="hungarian_attacker_count_select">
-                                                    <option value="1">1</option>
-                                                    <option value="2">2</option>
-                                                    <option value="3">3</option>
-                                                    <option value="4">4</option>
-                                                    <option value="5">5</option>
-                                                    <option value="6">6</option>
-                                                    <option value="7">7</option>
-                                                    <option value="8">8</option>
-                                                    <option value="9">9</option>
-                                                    <option value="10" selected>10</option>
-                                                </select>
-                                            </div>
-                                            <div id="hungarian_ball_radius_controls" class="pitch-control-subsection" hidden>
-                                                <label class="pitch-control-label" for="hungarian_ball_radius_slider">
-                                                    Ball radius: <span id="hungarian_ball_radius_label">15.0</span> m
-                                                </label>
-                                                <input type="range" min="5" max="30" step="0.5" value="15" class="form-range pitch-threshold-slider" id="hungarian_ball_radius_slider">
-                                            </div>
-                                            <label class="pitch-checkbox mt-1" for="hungarian_exclude_closest_attacker">
-                                                <input type="checkbox" id="hungarian_exclude_closest_attacker">
-                                                <span>Exclude ball carrier</span>
+                                            <div class="pitch-control-section-title">Max edge length</div>
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="hungarian_max_length_enabled">
+                                                <input type="checkbox" id="hungarian_max_length_enabled">
+                                                <span>Limit max edge length</span>
                                             </label>
+                                            <div id="hungarian_max_length_controls" class="pitch-control-subsection pitch-control-subsection--passive mt-2">
+                                                <label class="pitch-control-label" for="hungarian_max_length_m">
+                                                    Max length: <span id="hungarian_max_length_label">20</span> m
+                                                </label>
+                                                <input type="number" min="10" max="50" step="1" value="20" class="form-control form-control-sm pitch-k-select" id="hungarian_max_length_m" disabled>
+                                            </div>
+                                            <div class="pitch-control-hint mt-2">Can combine with a graph restriction below (same as analysis).</div>
                                         </div>
                                         <div class="pitch-control-section">
-                                            <div class="pitch-control-section-title">Edge restriction</div>
+                                            <div class="pitch-control-section-title">Graph restriction</div>
                                             <fieldset class="pitch-radio-group pitch-radio-group--stacked">
-                                                <legend class="visually-hidden">Edge restriction mode</legend>
+                                                <legend class="visually-hidden">Graph restriction mode</legend>
                                                 <label class="pitch-radio">
                                                     <input type="radio" name="hungarian_edge_restriction" value="none" checked>
-                                                    <span>No edge restriction</span>
+                                                    <span>No graph restriction</span>
                                                 </label>
                                                 <label class="pitch-radio">
                                                     <input type="radio" name="hungarian_edge_restriction" value="knn">
                                                     <span>k-NN edges only</span>
                                                 </label>
+                                                <div id="hungarian_knn_controls" class="pitch-control-subsection pitch-control-subsection--passive">
+                                                    <label class="pitch-control-label" for="hungarian_knn_k_select">
+                                                        k: <span id="hungarian_knn_k_label">2</span>
+                                                    </label>
+                                                    <select class="form-select form-select-sm pitch-k-select" id="hungarian_knn_k_select" disabled>
+                                                        <option value="1">1</option>
+                                                        <option value="2" selected>2</option>
+                                                        <option value="3">3</option>
+                                                    </select>
+                                                    <label class="pitch-control-label mt-2" for="hungarian_knn_mode_select">
+                                                        Assignment
+                                                    </label>
+                                                    <select class="form-select form-select-sm pitch-k-select" id="hungarian_knn_mode_select" disabled>
+                                                        <option value="defender-to-attacker">Defenders to attackers</option>
+                                                        <option value="attacker-to-defender">Attackers to defenders</option>
+                                                        <option value="both-all" selected>Both-all</option>
+                                                        <option value="both-mutual">Both-mutual</option>
+                                                    </select>
+                                                    <div class="pitch-control-hint mt-2">Independent of the k-NN pitch (analysis default: k=2, both-all). Uses momentum when enabled; ignores oriented ranking.</div>
+                                                </div>
                                                 <label class="pitch-radio">
                                                     <input type="radio" name="hungarian_edge_restriction" value="delaunay">
-                                                    <span>Delaunay opponent edges only</span>
+                                                    <span>Delaunay edges only</span>
                                                 </label>
                                             </fieldset>
-                                            <div class="pitch-control-hint">Uses k from the k-NN pitch. Solid edges only when “Hide dashed edges” is on; solid and dashed when it is off.</div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="pitches-row">
-                                <div class="pitch-panel">
-                                    <div class="pitch-title">Attacking team</div>
-                                    <div class="pitch-direction" id="pitch_direction_5"></div>
-                                    <canvas id="canvas5"></canvas>
-                                    <div class="pitch-control pitch-control--radio">
-                                        <fieldset class="pitch-radio-group">
-                                            <legend class="visually-hidden">Attacking team graph type</legend>
-                                            <label class="pitch-radio">
-                                                <input type="radio" name="attacking_graph_mode" value="delaunay" checked>
-                                                <span>Delaunay</span>
-                                            </label>
-                                            <label class="pitch-radio">
-                                                <input type="radio" name="attacking_graph_mode" value="shape">
-                                                <span>Shape graph</span>
-                                            </label>
-                                        </fieldset>
                                     </div>
                                 </div>
                                 <div class="pitch-panel">
                                     <div class="pitch-title">All outfield players</div>
-                                    <div class="pitch-direction" id="pitch_direction_6"></div>
-                                    <canvas id="canvas6"></canvas>
+                                    <div class="pitch-direction" id="pitch_direction_4"></div>
+                                    <canvas id="canvas4"></canvas>
                                     <div class="pitch-control pitch-control--radio">
                                         <fieldset class="pitch-radio-group">
                                             <legend class="visually-hidden">All outfield graph type</legend>
@@ -420,12 +473,11 @@
         </div>
         <script>
             setupUIElements();
-            setupGlobalEdgeFilters();
+            setupDistanceModel();
+            setupOverlays();
             setupDistanceMarking();
             setupKnnMarking();
-            setupAllOutfieldKnnMarking();
             setupHungarianMarking();
-            setupAttackingGraphMode();
             setupAllOutfieldGraph();
         </script>
     </body>

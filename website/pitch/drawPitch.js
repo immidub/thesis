@@ -26,41 +26,32 @@ function draw() {
 function drawPitchFrame(pitchIndex) {
     drawPitch();
 
+    if (typeof drawOverlayBackground === "function") {
+        drawOverlayBackground(frameNr);
+    }
+
+    var edges = [];
     if (pitchIndex === 0) {
-        var edges = getDistanceMarkingEdges(frameNr, distanceThresholdMeters);
+        edges = getDistanceMarkingEdges(frameNr, distanceThresholdMeters);
+    } else if (pitchIndex === 1) {
+        edges = getKnnMarkingEdges(frameNr, knnK);
+    } else if (pitchIndex === 2) {
+        edges = getHungarianMarkingEdges(frameNr);
+    } else if (pitchIndex === 3) {
+        edges = allOutfieldGraphMode === "shape"
+            ? getAllOutfieldShapeGraphEdges(frameNr)
+            : getAllOutfieldDelaunayEdges(frameNr);
+    }
+
+    if (typeof drawOverlayEdges === "function") {
+        drawOverlayEdges(edges, frameNr);
+    } else if (pitchIndex === 3) {
+        drawGraphEdges(edges, MARKING_EDGE_COLOR);
+    } else {
         drawMarkingEdges(edges, MARKING_EDGE_COLOR);
     }
 
-    if (pitchIndex === 1) {
-        var knnEdges = getKnnMarkingEdges(frameNr, knnK);
-        drawMarkingEdges(knnEdges, MARKING_EDGE_COLOR);
-    }
-
-    if (pitchIndex === 2) {
-        var allOutfieldKnnEdges = getAllOutfieldKnnEdges(frameNr, allOutfieldKnnK);
-        drawMarkingEdges(allOutfieldKnnEdges, MARKING_EDGE_COLOR);
-    }
-
-    if (pitchIndex === 3) {
-        var hungarianEdges = getHungarianMarkingEdges(frameNr, hungarianAttackerCount);
-        drawMarkingEdges(hungarianEdges, MARKING_EDGE_COLOR);
-    }
-
-    if (pitchIndex === 4) {
-        var attackingEdges = attackingGraphMode === "shape"
-            ? getAttackingShapeGraphEdges(frameNr)
-            : getAttackingDelaunayEdges(frameNr);
-        drawGraphEdges(attackingEdges, GRAPH_EDGE_COLOR);
-    }
-
-    if (pitchIndex === 5) {
-        var allOutfieldEdges = allOutfieldGraphMode === "shape"
-            ? getAllOutfieldShapeGraphEdges(frameNr)
-            : getAllOutfieldDelaunayEdges(frameNr);
-        drawGraphEdges(allOutfieldEdges, GRAPH_EDGE_COLOR);
-    }
-
-    var defendingTeam = (pitchIndex < 4 || pitchIndex === 5) ? getDefendingTeam(frameNr) : null;
+    var defendingTeam = getDefendingTeam(frameNr);
     var ballLive = isBallLive(frameNr);
 
     gameCanvas.ctx.save();
@@ -71,6 +62,12 @@ function drawPitchFrame(pitchIndex) {
     drawTeam(1, defendingTeam);
     drawTeam(2, defendingTeam);
     drawGoalKeepers(frameNr, defendingTeam);
+    if (typeof drawOverlayForeground === "function") {
+        drawOverlayForeground(edges, frameNr);
+    }
+    if (typeof drawVelocityArrows === "function") {
+        drawVelocityArrows(frameNr);
+    }
     drawPlayerLabels(frameNr);
     drawBall(frameNr, ballLive);
     gameCanvas.ctx.restore();

@@ -4,7 +4,7 @@ const RESPONSIBILITY_MARKING_K = 2;
 
 // For each source player, find their k nearest opponents and record edges with consistent team1/team2 IDs.
 function collect2nnOpponentEdges(sources, targets, k, outEdges, sourceIsTeam1) {
-    collectKnnOpponentEdges(sources, targets, k, useProjectedPositions, function (player, opp) {
+    collectKnnOpponentEdges(sources, targets, k, function (player, opp) {
         var team1Player = sourceIsTeam1 ? player : opp;
         var team2Player = sourceIsTeam1 ? opp : player;
 

@@ -1,39 +1,79 @@
-var hungarianAttackerCount = 10;
-var hungarianAttackerSelectionMode = "nearest";
-var hungarianBallRadiusMeters = 15;
-var hungarianExcludeClosestAttackerToBall = false;
-var hungarianEdgeRestriction = "none";
+var hungarianEdgeRestriction = "none"; // "none" | "knn" | "delaunay"
+var hungarianMaxLengthEnabled = false;
+var hungarianMaxLengthMeters = 20;
+var hungarianKnnK = 2;
+var hungarianKnnMode = "both-all";
 
-const HUNGARIAN_INFEASIBLE_COST = 1e15; //used to mark infeasible pairs in the cost matrix
+const HUNGARIAN_INFEASIBLE_COST = 1e15;
+const HUNGARIAN_MAX_LENGTH_MIN_M = 10;
+const HUNGARIAN_MAX_LENGTH_MAX_M = 50;
 
-function getHungarianAllowedPairSet(frame) { //gets the allowed pair set for the given frame
+function getHungarianAllowedPairSet(frame) {
+    // Matches analysis PerfectMatchAssignment: optional max_length ∩ optional graph restrict.
+    var hasMax = hungarianMaxLengthEnabled;
+    var hasGraph = hungarianEdgeRestriction === "knn" || hungarianEdgeRestriction === "delaunay";
+    if (!hasMax && !hasGraph) return null;
+
+    var allowed = {
+        maxLengthM: hasMax ? hungarianMaxLengthMeters : null,
+        graphType: hasGraph ? hungarianEdgeRestriction : "none",
+        pairs: null,
+    };
+
     if (hungarianEdgeRestriction === "knn") {
-        return {
-            type: "knn",
-            pairs: getKnnBidirectionalPairSet(frame, knnK),
-        };
+        allowed.pairs = getHungarianKnnPairSet(frame);
+    } else if (hungarianEdgeRestriction === "delaunay") {
+        // Always plain Delaunay (analysis restrict="delaunay"), never shape prune.
+        allowed.pairs = getAllOutfieldDelaunayOpponentPairSet(frame, {
+            pruneShape: false,
+            emptyOnMiss: true,
+        });
     }
-    if (hungarianEdgeRestriction === "delaunay") {
-        return {
-            type: "delaunay",
-            pairs: getDelaunayOpponentPairSet(frame),
-        };
-    }
-    return null;
+
+    return allowed;
 }
 
-function markingPairAllowed(allowed, defender, attacker) { //used to check if the pair is allowed for the given allowed pair set
-    if (!allowed || !allowed.pairs) return true;
-    if (allowed.type === "knn") {
+function getHungarianKnnPairSet(frame) {
+    // Own k / mode (defaults k=2, both-all). Uses momentum ranking, not oriented k-NN.
+    if (!isBallLive(frame)) return null;
+
+    var defendingTeam = getDefendingTeam(frame);
+    if (defendingTeam == null) return null;
+
+    var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
+    var defenders = getTeamPlayerPositions(frame, defendingTeam);
+    return collectKnnBidirectionalPairs(
+        defenders,
+        attackers,
+        hungarianKnnK,
+        frame,
+        {
+            mode: hungarianKnnMode,
+            ignoreOriented: true,
+        }
+    );
+}
+
+function markingPairAllowed(allowed, defender, attacker) {
+    if (!allowed) return true;
+
+    if (allowed.maxLengthM != null) {
+        var maxSq = allowed.maxLengthM * allowed.maxLengthM;
+        if (getMarkingPairDistanceSquared(defender, attacker) > maxSq) {
+            return false;
+        }
+    }
+
+    if (allowed.graphType === "knn") {
         return markingPairInKnnSet(allowed.pairs, defender, attacker);
     }
-    if (allowed.type === "delaunay") {
+    if (allowed.graphType === "delaunay") {
         return markingPairInDelaunaySet(allowed.pairs, defender, attacker);
     }
     return true;
 }
 
-function getHungarianMarkingEdges(frame, attackerCount) { //main function for hungarian marking
+function getHungarianMarkingEdges(frame) {
     if (!isBallLive(frame)) return [];
 
     var defendingTeam = getDefendingTeam(frame);
@@ -44,110 +84,26 @@ function getHungarianMarkingEdges(frame, attackerCount) { //main function for hu
 
     if (defenders.length === 0 || opponents.length === 0) return [];
 
-    var selectedAttackers;
-    if (hungarianAttackerSelectionMode === "ball-radius") { //gets the attackers within the ball radius
-        selectedAttackers = getAttackersWithinBallRadius(opponents, frame, hungarianBallRadiusMeters);
-    } else {
-        var count = attackerCount != null ? attackerCount : hungarianAttackerCount; //gets the closest attackers
-        selectedAttackers = getClosestAttackers(opponents, frame, count);
-    }
-
-    if (selectedAttackers.length === 0) return [];
-
-    if (hungarianExcludeClosestAttackerToBall) { //excludes the closest attacker to the ball
-        var closestAttacker = getClosestAttackerToBall(opponents, frame);
-        if (closestAttacker != null) {
-            var closestId = String(closestAttacker.id);
-            var filteredAttackers = [];
-            for (var a = 0; a < selectedAttackers.length; a++) {
-                if (String(selectedAttackers[a].id) !== closestId) {
-                    filteredAttackers.push(selectedAttackers[a]);
-                }
-            }
-            selectedAttackers = filteredAttackers;
-        }
-    }
-
-    if (selectedAttackers.length === 0) return [];
-
-    var allowedPairSet = getHungarianAllowedPairSet(frame); //gets the allowed pair set
-    var costMatrix = buildDefenderOpponentCostMatrix( //builds the cost matrix
+    var allowedPairSet = getHungarianAllowedPairSet(frame);
+    var costMatrix = buildDefenderOpponentCostMatrix(
         defenders,
-        selectedAttackers,
-        useProjectedPositions,
+        opponents,
         allowedPairSet
     );
-    var munkresOptions = allowedPairSet ? { padValue: HUNGARIAN_INFEASIBLE_COST } : undefined; //sets the padding value for the cost matrix
-    var indices = computeMunkres(costMatrix, munkresOptions); //computes the munkres algorithm
-    return indicesToMarkingEdges( //converts the indices to marking edges
+    var munkresOptions = allowedPairSet ? { padValue: HUNGARIAN_INFEASIBLE_COST } : undefined;
+    var indices = computeMunkres(costMatrix, munkresOptions);
+    return indicesToMarkingEdges(
         indices,
         defenders,
-        selectedAttackers,
-        frame,
+        opponents,
         allowedPairSet,
         costMatrix
     );
 }
 
-function getClosestAttackers(attackers, frame, count) {
-    var ranked = [];
-    for (var i = 0; i < attackers.length; i++) {
-        var attacker = attackers[i];
-        ranked.push({
-            player: attacker,
-            distSq: attackerDistToBallSquared(attacker, frame),
-        });
-    }
-
-    ranked.sort(function (a, b) {
-        return a.distSq - b.distSq;
-    });
-
-    var n = Math.min(count, ranked.length);
-    var selected = [];
-    for (var j = 0; j < n; j++) {
-        selected.push(ranked[j].player);
-    }
-    return selected;
-}
-
-function getAttackersWithinBallRadius(attackers, frame, radiusMeters) {
-    var radiusSq = radiusMeters * radiusMeters;
-    var selected = [];
-    for (var i = 0; i < attackers.length; i++) {
-        var attacker = attackers[i];
-        if (attackerDistToBallSquared(attacker, frame) <= radiusSq) {
-            selected.push(attacker);
-        }
-    }
-    return selected;
-}
-
-function getClosestAttackerToBall(attackers, frame) {
-    var closest = null;
-    var bestDistSq = Infinity;
-
-    for (var i = 0; i < attackers.length; i++) {
-        var attacker = attackers[i];
-        var distSq = attackerDistToBallSquared(attacker, frame);
-        if (distSq < bestDistSq) {
-            bestDistSq = distSq;
-            closest = attacker;
-        }
-    }
-
-    return closest;
-}
-
-function attackerDistToBallSquared(attacker, frame) {
-    var ball = getBallPitchPosition(frame);
-    if (!ball) return Infinity;
-    var pos = getPlayerMarkingPosition(attacker);
-    return getPitchDistanceSquared(ball.h, ball.v, pos.h, pos.v);
-}
-
-function buildDefenderOpponentCostMatrix(defenders, opponents, useProjected, allowedPairSet) {
+function buildDefenderOpponentCostMatrix(defenders, opponents, allowedPairSet) {
     var costMatrix = [];
+    var minCost = Infinity;
     for (var i = 0; i < defenders.length; i++) {
         costMatrix[i] = [];
         for (var j = 0; j < opponents.length; j++) {
@@ -155,17 +111,26 @@ function buildDefenderOpponentCostMatrix(defenders, opponents, useProjected, all
                 costMatrix[i][j] = HUNGARIAN_INFEASIBLE_COST;
                 continue;
             }
-            costMatrix[i][j] = getMarkingPairDistanceSquared(
-                defenders[i],
-                opponents[j],
-                useProjected
-            );
+            var cost = getMomentumPairCost(defenders[i], opponents[j]);
+            costMatrix[i][j] = cost;
+            if (cost < minCost) minCost = cost;
+        }
+    }
+    // Munkres expects non-negative costs; shift d' when momentum makes some costs negative.
+    if (Number.isFinite(minCost) && minCost < 0) {
+        var shift = -minCost;
+        for (var r = 0; r < costMatrix.length; r++) {
+            for (var c = 0; c < costMatrix[r].length; c++) {
+                if (costMatrix[r][c] < HUNGARIAN_INFEASIBLE_COST) {
+                    costMatrix[r][c] += shift;
+                }
+            }
         }
     }
     return costMatrix;
 }
 
-function indicesToMarkingEdges(indices, defenders, opponents, frame, allowedPairSet, costMatrix) {
+function indicesToMarkingEdges(indices, defenders, opponents, allowedPairSet, costMatrix) {
     var edges = [];
     for (var k = 0; k < indices.length; k++) {
         var defIdx = indices[k][0];
@@ -176,13 +141,15 @@ function indicesToMarkingEdges(indices, defenders, opponents, frame, allowedPair
         var attacker = opponents[oppIdx];
         if (costMatrix[defIdx][oppIdx] >= HUNGARIAN_INFEASIBLE_COST) continue;
         if (allowedPairSet && !markingPairAllowed(allowedPairSet, defender, attacker)) continue;
-        if (!passesMarkingEdgeFilters(frame, defender, attacker)) continue;
 
         edges.push({
             x1: defender.x,
             y1: defender.y,
             x2: attacker.x,
             y2: attacker.y,
+            defenderId: defender.id,
+            attackerId: attacker.id,
+            lengthM: getEuclideanPairDistance(defender, attacker),
         });
     }
     return edges;
@@ -190,65 +157,87 @@ function indicesToMarkingEdges(indices, defenders, opponents, frame, allowedPair
 
 //-------------------------------- setup functions --------------------------------//
 
-function setHungarianAttackerCount(value) {
-    hungarianAttackerCount = value;
-    var label = document.getElementById("hungarian_attacker_count_label");
+function setHungarianMaxLengthMeters(value) {
+    if (!Number.isFinite(value)) return;
+    hungarianMaxLengthMeters = Math.min(
+        HUNGARIAN_MAX_LENGTH_MAX_M,
+        Math.max(HUNGARIAN_MAX_LENGTH_MIN_M, Math.round(value))
+    );
+    var label = document.getElementById("hungarian_max_length_label");
     if (label) {
-        label.textContent = "" + value;
+        label.textContent = String(hungarianMaxLengthMeters);
+    }
+    var input = document.getElementById("hungarian_max_length_m");
+    if (input && +input.value !== hungarianMaxLengthMeters) {
+        input.value = String(hungarianMaxLengthMeters);
     }
 }
 
-function setHungarianBallRadiusMeters(value) {
-    hungarianBallRadiusMeters = value;
-    var label = document.getElementById("hungarian_ball_radius_label");
-    if (label) {
-        label.textContent = value.toFixed(1);
+function setHungarianMaxLengthEnabled(enabled) {
+    hungarianMaxLengthEnabled = enabled;
+    updateHungarianMaxLengthControls();
+}
+
+function updateHungarianMaxLengthControls() {
+    var enabled = hungarianMaxLengthEnabled;
+    var controls = document.getElementById("hungarian_max_length_controls");
+    var input = document.getElementById("hungarian_max_length_m");
+
+    if (controls) {
+        controls.classList.toggle("pitch-control-subsection--passive", !enabled);
+    }
+    if (input) {
+        input.disabled = !enabled;
     }
 }
 
-function updateHungarianAttackerSelectionControls() {
-    var nearestControls = document.getElementById("hungarian_nearest_controls");
-    var ballRadiusControls = document.getElementById("hungarian_ball_radius_controls");
-    var isBallRadius = hungarianAttackerSelectionMode === "ball-radius";
+function setHungarianKnnK(value) {
+    var k = Math.round(+value);
+    if (!Number.isFinite(k) || k < 1) return;
+    hungarianKnnK = k;
+    var label = document.getElementById("hungarian_knn_k_label");
+    if (label) label.textContent = String(hungarianKnnK);
+    var select = document.getElementById("hungarian_knn_k_select");
+    if (select && +select.value !== hungarianKnnK) {
+        select.value = String(hungarianKnnK);
+    }
+}
 
-    if (nearestControls) nearestControls.hidden = isBallRadius;
-    if (ballRadiusControls) ballRadiusControls.hidden = !isBallRadius;
+function setHungarianKnnMode(mode) {
+    hungarianKnnMode = mode;
+}
+
+function updateHungarianKnnControls() {
+    var enabled = hungarianEdgeRestriction === "knn";
+    var controls = document.getElementById("hungarian_knn_controls");
+    var kSelect = document.getElementById("hungarian_knn_k_select");
+    var modeSelect = document.getElementById("hungarian_knn_mode_select");
+
+    if (controls) {
+        controls.classList.toggle("pitch-control-subsection--passive", !enabled);
+    }
+    if (kSelect) kSelect.disabled = !enabled;
+    if (modeSelect) modeSelect.disabled = !enabled;
 }
 
 function setupHungarianMarking() {
-    var select = document.getElementById("hungarian_attacker_count_select");
-    if (!select) return;
-
-    setHungarianAttackerCount(+select.value);
-
-    select.addEventListener("change", function () {
-        setHungarianAttackerCount(+select.value);
-    });
-
-    var ballRadiusSlider = document.getElementById("hungarian_ball_radius_slider");
-    if (ballRadiusSlider) {
-        setHungarianBallRadiusMeters(+ballRadiusSlider.value);
-        ballRadiusSlider.addEventListener("input", function () {
-            setHungarianBallRadiusMeters(+ballRadiusSlider.value);
+    var maxLengthCheckbox = document.getElementById("hungarian_max_length_enabled");
+    if (maxLengthCheckbox) {
+        setHungarianMaxLengthEnabled(maxLengthCheckbox.checked);
+        maxLengthCheckbox.addEventListener("change", function () {
+            setHungarianMaxLengthEnabled(maxLengthCheckbox.checked);
         });
     }
 
-    var selectionRadios = document.querySelectorAll('input[name="hungarian_attacker_selection"]');
-    selectionRadios.forEach(function (radio) {
-        if (radio.checked) hungarianAttackerSelectionMode = radio.value;
-        radio.addEventListener("change", function () {
-            if (radio.checked) {
-                hungarianAttackerSelectionMode = radio.value;
-                updateHungarianAttackerSelectionControls();
-            }
+    var maxLengthInput = document.getElementById("hungarian_max_length_m");
+    if (maxLengthInput) {
+        setHungarianMaxLengthMeters(+maxLengthInput.value);
+        maxLengthInput.addEventListener("input", function () {
+            if (!hungarianMaxLengthEnabled) return;
+            setHungarianMaxLengthMeters(+maxLengthInput.value);
         });
-    });
-
-    var excludeClosestCheckbox = document.getElementById("hungarian_exclude_closest_attacker");
-    if (excludeClosestCheckbox) {
-        hungarianExcludeClosestAttackerToBall = excludeClosestCheckbox.checked;
-        excludeClosestCheckbox.addEventListener("change", function () {
-            hungarianExcludeClosestAttackerToBall = excludeClosestCheckbox.checked;
+        maxLengthInput.addEventListener("change", function () {
+            setHungarianMaxLengthMeters(+maxLengthInput.value);
         });
     }
 
@@ -256,9 +245,29 @@ function setupHungarianMarking() {
     edgeRestrictionRadios.forEach(function (radio) {
         if (radio.checked) hungarianEdgeRestriction = radio.value;
         radio.addEventListener("change", function () {
-            if (radio.checked) hungarianEdgeRestriction = radio.value;
+            if (radio.checked) {
+                hungarianEdgeRestriction = radio.value;
+                updateHungarianKnnControls();
+            }
         });
     });
 
-    updateHungarianAttackerSelectionControls();
+    var knnKSelect = document.getElementById("hungarian_knn_k_select");
+    if (knnKSelect) {
+        setHungarianKnnK(+knnKSelect.value);
+        knnKSelect.addEventListener("change", function () {
+            setHungarianKnnK(+knnKSelect.value);
+        });
+    }
+
+    var knnModeSelect = document.getElementById("hungarian_knn_mode_select");
+    if (knnModeSelect) {
+        setHungarianKnnMode(knnModeSelect.value);
+        knnModeSelect.addEventListener("change", function () {
+            setHungarianKnnMode(knnModeSelect.value);
+        });
+    }
+
+    updateHungarianMaxLengthControls();
+    updateHungarianKnnControls();
 }

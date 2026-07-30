@@ -1,40 +1,9 @@
-const GRAPH_EDGE_COLOR = "#9333EA";
-
-function buildAttackingDelaunay(frame) { //builds the attacking delaunay
-    if (!isBallLive(frame)) return null;
-
-    var possessionTeam = getPossessionTeam(frame);
-    if (possessionTeam == null) return null;
-
-    return buildDelaunayFromPlayers(getTeamPlayerPositions(frame, possessionTeam));
-}
-
-function getAttackingDelaunayEdges(frame) { //gets the attacking delaunay edges for the given frame
-    var built = buildAttackingDelaunay(frame);
-    if (!built) return [];
-
-    var graph = computeDelaunayNeighborGraph(built.delaunay);
-    return graphToCanvasEdges(graph, built.players, false, frame);
-}
-
-function getAttackingShapeGraphEdges(frame) { //gets the attacking shape graph edges for the given frame
-    var built = buildAttackingDelaunay(frame);
-    if (!built) return [];
-
-    var graph = computeDelaunayNeighborGraph(built.delaunay);
-    if (built.players.length >= 4) {
-        computeShapeGraph(built.delaunay, graph);
-    }
-
-    return graphToCanvasEdges(graph, built.players, false, frame);
-}
-
 function getAllOutfieldDelaunayEdges(frame) { //gets the all outfield delaunay edges for the given frame
     var built = buildAllOutfieldPlayers(frame);
     if (!built) return [];
 
     var graph = computeDelaunayNeighborGraph(built.delaunay);
-    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly, frame);
+    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly);
 }
 
 function getAllOutfieldShapeGraphEdges(frame) { //gets the all outfield shape graph edges for the given frame
@@ -46,33 +15,38 @@ function getAllOutfieldShapeGraphEdges(frame) { //gets the all outfield shape gr
         computeShapeGraph(built.delaunay, graph);
     }
 
-    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly, frame);
+    return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly);
 }
 
 function markingPairInDelaunaySet(pairSet, defender, attacker) { //used to check if the pair is in the delaunay set
     return pairSet != null && pairSet[getUndirectedPairKey(defender.id, attacker.id)] === true;
 }
 
-function getDelaunayOpponentPairSet(frame) { //gets the delaunay opponent pair set for the given frame
+function getDelaunayOpponentPairSet(frame) {
+    // Plain Delaunay opponent pairs (analysis perfect_match restrict="delaunay").
     return getAllOutfieldDelaunayOpponentPairSet(frame, {
-        applyGraphEdgeFilter: true,
+        pruneShape: false,
         emptyOnMiss: true,
     });
 }
 
-function graphToCanvasEdges(graph, players, opponentsOnly, frame) { //converts the graph to canvas edges
+function graphToCanvasEdges(graph, players, opponentsOnly) { //converts the graph to canvas edges
     var edges = [];
     for (var i = 0; i < graph.length; i++) {
         for (var j = 0; j < graph[i].length; j++) {
             var k = graph[i][j];
             if (k <= i) continue;
             if (opponentsOnly && players[i].team === players[k].team) continue;
-            if (!passesGraphEdgePairFilter(frame, players[i], players[k])) continue;
+            var dh = players[i].h - players[k].h;
+            var dv = players[i].v - players[k].v;
             edges.push({
                 x1: players[i].x,
                 y1: players[i].y,
                 x2: players[k].x,
                 y2: players[k].y,
+                playerIdA: players[i].id,
+                playerIdB: players[k].id,
+                lengthM: Math.sqrt(dh * dh + dv * dv),
             });
         }
     }
@@ -81,28 +55,15 @@ function graphToCanvasEdges(graph, players, opponentsOnly, frame) { //converts t
 
 function drawGraphEdges(edges, color) {
     drawCanvasEdges(edges, {
-        color: color != null ? color : GRAPH_EDGE_COLOR,
+        color: color != null ? color : MARKING_EDGE_COLOR,
         dashedSupport: false,
     });
 }
 
-var attackingGraphMode = "delaunay";
 var allOutfieldGraphMode = "delaunay";
 var shapeGraphOpponentsOnly = false;
 
 //-------------------------------- setup functions --------------------------------//
-
-function setupAttackingGraphMode() {
-    var radios = document.querySelectorAll('input[name="attacking_graph_mode"]');
-    if (!radios.length) return;
-
-    radios.forEach(function (radio) {
-        if (radio.checked) attackingGraphMode = radio.value;
-        radio.addEventListener("change", function () {
-            if (radio.checked) attackingGraphMode = radio.value;
-        });
-    });
-}
 
 function setupAllOutfieldGraph() {
     var radios = document.querySelectorAll('input[name="all_outfield_graph_mode"]');

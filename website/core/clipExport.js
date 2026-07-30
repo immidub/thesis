@@ -4,10 +4,8 @@ var CLIP_EXPORT_PLAYBACK_SPEED = 0.5;
 var PITCH_EXPORT_OPTIONS = [
     { index: 0, label: "Distance threshold" },
     { index: 1, label: "k-nearest neighbors" },
-    { index: 2, label: "All outfield k-NN" },
-    { index: 3, label: "Perfect matching" },
-    { index: 4, label: "Attacking team graph" },
-    { index: 5, label: "All outfield graph" },
+    { index: 2, label: "Perfect matching" },
+    { index: 3, label: "All outfield graph" },
 ];
 
 //picks supported mime type for recording

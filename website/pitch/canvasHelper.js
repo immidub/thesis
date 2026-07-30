@@ -5,7 +5,7 @@ var gameCanvas;
 var drawLoopStarted = false;
 
 var canvasLayout = {
-    pitchCount: 6,
+    pitchCount: 4,
     pitchesPerRow: 2,
     maxWidth: 1500,
     minWidth: 600,

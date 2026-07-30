@@ -1,12 +1,42 @@
 var distanceThresholdMeters = 10;
-var distanceThresholdAngleFilter = false;
-var distanceThresholdAngleDegrees = 90;
+var distanceThresholdDensityBased = false;
 
-function passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees) {
-    var defenderPos = getPlayerMarkingPosition(defender);
-    var attackerPos = getPlayerMarkingPosition(attacker);
-    var angle = getAngleAtBallDegrees(ball, attackerPos, defenderPos);
-    return angle <= maxAngleDegrees;
+const DENSITY_THRESHOLD_SCALE = 1.5;
+const DENSITY_THRESHOLD_MIN_M = 5;
+const DENSITY_THRESHOLD_MAX_M = 15;
+
+function computeFrameCompactnessMeters(defenders, attackers) {
+    // Mean nearest-attacker distance across defenders (matches dynamic_threshold.py).
+    if (defenders.length === 0 || attackers.length === 0) return 0;
+
+    var sum = 0;
+    for (var i = 0; i < defenders.length; i++) {
+        var best = Infinity;
+        for (var j = 0; j < attackers.length; j++) {
+            var distSq = getMarkingPairDistanceSquared(
+                defenders[i],
+                attackers[j]
+            );
+            if (distSq < best) best = distSq;
+        }
+        sum += Math.sqrt(best);
+    }
+    return sum / defenders.length;
+}
+
+function densityThresholdForCompactness(compactnessM) {
+    var raw = DENSITY_THRESHOLD_SCALE * compactnessM;
+    return Math.min(
+        Math.max(raw, DENSITY_THRESHOLD_MIN_M),
+        DENSITY_THRESHOLD_MAX_M
+    );
+}
+
+function updateDistanceThresholdLabel(value) {
+    var label = document.getElementById("distance_threshold_label");
+    if (label) {
+        label.textContent = value.toFixed(1);
+    }
 }
 
 function getDistanceMarkingEdges(frame, thresholdMeters) {
@@ -17,33 +47,37 @@ function getDistanceMarkingEdges(frame, thresholdMeters) {
 
     var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
     var defenders = getTeamPlayerPositions(frame, defendingTeam);
-    var edges = [];
-    var thresholdSq = thresholdMeters * thresholdMeters;
-    var ball = distanceThresholdAngleFilter ? getBallPitchPosition(frame) : null;
-    var maxAngleDegrees = distanceThresholdAngleDegrees;
+    if (defenders.length === 0 || attackers.length === 0) return [];
 
+    var threshold = thresholdMeters;
+    if (distanceThresholdDensityBased) {
+        var compactness = computeFrameCompactnessMeters(defenders, attackers);
+        threshold = densityThresholdForCompactness(compactness);
+        updateDistanceThresholdLabel(threshold);
+        var slider = document.getElementById("distance_threshold_slider");
+        if (slider) slider.value = String(threshold);
+    }
+
+    var edges = [];
     for (var i = 0; i < defenders.length; i++) {
         var defender = defenders[i];
         for (var j = 0; j < attackers.length; j++) {
             var attacker = attackers[j];
-            if (getMarkingPairDistanceSquared(defender, attacker, useProjectedPositions) > thresholdSq) {
-                continue; //if the distance between the defender and attacker is greater than the threshold, skip
-            }
-
-            if (ball != null &&
-                !passesDistanceThresholdAngleFilter(ball, defender, attacker, maxAngleDegrees)) {
-                continue; //if the angle between the defender and attacker is greater than the threshold, skip
-            }
-
-            if (!passesMarkingEdgeFilters(frame, defender, attacker)) {
-                continue; //if the edges do not pass the marking edge filters, skip
-            }
+            // Density mode matches dynamic_threshold.py (Euclidean only).
+            // Fixed threshold uses d' when momentum is on (distance_threshold.py).
+            var cost = distanceThresholdDensityBased
+                ? getEuclideanPairDistance(defender, attacker)
+                : getMomentumPairCost(defender, attacker);
+            if (cost > threshold) continue;
 
             edges.push({
                 x1: defender.x,
                 y1: defender.y,
                 x2: attacker.x,
                 y2: attacker.y,
+                defenderId: defender.id,
+                attackerId: attacker.id,
+                lengthM: getEuclideanPairDistance(defender, attacker),
             });
         }
     }
@@ -53,23 +87,31 @@ function getDistanceMarkingEdges(frame, thresholdMeters) {
 
 function setDistanceThresholdMeters(value) {
     distanceThresholdMeters = value;
-    var label = document.getElementById("distance_threshold_label");
-    if (label) {
-        label.textContent = value.toFixed(1);
-    }
+    updateDistanceThresholdLabel(value);
 }
 
-function setDistanceThresholdAngleDegrees(value) {
-    if (!Number.isFinite(value)) return;
-    distanceThresholdAngleDegrees = Math.min(180, Math.max(0, value));
-    var label = document.getElementById("distance_threshold_angle_label");
-    if (label) {
-        label.textContent = String(Math.round(distanceThresholdAngleDegrees));
+function updateDensityMomentumNote() {
+    var note = document.getElementById("distance_density_momentum_note");
+    if (!note) return;
+    var show =
+        distanceThresholdDensityBased &&
+        typeof momentumDistanceEnabled !== "undefined" &&
+        momentumDistanceEnabled;
+    note.hidden = !show;
+}
+
+function setDistanceThresholdDensityBased(enabled) {
+    distanceThresholdDensityBased = enabled;
+
+    var slider = document.getElementById("distance_threshold_slider");
+    if (slider) {
+        slider.disabled = enabled;
+        if (!enabled) {
+            slider.value = String(distanceThresholdMeters);
+            updateDistanceThresholdLabel(distanceThresholdMeters);
+        }
     }
-    var input = document.getElementById("distance_threshold_angle_degrees");
-    if (input && +input.value !== distanceThresholdAngleDegrees) {
-        input.value = String(distanceThresholdAngleDegrees);
-    }
+    updateDensityMomentumNote();
 }
 
 function setupDistanceMarking() {
@@ -79,25 +121,17 @@ function setupDistanceMarking() {
     setDistanceThresholdMeters(+slider.value);
 
     slider.addEventListener("input", function () {
+        if (distanceThresholdDensityBased) return;
         setDistanceThresholdMeters(+slider.value);
     });
 
-    var angleCheckbox = document.getElementById("distance_threshold_angle_filter");
-    if (angleCheckbox) {
-        distanceThresholdAngleFilter = angleCheckbox.checked;
-        angleCheckbox.addEventListener("change", function () {
-            distanceThresholdAngleFilter = angleCheckbox.checked;
+    var densityCheckbox = document.getElementById("distance_threshold_density_based");
+    if (densityCheckbox) {
+        setDistanceThresholdDensityBased(densityCheckbox.checked);
+        densityCheckbox.addEventListener("change", function () {
+            setDistanceThresholdDensityBased(densityCheckbox.checked);
         });
     }
 
-    var angleInput = document.getElementById("distance_threshold_angle_degrees");
-    if (angleInput) {
-        setDistanceThresholdAngleDegrees(+angleInput.value);
-        angleInput.addEventListener("input", function () {
-            setDistanceThresholdAngleDegrees(+angleInput.value);
-        });
-        angleInput.addEventListener("change", function () {
-            setDistanceThresholdAngleDegrees(+angleInput.value);
-        });
-    }
+    updateDensityMomentumNote();
 }
