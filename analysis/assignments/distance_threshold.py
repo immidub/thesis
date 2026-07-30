@@ -4,25 +4,32 @@ Defaults match the viewer with global filters off:
 - live frames only
 - outfield players only (goalkeepers excluded)
 - Euclidean distance on pitch metres (parquet x, y)
+
+Optional momentum_lambda adjusts the threshold distance:
+  d' = d - λ * v_towards; reported length_m stays Euclidean.
 """
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 
 from analysis.assignments.base import Edge
+from analysis.assignments.momentum import pairwise_momentum_distance
 from analysis.data import Frame
 
 
 class DistanceThresholdAssignment:
     name = "distance_threshold"
 
-    def __init__(self, threshold_m: float = 10.0) -> None:
+    def __init__(
+        self,
+        threshold_m: float = 10.0,
+        momentum_lambda: float = 0.0,
+    ) -> None:
         if threshold_m <= 0:
             raise ValueError("threshold_m must be positive")
         self.threshold_m = float(threshold_m)
+        self.momentum_lambda = float(momentum_lambda)
 
     def edges_for_frame(self, frame: Frame) -> list[Edge]:
         defending = frame.defending_team
@@ -35,14 +42,10 @@ class DistanceThresholdAssignment:
         if not defenders or not attackers:
             return []
 
-        def_xy = np.array([[p.x, p.y] for p in defenders], dtype=np.float64)
-        att_xy = np.array([[p.x, p.y] for p in attackers], dtype=np.float64)
-        # (n_def, n_att) squared distances
-        delta = def_xy[:, None, :] - att_xy[None, :, :]
-        dist_sq = np.einsum("ijk,ijk->ij", delta, delta)
-
-        threshold_sq = self.threshold_m * self.threshold_m
-        i_idx, j_idx = np.nonzero(dist_sq <= threshold_sq)
+        d_prime, d_euclid = pairwise_momentum_distance(
+            defenders, attackers, self.momentum_lambda
+        )
+        i_idx, j_idx = np.nonzero(d_prime <= self.threshold_m)
 
         edges: list[Edge] = []
         for i, j in zip(i_idx.tolist(), j_idx.tolist()):
@@ -50,7 +53,7 @@ class DistanceThresholdAssignment:
                 Edge(
                     defender_id=defenders[i].player_id,
                     attacker_id=attackers[j].player_id,
-                    length_m=math.sqrt(float(dist_sq[i, j])),
+                    length_m=float(d_euclid[i, j]),
                 )
             )
         return edges

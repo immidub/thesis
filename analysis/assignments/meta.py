@@ -26,6 +26,7 @@ def assignment_summary_fields(assignment: Assignment) -> dict[str, Any]:
         "orientedBehindMode": None,
         "pmMaxLength_m": None,
         "pmRestrict": None,
+        "momentum_lambda": float(getattr(assignment, "momentum_lambda", 0.0) or 0.0),
     }
     if name == "distance_threshold":
         fields["threshold_m"] = float(getattr(assignment, "threshold_m"))
@@ -38,6 +39,7 @@ def assignment_summary_fields(assignment: Assignment) -> dict[str, Any]:
         fields["knnMode"] = str(getattr(assignment, "mode"))
     elif name == "oriented_knn":
         fields.update(assignment.summary_fields())
+        fields["momentum_lambda"] = 0.0
     elif name == "perfect_match":
         fields.update(assignment.summary_fields())
     return fields
@@ -51,10 +53,13 @@ def assignment_plot_label(source: Assignment | dict[str, Any]) -> str:
         fields = source
 
     name = fields.get("assignment") or "assignment"
+    lam = fields.get("momentum_lambda") or 0.0
+    lam_suffix = f", λ={float(lam):g}" if float(lam) != 0.0 else ""
+
     if name == "distance_threshold":
         threshold = fields.get("threshold_m")
         if threshold is not None:
-            return f"distance_threshold ({float(threshold):g} m)"
+            return f"distance_threshold ({float(threshold):g} m{lam_suffix})"
         return name
     if name == "dynamic_threshold":
         scale = fields.get("dynScale")
@@ -74,6 +79,8 @@ def assignment_plot_label(source: Assignment | dict[str, Any]) -> str:
             parts.append(f"k={k}")
         if mode is not None:
             parts.append(str(mode))
+        if float(lam) != 0.0:
+            parts.append(f"λ={float(lam):g}")
         if parts:
             return f"knn ({', '.join(parts)})"
         return name
@@ -90,26 +97,31 @@ def assignment_plot_label(source: Assignment | dict[str, Any]) -> str:
             k = fields.get("k")
             mode = fields.get("knnMode")
             if k is not None and mode is not None:
-                return f"perfect_match (knn k={k}, {mode})"
-            return "perfect_match (knn)"
+                return f"perfect_match (knn k={k}, {mode}{lam_suffix})"
+            return f"perfect_match (knn{lam_suffix})"
         if restrict == "delaunay":
-            return "perfect_match (delaunay)"
+            return f"perfect_match (delaunay{lam_suffix})"
         max_len = fields.get("pmMaxLength_m")
         if max_len is not None:
-            return f"perfect_match (max {float(max_len):g} m)"
-        return name
+            return f"perfect_match (max {float(max_len):g} m{lam_suffix})"
+        return f"perfect_match{lam_suffix}" if lam_suffix else name
     return str(name)
 
 
 def assignment_slug(assignment: Assignment) -> str:
     """Filesystem-safe folder name for one assignment configuration."""
     name = assignment.name
+    lam = float(getattr(assignment, "momentum_lambda", 0.0) or 0.0)
+    lam_suffix = ""
+    if lam != 0.0:
+        lam_suffix = f"__lam{f'{lam:g}'.replace('.', 'p')}"
+
     if name == "distance_threshold":
         threshold = getattr(assignment, "threshold_m", None)
         if threshold is None:
-            return "distance_threshold"
+            return f"distance_threshold{lam_suffix}"
         threshold_str = f"{float(threshold):g}".replace(".", "p")
-        return f"distance_threshold__t{threshold_str}m"
+        return f"distance_threshold__t{threshold_str}m{lam_suffix}"
     if name == "dynamic_threshold":
         scale = getattr(assignment, "scale", None)
         lo = getattr(assignment, "min_threshold_m", None)
@@ -123,7 +135,7 @@ def assignment_slug(assignment: Assignment) -> str:
     if name == "knn":
         k = getattr(assignment, "k", 1)
         mode = str(getattr(assignment, "mode", "defender-to-attacker")).replace("-", "_")
-        return f"knn__k{k}__{mode}"
+        return f"knn__k{k}__{mode}{lam_suffix}"
     if name == "oriented_knn":
         return assignment.slug()
     if name == "perfect_match":

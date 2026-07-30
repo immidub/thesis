@@ -90,6 +90,7 @@ def main(argv: list[str] | None = None) -> int:
                 "orientedBehindMode": assignment_fields["orientedBehindMode"],
                 "pmMaxLength_m": assignment_fields["pmMaxLength_m"],
                 "pmRestrict": assignment_fields["pmRestrict"],
+                "momentum_lambda": assignment_fields.get("momentum_lambda", 0.0),
             },
             "analysis": name,
             "frameCount": len(frames),
@@ -212,8 +213,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _assignment_kwargs(args: argparse.Namespace) -> dict:
+    lam = getattr(args, "momentum_lambda", 0.0)
     if args.assignment == "distance_threshold":
-        return {"threshold_m": args.threshold}
+        return {"threshold_m": args.threshold, "momentum_lambda": lam}
     if args.assignment == "dynamic_threshold":
         return {
             "scale": args.dyn_scale,
@@ -221,13 +223,14 @@ def _assignment_kwargs(args: argparse.Namespace) -> dict:
             "max_threshold_m": args.dyn_max,
         }
     if args.assignment == "knn":
-        return {"k": args.k, "mode": args.knn_mode}
+        return {"k": args.k, "mode": args.knn_mode, "momentum_lambda": lam}
     if args.assignment == "oriented_knn":
         return {"k": args.k, "alpha": args.alpha, "behind_mode": args.behind_mode}
     if args.assignment == "perfect_match":
         kwargs = {
             "max_length_m": args.pm_max_length,
             "restrict": args.pm_restrict,
+            "momentum_lambda": lam,
         }
         if args.pm_restrict == "knn":
             kwargs["k"] = args.pm_k
@@ -360,6 +363,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help=(
             "knn direction mode: defender-to-attacker, attacker-to-defender, "
             "both-mutual (intersection), both-all (union)"
+        ),
+    )
+    parser.add_argument(
+        "--momentum-lambda",
+        type=float,
+        default=0.0,
+        help=(
+            "distance_threshold / knn / perfect_match: strength of the "
+            "momentum adjustment d' = d - λ·v_towards (0 = Euclidean)"
         ),
     )
     parser.add_argument(

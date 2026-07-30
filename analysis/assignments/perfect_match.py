@@ -20,6 +20,7 @@ from scipy.optimize import linear_sum_assignment
 from analysis.assignments.base import Edge
 from analysis.assignments.delaunay_graph import DelaunayAssignment
 from analysis.assignments.knn import KNN_MODES, KnnAssignment, KnnMode
+from analysis.assignments.momentum import pairwise_momentum_distance
 from analysis.data import Frame
 
 PerfectMatchRestrict = Literal["none", "knn", "delaunay"]
@@ -42,6 +43,7 @@ class PerfectMatchAssignment:
         restrict: PerfectMatchRestrict = "none",
         k: int = 2,
         knn_mode: KnnMode = "both-all",
+        momentum_lambda: float = 0.0,
     ) -> None:
         if max_length_m is not None and max_length_m <= 0:
             raise ValueError("max_length_m must be positive when set")
@@ -59,11 +61,14 @@ class PerfectMatchAssignment:
         self.restrict: PerfectMatchRestrict = restrict
         self.k = int(k)
         self.knn_mode: KnnMode = knn_mode
+        self.momentum_lambda = float(momentum_lambda)
 
         self._knn_mask: KnnAssignment | None = None
         self._delaunay_mask: DelaunayAssignment | None = None
         if restrict == "knn":
-            self._knn_mask = KnnAssignment(k=self.k, mode=self.knn_mode)
+            self._knn_mask = KnnAssignment(
+                k=self.k, mode=self.knn_mode, momentum_lambda=self.momentum_lambda
+            )
         elif restrict == "delaunay":
             self._delaunay_mask = DelaunayAssignment()
 
@@ -73,18 +78,25 @@ class PerfectMatchAssignment:
             "pmRestrict": self.restrict,
             "k": self.k if self.restrict == "knn" else None,
             "knnMode": self.knn_mode if self.restrict == "knn" else None,
+            "momentum_lambda": self.momentum_lambda,
         }
 
     def slug(self) -> str:
+        base: str
         if self.restrict == "knn":
             mode = self.knn_mode.replace("-", "_")
-            return f"perfect_match__knn_k{self.k}_{mode}"
-        if self.restrict == "delaunay":
-            return "perfect_match__delaunay"
-        if self.max_length_m is not None:
+            base = f"perfect_match__knn_k{self.k}_{mode}"
+        elif self.restrict == "delaunay":
+            base = "perfect_match__delaunay"
+        elif self.max_length_m is not None:
             t = f"{self.max_length_m:g}".replace(".", "p")
-            return f"perfect_match__max{t}m"
-        return "perfect_match"
+            base = f"perfect_match__max{t}m"
+        else:
+            base = "perfect_match"
+        if self.momentum_lambda != 0.0:
+            lam = f"{self.momentum_lambda:g}".replace(".", "p")
+            return f"{base}__lam{lam}"
+        return base
 
     def edges_for_frame(self, frame: Frame) -> list[Edge]:
         defending = frame.defending_team
@@ -97,12 +109,11 @@ class PerfectMatchAssignment:
         if not defenders or not attackers:
             return []
 
-        def_xy = np.array([[p.x, p.y] for p in defenders], dtype=np.float64)
-        att_xy = np.array([[p.x, p.y] for p in attackers], dtype=np.float64)
-        delta = def_xy[:, None, :] - att_xy[None, :, :]
-        cost = np.sqrt(np.einsum("ijk,ijk->ij", delta, delta))
+        cost, euclid = pairwise_momentum_distance(
+            defenders, attackers, self.momentum_lambda
+        )
 
-        allowed = self._allowed_mask(frame, defenders, attackers, cost)
+        allowed = self._allowed_mask(frame, defenders, attackers, euclid)
         if allowed is not None:
             cost = np.where(allowed, cost, _INFEASIBLE)
 
@@ -110,14 +121,13 @@ class PerfectMatchAssignment:
 
         edges: list[Edge] = []
         for i, j in zip(row_ind.tolist(), col_ind.tolist()):
-            length = float(cost[i, j])
-            if length >= _INFEASIBLE:
+            if float(cost[i, j]) >= _INFEASIBLE:
                 continue
             edges.append(
                 Edge(
                     defender_id=defenders[i].player_id,
                     attacker_id=attackers[j].player_id,
-                    length_m=length,
+                    length_m=float(euclid[i, j]),
                 )
             )
         return edges
@@ -127,14 +137,14 @@ class PerfectMatchAssignment:
         frame: Frame,
         defenders,
         attackers,
-        cost: np.ndarray,
+        euclid: np.ndarray,
     ) -> np.ndarray | None:
         """Return a boolean (n_def, n_att) allow mask, or None if unrestricted."""
-        n_def, n_att = cost.shape
+        n_def, n_att = euclid.shape
         mask: np.ndarray | None = None
 
         if self.max_length_m is not None:
-            mask = cost <= self.max_length_m
+            mask = euclid <= self.max_length_m
 
         if self._knn_mask is not None or self._delaunay_mask is not None:
             source = self._knn_mask if self._knn_mask is not None else self._delaunay_mask
