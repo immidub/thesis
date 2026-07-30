@@ -31,7 +31,6 @@ from analysis.zone_metrics import (
     attacker_degrees,
     edge_lengths_by_attacker,
     finalize_zone_stats,
-    style_ax,
 )
 
 

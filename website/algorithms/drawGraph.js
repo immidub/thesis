@@ -18,27 +18,17 @@ function getAllOutfieldShapeGraphEdges(frame) { //gets the all outfield shape gr
     return graphToCanvasEdges(graph, built.players, shapeGraphOpponentsOnly);
 }
 
-function markingPairInDelaunaySet(pairSet, defender, attacker) { //used to check if the pair is in the delaunay set
+function markingPairInDelaunaySet(pairSet, defender, attacker) {
     return pairSet != null && pairSet[getUndirectedPairKey(defender.id, attacker.id)] === true;
 }
 
-function getDelaunayOpponentPairSet(frame) {
-    // Plain Delaunay opponent pairs (analysis perfect_match restrict="delaunay").
-    return getAllOutfieldDelaunayOpponentPairSet(frame, {
-        pruneShape: false,
-        emptyOnMiss: true,
-    });
-}
-
-function graphToCanvasEdges(graph, players, opponentsOnly) { //converts the graph to canvas edges
+function graphToCanvasEdges(graph, players, opponentsOnly) {
     var edges = [];
     for (var i = 0; i < graph.length; i++) {
         for (var j = 0; j < graph[i].length; j++) {
             var k = graph[i][j];
             if (k <= i) continue;
             if (opponentsOnly && players[i].team === players[k].team) continue;
-            var dh = players[i].h - players[k].h;
-            var dv = players[i].v - players[k].v;
             edges.push({
                 x1: players[i].x,
                 y1: players[i].y,
@@ -46,7 +36,7 @@ function graphToCanvasEdges(graph, players, opponentsOnly) { //converts the grap
                 y2: players[k].y,
                 playerIdA: players[i].id,
                 playerIdB: players[k].id,
-                lengthM: Math.sqrt(dh * dh + dv * dv),
+                lengthM: getEuclideanPairDistance(players[i], players[k]),
             });
         }
     }

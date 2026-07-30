@@ -114,7 +114,7 @@ def defended_goal_center(
 ) -> tuple[float, float]:
     """Centre of the goal defended by the team without possession.
 
-    Matches website getTeamGoalLineH: when home GK is on +x, home's goal is at
+    Matches website getDefendedGoalPitch: when home GK is on +x, home's goal is at
     +half length and away's goal is at -half length.
     """
     defending = frame.defending_team

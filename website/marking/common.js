@@ -8,16 +8,15 @@ function getTeamPlayerPositions(frame, team, includeGoalkeepers) {
         if (!includeGoalkeepers && isGoalkeeperPlayer(playerId)) continue;
 
         var object = dataLine.objects[playerId];
-        var [h, v] = getCoordinates(object, object);
-
-        var [x, y] = pt(h, v);
+        var hv = getCoordinates(object, object);
+        var xy = pt(hv[0], hv[1]);
 
         var player = {
             id: playerId,
-            h: h,
-            v: v,
-            x: x,
-            y: y,
+            h: hv[0],
+            v: hv[1],
+            x: xy[0],
+            y: xy[1],
         };
         if (object.speed != null) player.speed = object.speed;
         if (object.direction != null) player.direction = object.direction;
@@ -25,6 +24,24 @@ function getTeamPlayerPositions(frame, team, includeGoalkeepers) {
     }
 
     return players;
+}
+
+function getMarkingSides(frame) {
+    // Live-ball defending / attacking outfield sides, or null if unavailable.
+    if (!isBallLive(frame)) return null;
+
+    var defendingTeam = getDefendingTeam(frame);
+    if (defendingTeam == null) return null;
+
+    var defenders = getTeamPlayerPositions(frame, defendingTeam);
+    var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
+    if (defenders.length === 0 || attackers.length === 0) return null;
+
+    return {
+        defendingTeam: defendingTeam,
+        defenders: defenders,
+        attackers: attackers,
+    };
 }
 
 const MARKING_EDGE_COLOR = "#2563EB";
@@ -39,7 +56,7 @@ function getPitchDistanceSquared(h1, v1, h2, v2) {
     return dh * dh + dv * dv;
 }
 
-function drawCanvasEdges(edges, options) { // draws the edges on the canvas
+function drawCanvasEdges(edges, options) {
     if (!edges || edges.length === 0) return;
     options = options || {};
 
@@ -82,12 +99,10 @@ function collectKnnOpponentEdges(sources, targets, k, processMatch, sourceIsDefe
         for (var j = 0; j < targets.length; j++) {
             var opp = targets[j];
             var cost;
-            if (!ignoreOriented && typeof getKnnPairRankingCost === "function" && frame != null) {
+            if (!ignoreOriented && frame != null) {
                 cost = getKnnPairRankingCost(player, opp, sourceIsDef, frame);
-            } else if (typeof getDirectedRankingCost === "function") {
-                cost = getDirectedRankingCost(player, opp, sourceIsDef);
             } else {
-                cost = Math.sqrt(getMarkingPairDistanceSquared(player, opp));
+                cost = getDirectedRankingCost(player, opp, sourceIsDef);
             }
             distances.push({
                 opponent: opp,

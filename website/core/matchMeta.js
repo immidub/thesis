@@ -4,7 +4,7 @@ async function loadMatchMetadata(path) {
 		if (!response.ok) return null;
 		return await response.json();
 	} catch (err) {
-		console.log("Metadata load failed:", err.message);
+		console.warn("Metadata load failed:", err.message);
 		return null;
 	}
 }

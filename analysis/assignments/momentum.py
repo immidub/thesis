@@ -5,6 +5,8 @@ d'_ij = d_ij - λ * v_ij^towards
 where v_ij^towards is the closing speed along the defender→attacker line
 (positive when the pair is approaching). Direction uses atan2(dy, dx)
 convention matching parquet kinematics (fix_tracking).
+
+Viewer counterpart: website/marking/distanceModel.js (pitch axes mirrored via h = -x).
 """
 
 from __future__ import annotations

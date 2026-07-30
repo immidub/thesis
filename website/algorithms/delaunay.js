@@ -43,11 +43,7 @@ function getUndirectedPairKey(idA, idB) {
     return a < b ? a + ":" + b : b + ":" + a;
 }
 
-function getDirectedPairKey(idA, idB) {
-    return String(idA) + ":" + String(idB);
-}
-
-function getAllOutfieldDelaunayOpponentPairSet(frame, options) { //gets opponent pair set from all-outfield Delaunay (optional shape prune)
+function getAllOutfieldDelaunayOpponentPairSet(frame, options) {
     options = options || {};
     var built = buildAllOutfieldPlayers(frame);
     if (!built) return options.emptyOnMiss === true ? null : {};

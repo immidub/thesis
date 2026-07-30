@@ -1,6 +1,8 @@
-// Distance model: momentum-adjusted ranking/matching cost (mirrors analysis/assignments/momentum.py).
+// Distance model: momentum-adjusted ranking/matching cost
+// (mirrors analysis/assignments/momentum.py).
 // d' = d - λ * v_towards, with v_towards = (v_def - v_att) · u_def→att.
 // Drawn edge geometry stays Euclidean; only ranking / threshold / matching use d'.
+// Pitch velocities use h = -speed·cos(direction) to match getCoordinates mirroring.
 
 var momentumDistanceEnabled = false;
 var momentumLambda = 1.0;

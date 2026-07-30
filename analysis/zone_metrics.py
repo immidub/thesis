@@ -3,13 +3,8 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from typing import Callable
-
-import numpy as np
-import pandas as pd
 
 from analysis.assignments.base import Edge
-from analysis.data import Frame
 
 
 def attacker_degrees(edges: list[Edge]) -> Counter[str]:
@@ -136,6 +131,3 @@ def finalize_zone_stats(
 def style_ax(ax) -> None:
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-
-
-ZoneFn = Callable[[Frame, list[Edge]], dict[str, str] | None]

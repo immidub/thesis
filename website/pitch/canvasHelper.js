@@ -21,15 +21,6 @@ function configureCanvasLayout(options) {
     }
 }
 
-// Backward-compatible alias for modules that still read PITCH_COUNT.
-Object.defineProperty(window, "PITCH_COUNT", {
-    configurable: true,
-    enumerable: true,
-    get: function () {
-        return canvasLayout.pitchCount;
-    },
-});
-
 class CanvasHelper {
     constructor(id, width, height) {
         this.width = width;

@@ -56,15 +56,7 @@ class PriorityQueue {
     return this.queueItems[this.queueItems.length - 1];
   }
   isPriorityQueueEmpty() {
-    /* Checks the length of an queue */
     return this.queueItems.length === 0;
-  }
-  /* prints all the elements of the priority queue */
-  printPriorityQueue() {
-    let queueString = '';
-    for (let i = 0; i < this.queueItems.length; i++)
-      queueString += this.queueItems[i].element + ' ';
-    return queueString;
   }
 
   updateElement(element, priority) {

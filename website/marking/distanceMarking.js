@@ -40,17 +40,15 @@ function updateDistanceThresholdLabel(value) {
 }
 
 function getDistanceMarkingEdges(frame, thresholdMeters) {
-    if (!isBallLive(frame)) return [];
+    var sides = getMarkingSides(frame);
+    if (!sides) return [];
 
-    var defendingTeam = getDefendingTeam(frame);
-    if (defendingTeam == null) return [];
-
-    var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
-    var defenders = getTeamPlayerPositions(frame, defendingTeam);
-    if (defenders.length === 0 || attackers.length === 0) return [];
+    var defenders = sides.defenders;
+    var attackers = sides.attackers;
 
     var threshold = thresholdMeters;
     if (distanceThresholdDensityBased) {
+        // Matches analysis DynamicThresholdAssignment (Euclidean compactness + clip).
         var compactness = computeFrameCompactnessMeters(defenders, attackers);
         threshold = densityThresholdForCompactness(compactness);
         updateDistanceThresholdLabel(threshold);
@@ -63,8 +61,7 @@ function getDistanceMarkingEdges(frame, thresholdMeters) {
         var defender = defenders[i];
         for (var j = 0; j < attackers.length; j++) {
             var attacker = attackers[j];
-            // Density mode matches dynamic_threshold.py (Euclidean only).
-            // Fixed threshold uses d' when momentum is on (distance_threshold.py).
+            // Density: Euclidean only. Fixed threshold: d' when momentum is on.
             var cost = distanceThresholdDensityBased
                 ? getEuclideanPairDistance(defender, attacker)
                 : getMomentumPairCost(defender, attacker);

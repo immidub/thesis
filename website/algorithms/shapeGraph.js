@@ -1,209 +1,116 @@
-// ---------------- Compute Shape Graph ----------------
+// Shape-graph pruning on a Delaunay neighbour graph (Eppler-style angle filter).
 
-var doPrint = false;
+function computeShapeGraph(delaunay, graph) {
+    var queue = new PriorityQueue();
+    var points = delaunay.points;
+    var halfedges = delaunay.halfedges;
+    var triangles = delaunay.triangles;
+    var hull = delaunay.hull;
 
-function computeShapeGraph(delaunay, graph) { //computes the shape graph for the given delaunay and graph
+    if (points.length / 2 < 4) return;
 
-    let queue = new PriorityQueue();
-
-    const {points, halfedges, triangles, hull} = delaunay;
-    
-    if(points.length/2 < 4) return;
-
-    if(doPrint) console.log("--------------------------------");
-    
-
-
-    for (let i = 0, n = halfedges.length; i < n; ++i) {
-        const j = halfedges[i];
+    for (var i = 0, n = halfedges.length; i < n; ++i) {
+        var j = halfedges[i];
         if (j < i) continue;
-        const ti = triangles[i];
-        const tj = triangles[j];
+        var ti = triangles[i];
+        var tj = triangles[j];
 
-        const neighborsA = Array.from(delaunay.neighbors(ti));
-        const neighborsB = Array.from(delaunay.neighbors(tj));
+        var neighborsA = Array.from(delaunay.neighbors(ti));
+        var neighborsB = Array.from(delaunay.neighbors(tj));
 
         var a = getNextEdge(neighborsA, tj);
         var b = getNextEdge(neighborsB, ti);
 
-        const angleA = getAngle(ti, a, tj, points);
-        const angleB = getAngle(tj, b, ti, points);
+        var angleA = getAngle(ti, a, tj, points);
+        var angleB = getAngle(tj, b, ti, points);
+        var angle = Math.abs(angleA + angleB);
 
-        const angle = Math.abs(angleA+angleB)
-
-        queue.enqueueFunction({a: ti, b: tj}, -(angle));
-        if(doPrint) console.log("adding edge " + ti + " " + tj + " with angle " + angle/Math.PI*180);
+        queue.enqueueFunction({ a: ti, b: tj }, -angle);
     }
 
-    if(doPrint) console.log("adding hull edges");
-    for (var i = 0; i < hull.length; i++) {
-        if(i == 0) {
-            var ti = hull[hull.length-1];
-            var tj = hull[i];
-        }
-        else {
-            var ti = hull[i-1];
-            var tj = hull[i];
-        }
-        const neighborsA = Array.from(delaunay.neighbors(ti));
-        var a = getPrevEdge(neighborsA, tj);
-
-        const angleA = getAngle(ti, a, tj, points);
-
-        const angle = Math.abs(angleA)
-
-        queue.enqueueFunction({a: ti, b: tj}, -(angle));
-
-        if(doPrint) console.log("adding edge " + ti + " " + tj + " with angle " + angle/Math.PI*180);
+    for (var h = 0; h < hull.length; h++) {
+        var hullTi = h === 0 ? hull[hull.length - 1] : hull[h - 1];
+        var hullTj = hull[h];
+        var hullNeighbors = Array.from(delaunay.neighbors(hullTi));
+        var hullPrev = getPrevEdge(hullNeighbors, hullTj);
+        var hullAngle = Math.abs(getAngle(hullTi, hullPrev, hullTj, points));
+        queue.enqueueFunction({ a: hullTi, b: hullTj }, -hullAngle);
     }
 
-    while(!queue.isPriorityQueueEmpty()) {
-        var queueElement = queue.dequeueFunction()
+    while (!queue.isPriorityQueueEmpty()) {
+        var queueElement = queue.dequeueFunction();
         var edge = queueElement.element;
-        var angle = -queueElement.priority
+        var edgeAngle = -queueElement.priority;
 
-        if(isHullEdge(edge.a, edge.b, hull)) {
-            //continue;
-        }
-
-        //logString.push( "at edge " + edge.a + " " + edge.b + " with angle " + angle/Math.PI*180)
-
-
-        if(angle > 135/180*Math.PI) {
-            if(doPrint) console.log("removing edge " + edge.a + " " + edge.b);
-            //logString.push( "removing edge " + edge.a + " " + edge.b)
-
-
-            var prevNode = edge.a
-            var node = getNextEdge(graph[edge.a], edge.b)
-
+        if (edgeAngle > 135 / 180 * Math.PI) {
+            var prevNode = edge.a;
+            var node = getNextEdge(graph[edge.a], edge.b);
             removeEdge(graph, edge.a, edge.b);
-        
-            var s = "" + prevNode + " "
+
             var cnt = 0;
-
             while (node != edge.a && cnt < 100) {
-                //update angle
-            
-                var angle = 0
-
-                if(!isHullEdge(prevNode,node,hull)) {
-                    //logString.push( "  updating " + prevNode + " " + node)
-
-                    const angleA = getStabilityAngle(prevNode, node, graph, points)
-                    const angleB = getStabilityAngle(node, prevNode, graph, points)
-
-                    angle = angleA + angleB;
-
-
-
-
-                    if(doPrint) console.log("new angle at " + prevNode + " " + node + " of " + angleA + " and " + angleB);
-                
-
-                    if(doPrint) console.log("new angle at " + prevNode + " " + node + " of " + angleA + " and " + angleB);
-                
-                    queue.updateElement({a: prevNode, b: node}, -angle);
-                
+                if (!isHullEdge(prevNode, node, hull)) {
+                    var updateA = getStabilityAngle(prevNode, node, graph, points);
+                    var updateB = getStabilityAngle(node, prevNode, graph, points);
+                    queue.updateElement({ a: prevNode, b: node }, -(updateA + updateB));
                 }
 
-                s += node + " "
-                cnt ++;
-                const nextNode = getNextEdge(graph[node], prevNode)
-                prevNode = node
-                node = nextNode
+                cnt++;
+                var nextNode = getNextEdge(graph[node], prevNode);
+                prevNode = node;
+                node = nextNode;
             }
         }
     }
-
-    if(doPrint) console.log(graph);
-
-    //var logStringLoc = logString
 }
 
 function getStabilityAngle(a, b, graph, points) {
-    var minAngle = Math.PI
-    var prevNode = a
-    var node = getNextEdge(graph[a], b)
-
-    var s = "" + prevNode + " "
+    var minAngle = Math.PI;
+    var prevNode = a;
+    var node = getNextEdge(graph[a], b);
     var cnt = 0;
 
     while (node != a && cnt < 100) {
-        s += node + " "
-        cnt ++;
-
-        if(graph[node] == undefined) {
-            var graphLoc = graph
-            //var logStringLoc = logString
-            adsf = 1;
-        }
-
-        const nextNode = getNextEdge(graph[node], prevNode)
-
-
-        const alpha = getAngle(a, node, b, points);
-        //logString.push("    angle for " + prevNode + " " + node + " " + nextNode + " with angle" + alpha/Math.PI*180)
-
-        if(alpha < minAngle) {
-            minAngle = alpha
-        }
-
-        prevNode = node
-        node = nextNode
+        cnt++;
+        var nextNode = getNextEdge(graph[node], prevNode);
+        var alpha = getAngle(a, node, b, points);
+        if (alpha < minAngle) minAngle = alpha;
+        prevNode = node;
+        node = nextNode;
     }
 
-    if(doPrint) console.log("  " + s + " " + cnt);
-
-    return Math.abs(minAngle)
+    return Math.abs(minAngle);
 }
 
-// ---------------- Helpers ----------------
-
 function removeEdge(graph, a, b) {
-    graph[a] = graph[a].filter(item => item != b);
-    graph[b] = graph[b].filter(item => item != a);
+    graph[a] = graph[a].filter(function (item) { return item != b; });
+    graph[b] = graph[b].filter(function (item) { return item != a; });
 }
 
 function getPrevEdge(neighbors, k) {
-    for(var i = 0; i < neighbors.length; i++) {
-        if(neighbors[i] == k) {
-            if(i == 0) {
-                return neighbors[neighbors.length-1];
-            }
-            else {
-                return neighbors[i-1];
-            }
+    for (var i = 0; i < neighbors.length; i++) {
+        if (neighbors[i] == k) {
+            return i === 0 ? neighbors[neighbors.length - 1] : neighbors[i - 1];
         }
     }
 }
 
 function getNextEdge(neighbors, k) {
-    for(var i = 0; i < neighbors.length; i++) {
-        if(neighbors[i] == k) {
-            if(i < neighbors.length-1) {
-                return neighbors[i+1];
-            }
-            else {
-                return neighbors[0];
-            }
+    for (var i = 0; i < neighbors.length; i++) {
+        if (neighbors[i] == k) {
+            return i < neighbors.length - 1 ? neighbors[i + 1] : neighbors[0];
         }
     }
 }
 
 function isHullEdge(a, b, hull) {
-    return (isHullEdgeOneWay(a,b,hull) || isHullEdgeOneWay(b,a,hull));
+    return isHullEdgeOneWay(a, b, hull) || isHullEdgeOneWay(b, a, hull);
 }
 
 function isHullEdgeOneWay(a, b, hull) {
-    for(var i = 0; i < hull.length; i++) {
-        if(hull[i] == a) {
-            if(i == hull.length-1) {
-                return (hull[0] == b);
-            }
-            else {
-                return (hull[i+1] == b);
-            }
+    for (var i = 0; i < hull.length; i++) {
+        if (hull[i] == a) {
+            return i === hull.length - 1 ? hull[0] == b : hull[i + 1] == b;
         }
     }
 }

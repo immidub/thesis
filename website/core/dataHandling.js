@@ -17,7 +17,7 @@ async function tryLoadLocalData() {
 		if (!response.ok) return;
 		await loadTrackingData(response);
 	} catch (err) {
-		console.log("Local data load failed:", err.message);
+		console.warn("Local data load failed:", err.message);
 	}
 }
 
@@ -64,8 +64,6 @@ function dataFinishedReading() {
 
 //sets up the data after it has been loaded
 function dataLoaded() {
-	console.log("Data loaded");
-
 	setupDefaultColors();
 	getPlayers();
 	setupDefaultTeamNames();

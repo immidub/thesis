@@ -1,3 +1,6 @@
+// Perfect matching (analysis PerfectMatchAssignment). File/vars keep "hungarian"
+// as the historical Munkres wrapper name used by the viewer.
+
 var hungarianEdgeRestriction = "none"; // "none" | "knn" | "delaunay"
 var hungarianMaxLengthEnabled = false;
 var hungarianMaxLengthMeters = 20;
@@ -9,7 +12,7 @@ const HUNGARIAN_MAX_LENGTH_MIN_M = 10;
 const HUNGARIAN_MAX_LENGTH_MAX_M = 50;
 
 function getHungarianAllowedPairSet(frame) {
-    // Matches analysis PerfectMatchAssignment: optional max_length ∩ optional graph restrict.
+    // Matches analysis: optional max_length ∩ optional graph restrict.
     var hasMax = hungarianMaxLengthEnabled;
     var hasGraph = hungarianEdgeRestriction === "knn" || hungarianEdgeRestriction === "delaunay";
     if (!hasMax && !hasGraph) return null;
@@ -34,17 +37,12 @@ function getHungarianAllowedPairSet(frame) {
 }
 
 function getHungarianKnnPairSet(frame) {
-    // Own k / mode (defaults k=2, both-all). Uses momentum ranking, not oriented k-NN.
-    if (!isBallLive(frame)) return null;
-
-    var defendingTeam = getDefendingTeam(frame);
-    if (defendingTeam == null) return null;
-
-    var attackers = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
-    var defenders = getTeamPlayerPositions(frame, defendingTeam);
+    // Own k / mode (defaults k=2, both-all). Momentum ranking; not oriented k-NN.
+    var sides = getMarkingSides(frame);
+    if (!sides) return null;
     return collectKnnBidirectionalPairs(
-        defenders,
-        attackers,
+        sides.defenders,
+        sides.attackers,
         hungarianKnnK,
         frame,
         {
@@ -74,15 +72,11 @@ function markingPairAllowed(allowed, defender, attacker) {
 }
 
 function getHungarianMarkingEdges(frame) {
-    if (!isBallLive(frame)) return [];
+    var sides = getMarkingSides(frame);
+    if (!sides) return [];
 
-    var defendingTeam = getDefendingTeam(frame);
-    if (defendingTeam == null) return [];
-
-    var defenders = getTeamPlayerPositions(frame, defendingTeam);
-    var opponents = getTeamPlayerPositions(frame, defendingTeam === 1 ? 2 : 1);
-
-    if (defenders.length === 0 || opponents.length === 0) return [];
+    var defenders = sides.defenders;
+    var opponents = sides.attackers;
 
     var allowedPairSet = getHungarianAllowedPairSet(frame);
     var costMatrix = buildDefenderOpponentCostMatrix(

@@ -12,7 +12,7 @@ const ORIENTED_ALPHA_DEFAULT = 2;
 const ORIENTED_EPS = 1e-9;
 
 function getDefendedGoalPitch(frame) {
-    // Goal centre defended by the team without possession (matches former getTeamGoalLineH).
+    // Goal centre defended by the team without possession.
     var defendingTeam = getDefendingTeam(frame);
     if (defendingTeam == null) return null;
 
