@@ -207,12 +207,12 @@ def build_player_entry(entity: dict, player_id_map: dict[int, str]) -> dict | No
     }
 
 
-def derive_last_touch(
+def derive_attacking(
     enriched_model: list[dict],
     home_team_id: int,
     away_team_id: int,
 ) -> str | None:
-    """Map enriched player `attacking` flags to JSONL lastTouch (home/away team in possession)."""
+    """Map enriched player `attacking` flags to JSONL attacking (home/away team in possession)."""
     attacking_team_ids = {
         entity["teamId"]
         for entity in enriched_model
@@ -284,9 +284,9 @@ def sample_to_frame(
         "awayPlayers": away_players,
     }
 
-    last_touch = derive_last_touch(enriched_model, home_team_id, away_team_id)
-    if last_touch is not None:
-        frame["lastTouch"] = last_touch
+    attacking = derive_attacking(enriched_model, home_team_id, away_team_id)
+    if attacking is not None:
+        frame["attacking"] = attacking
 
     if ball_xyz is not None:
         # speed/direction filled later by fix_tracking.recompute_ball_kinematics
@@ -405,7 +405,7 @@ def _entity_row(
         "frameIdx": frame["frameIdx"],
         "gameClock": frame["gameClock"],
         "live": bool(frame.get("live")),
-        "lastTouch": frame.get("lastTouch"),
+        "attacking": frame.get("attacking"),
         "team": team,
         "playerId": player_id,
         "number": number,
@@ -477,7 +477,7 @@ def write_tracking_parquet(
             ("frameIdx", pa.int32()),
             ("gameClock", pa.float64()),
             ("live", pa.bool_()),
-            ("lastTouch", pa.string()),
+            ("attacking", pa.string()),
             ("team", pa.string()),  # home | away | ball
             ("playerId", pa.string()),
             ("number", pa.int16()),

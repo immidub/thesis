@@ -1,11 +1,20 @@
-# Local dev tracking data — not committed; others upload via the webpage
+# Local match data / outputs — not committed; supply your own FIFA WC data under input/
 data/*
 !data/.gitkeep
 input/*
 !input/.gitkeep
 clips/*
 !clips/.gitkeep
-.venv/
 analysis/output/
-analysis/**/__pycache__/
 latex_report/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# macOS / editor
+.DS_Store
+**/.DS_Store

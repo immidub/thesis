@@ -80,7 +80,7 @@ def _frame_row(frame: Frame, edges: list[Edge]) -> dict:
         "frameIdx": frame.frame_idx,
         "gameClock": frame.game_clock,
         "live": frame.live,
-        "lastTouch": frame.last_touch,
+        "attacking": frame.attacking,
         "defendingTeam": defending,
         "edgeCount": len(edges),
         "hasAssignment": defending is not None,

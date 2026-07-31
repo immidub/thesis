@@ -47,7 +47,7 @@ class EdgeLengthsAnalysis:
                     "frameIdx": frame.frame_idx,
                     "gameClock": frame.game_clock,
                     "live": frame.live,
-                    "lastTouch": frame.last_touch,
+                    "attacking": frame.attacking,
                     "defendingTeam": frame.defending_team,
                     "edgeCount": len(lengths),
                     "hasAssignment": frame.defending_team is not None,

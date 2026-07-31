@@ -28,7 +28,7 @@ class Frame:
     frame_idx: int
     game_clock: float
     live: bool
-    last_touch: str | None
+    attacking: str | None
     home_players: tuple[Player, ...]
     away_players: tuple[Player, ...]
     ball: Player | None = None
@@ -36,9 +36,9 @@ class Frame:
     @property
     def defending_team(self) -> str | None:
         """Team without possession (mirrors website getDefendingTeam)."""
-        if not self.live or self.last_touch not in ("home", "away"):
+        if not self.live or self.attacking not in ("home", "away"):
             return None
-        return "away" if self.last_touch == "home" else "home"
+        return "away" if self.attacking == "home" else "home"
 
     def outfield_players(self, team: str) -> tuple[Player, ...]:
         players = self.home_players if team == "home" else self.away_players
@@ -75,9 +75,9 @@ def iter_frames(
     frame_idx = work["frameIdx"].to_numpy(dtype=np.int32, copy=False)
     game_clock = work["gameClock"].to_numpy(dtype=np.float64, copy=False)
     live = work["live"].to_numpy(dtype=bool, copy=False)
-    last_touch = (
-        work["lastTouch"].to_numpy(copy=False)
-        if "lastTouch" in work.columns
+    attacking = (
+        work["attacking"].to_numpy(copy=False)
+        if "attacking" in work.columns
         else np.full(len(work), None, dtype=object)
     )
     team = work["team"].to_numpy(copy=False)
@@ -140,18 +140,18 @@ def iter_frames(
             elif team_name == "ball":
                 ball = player
 
-        touch = last_touch[start]
-        if _is_na(touch):
-            touch_value = None
+        attacking_raw = attacking[start]
+        if _is_na(attacking_raw):
+            attacking_value = None
         else:
-            touch_value = str(touch)
+            attacking_value = str(attacking_raw)
 
         yield Frame(
             period=int(period[start]),
             frame_idx=int(frame_idx[start]),
             game_clock=float(game_clock[start]),
             live=bool(live[start]),
-            last_touch=touch_value,
+            attacking=attacking_value,
             home_players=tuple(home),
             away_players=tuple(away),
             ball=ball,
