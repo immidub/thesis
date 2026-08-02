@@ -15,6 +15,12 @@ function clampNumber(x, lo, hi) {
     return x;
 }
 
+function directionToUnitVector(directionDeg) {
+    // Match getCoordinates pitch space where h is negated.
+    var rad = (directionDeg * Math.PI) / 180;
+    return { h: -Math.cos(rad), v: Math.sin(rad) };
+}
+
 function getPlayerVelocityVector(player) {
     if (!player || player.speed == null || player.direction == null || player.speed <= 0) {
         return { h: 0, v: 0 };
