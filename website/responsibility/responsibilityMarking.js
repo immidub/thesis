@@ -1,56 +1,78 @@
-// Marking edges: mutual 2-NN across teams, Delaunay-filtered, mutual-help zone only.
+// Marking edges: oriented mutual 2-NN (goal-side ranking), Delaunay-filtered,
+// mutual-help zone only. Mirrors analysis oriented_knn with k=2, alpha=1.5,
+// behind mode neutral.
 
 const RESPONSIBILITY_MARKING_K = 2;
+const RESPONSIBILITY_ORIENTED_ALPHA = 1.5;
+const RESPONSIBILITY_ORIENTED_BEHIND = "neutral";
 
-// For each source player, find their k nearest opponents and record edges with consistent team1/team2 IDs.
-function collect2nnOpponentEdges(sources, targets, k, outEdges, sourceIsTeam1) {
-    collectKnnOpponentEdges(sources, targets, k, function (player, opp) {
-        var team1Player = sourceIsTeam1 ? player : opp;
-        var team2Player = sourceIsTeam1 ? opp : player;
-
-        outEdges.push({
-            team1Id: String(team1Player.id),
-            team2Id: String(team2Player.id),
-            x1: team1Player.x,
-            y1: team1Player.y,
-            x2: team2Player.x,
-            y2: team2Player.y,
-        });
-    });
+function collectOrientedKnnEdges(sources, targets, k, frame, sourceIsDefender, outEdges) {
+    collectKnnOpponentEdges(
+        sources,
+        targets,
+        k,
+        function (player, opp) {
+            var defender = sourceIsDefender ? player : opp;
+            var attacker = sourceIsDefender ? opp : player;
+            outEdges.push({
+                defenderId: String(defender.id),
+                attackerId: String(attacker.id),
+                x1: defender.x,
+                y1: defender.y,
+                x2: attacker.x,
+                y2: attacker.y,
+            });
+        },
+        sourceIsDefender,
+        frame
+    );
 }
 
 function getResponsibilityMarkingEdges(frame, contestants, k) {
     var knnK = k != null ? k : RESPONSIBILITY_MARKING_K;
     if (!isBallLive(frame) || !contestants || contestants.length === 0) return [];
 
-    var team1Players = getTeamPlayerPositions(frame, 1);
-    var team2Players = getTeamPlayerPositions(frame, 2);
+    var sides = getMarkingSides(frame);
+    if (!sides) return [];
 
-    // Step 1: collect directed 2-NN edges in both directions.
-    var team1ToTeam2 = [];
-    var team2ToTeam1 = [];
-    collect2nnOpponentEdges(team1Players, team2Players, knnK, team1ToTeam2, true);
-    collect2nnOpponentEdges(team2Players, team1Players, knnK, team2ToTeam1, false);
+    // Step 1: oriented mutual 2-NN on defending / attacking sides.
+    var defenderToAttacker = [];
+    var attackerToDefender = [];
+    collectOrientedKnnEdges(
+        sides.defenders,
+        sides.attackers,
+        knnK,
+        frame,
+        true,
+        defenderToAttacker
+    );
+    collectOrientedKnnEdges(
+        sides.attackers,
+        sides.defenders,
+        knnK,
+        frame,
+        false,
+        attackerToDefender
+    );
 
-    // Index directed edges so we can require mutual nearest-neighbor pairs.
-    var inTeam1ToTeam2 = {};
-    var inTeam2ToTeam1 = {};
+    var inDefenderToAttacker = {};
+    var inAttackerToDefender = {};
     var edgeByPairKey = {};
 
-    for (var i = 0; i < team1ToTeam2.length; i++) {
-        var edgeA = team1ToTeam2[i];
-        var directedKey = String(edgeA.team1Id) + ":" + String(edgeA.team2Id);
-        inTeam1ToTeam2[directedKey] = true;
-        edgeByPairKey[getUndirectedPairKey(edgeA.team1Id, edgeA.team2Id)] = edgeA;
+    for (var i = 0; i < defenderToAttacker.length; i++) {
+        var edgeA = defenderToAttacker[i];
+        var defKey = edgeA.defenderId + ":" + edgeA.attackerId;
+        inDefenderToAttacker[defKey] = true;
+        edgeByPairKey[getUndirectedPairKey(edgeA.defenderId, edgeA.attackerId)] = edgeA;
     }
 
-    for (var j = 0; j < team2ToTeam1.length; j++) {
-        var edgeB = team2ToTeam1[j];
-        var reverseKey = String(edgeB.team1Id) + ":" + String(edgeB.team2Id);
-        inTeam2ToTeam1[reverseKey] = true;
-        var pairKey = getUndirectedPairKey(edgeB.team1Id, edgeB.team2Id);
-        if (!edgeByPairKey[pairKey]) {
-            edgeByPairKey[pairKey] = edgeB;
+    for (var j = 0; j < attackerToDefender.length; j++) {
+        var edgeB = attackerToDefender[j];
+        var attKey = edgeB.defenderId + ":" + edgeB.attackerId;
+        inAttackerToDefender[attKey] = true;
+        var pairKeyB = getUndirectedPairKey(edgeB.defenderId, edgeB.attackerId);
+        if (!edgeByPairKey[pairKeyB]) {
+            edgeByPairKey[pairKeyB] = edgeB;
         }
     }
 
@@ -61,10 +83,10 @@ function getResponsibilityMarkingEdges(frame, contestants, k) {
 
     for (var pairKey in edgeByPairKey) {
         var edge = edgeByPairKey[pairKey];
-        var team1To2Key = String(edge.team1Id) + ":" + String(edge.team2Id);
-        if (!inTeam1ToTeam2[team1To2Key] || !inTeam2ToTeam1[team1To2Key]) continue; // mutual 2-NN
-        if (!delaunayPairs[pairKey]) continue;                                          // Delaunay opponent link
-        if (!zonePlayerIds[edge.team1Id] && !zonePlayerIds[edge.team2Id]) continue;    // at least one in help zone
+        var mutualKey = edge.defenderId + ":" + edge.attackerId;
+        if (!inDefenderToAttacker[mutualKey] || !inAttackerToDefender[mutualKey]) continue;
+        if (!delaunayPairs[pairKey]) continue;
+        if (!zonePlayerIds[edge.defenderId] && !zonePlayerIds[edge.attackerId]) continue;
 
         edges.push({
             x1: edge.x1,
@@ -75,4 +97,11 @@ function getResponsibilityMarkingEdges(frame, contestants, k) {
     }
 
     return edges;
+}
+
+function setupResponsibilityOrientedMarking() {
+    if (typeof setKnnOrientedEnabled !== "function") return;
+    setKnnOrientedEnabled(true);
+    setKnnOrientedAlpha(RESPONSIBILITY_ORIENTED_ALPHA);
+    setKnnOrientedBehindMode(RESPONSIBILITY_ORIENTED_BEHIND);
 }

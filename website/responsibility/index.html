@@ -14,6 +14,7 @@
         <script src="../pitch/canvasHelper.js"></script>
         <script src="../pitch/pitchView.js"></script>
         <script src="../marking/common.js"></script>
+        <script src="../marking/orientedKnn.js"></script>
         <script src="../algorithms/delaunay.js"></script>
         <script src="kinematics.js"></script>
         <script src="ballReachability.js"></script>
@@ -157,6 +158,7 @@
         <script>
             configureCanvasLayout({ pitchCount: 1, pitchesPerRow: 1, maxWidth: 900, minWidth: 400, gap: 0 });
             configureUIElements({ enableClipExport: false });
+            setupResponsibilityOrientedMarking();
             setupUIElements();
         </script>
     </body>
