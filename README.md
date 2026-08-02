@@ -245,10 +245,13 @@ After parquet exists, sweeps call `analysis.run` repeatedly and aggregate plots:
 ```bash
 .venv/bin/python -m analysis.sweep_compare.threshold_sweep --k-min 5 --k-max 15
 .venv/bin/python -m analysis.sweep_compare.knn_sweep
+.venv/bin/python -m analysis.sweep_compare.oriented_knn_sweep
 .venv/bin/python -m analysis.sweep_compare.momentum_overlap
 ```
 
-Use `--compare-only` on the threshold/knn sweeps to rebuild comparison plots from existing outputs without re-running every configuration. These can take a long time on a full match.
+Oriented kNN sweep: mutual `k=2`, α ∈ {1, 1.25, 1.5, 1.75, 2, 2.5, 3} × behind modes `neutral`/`penalize`, analyses `goal_side`/`edge_lengths`/`edge_counts`/`temporal_stability`. Comparison plots vs α (plus plain mutual 2NN baseline) land under `analysis/output/comparison/oriented_knn_sweep/`.
+
+Use `--compare-only` on the threshold/knn/oriented sweeps to rebuild comparison plots from existing outputs without re-running every configuration. These can take a long time on a full match.
 
 ---
 
