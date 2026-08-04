@@ -14,7 +14,10 @@ function getLocalDataDir() {
 async function tryLoadLocalData() {
 	try {
 		var response = await fetch(getLocalDataDir() + "/tracking.jsonl");
-		if (!response.ok) return;
+		if (!response.ok) {
+			console.warn("Local tracking.jsonl not found (" + response.status + ")");
+			return;
+		}
 		await loadTrackingData(response);
 	} catch (err) {
 		console.warn("Local data load failed:", err.message);
@@ -199,83 +202,7 @@ function setupDefaultTeamNames() {
 	}
 }
 
-//-- File handling ------------------------------------------------------------------------------
-
-//handles the drop event
-var pendingTrackingFile = null;
-var pendingMetadataFile = null;
-
-function pickTrackingFile() {
-	document.getElementById("fileupload").click();
-}
-
-function pickMetadataFile() {
-	document.getElementById("metaupload").click();
-}
-
-function onTrackingFileSelected(event) {
-	var file = event.target.files[0] || null;
-	setPendingTrackingFile(file);
-}
-
-function onMetadataFileSelected(event) {
-	var file = event.target.files[0] || null;
-	setPendingMetadataFile(file);
-}
-
-function setPendingTrackingFile(file) {
-	pendingTrackingFile = file;
-	var label = document.getElementById("tracking_file_name");
-	if (label) {
-		label.textContent = file ? file.name : "No file selected";
-	}
-}
-
-function setPendingMetadataFile(file) {
-	pendingMetadataFile = file;
-	var label = document.getElementById("metadata_file_name");
-	if (label) {
-		label.textContent = file ? file.name : "No file selected";
-	}
-}
-
-function dropHandler(ev) {
-	ev.preventDefault();
-	var files = ev.dataTransfer.files;
-	for (var i = 0; i < files.length; i++) {
-		assignDroppedFile(files[i]);
-	}
-}
-
-function assignDroppedFile(file) {
-	if (!file || !file.name) return;
-	var name = file.name.toLowerCase();
-	if (name.endsWith(".jsonl")) {
-		setPendingTrackingFile(file);
-	} else if (name.endsWith(".json") || name.indexOf("meta") !== -1) {
-		setPendingMetadataFile(file);
-	} else {
-		setPendingTrackingFile(file);
-	}
-}
-
-function dragOverHandler(ev) {
-	ev.preventDefault();
-}
-
-async function submitUploads() {
-	if (!pendingTrackingFile) {
-		window.alert("Please choose a tracking.jsonl file before submitting.");
-		return;
-	}
-	gameData = null;
-	try {
-		await loadTrackingData(pendingTrackingFile, pendingMetadataFile || undefined);
-	} catch (err) {
-		console.error("Failed to load tracking:", err);
-		showDataError("Failed to load tracking data", err.message);
-	}
-}
+//-- Error display ------------------------------------------------------------------------------
 
 function showDataError(message, secondaryMessage) {
 	$("#entry_view").hide();

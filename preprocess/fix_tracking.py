@@ -23,12 +23,14 @@ import math
 import sys
 from pathlib import Path
 
-FRAME_RATE = 50.0
-MAX_PLAYER_SPEED_MPS = 14.0 # max speed of a player in m/s
-MAX_BALL_SPEED_MPS = 50.0 # max speed of a ball in m/s
-MAX_PLAYER_STEP_M = MAX_PLAYER_SPEED_MPS / FRAME_RATE + 0.05 # max step of a player in m per frame
-MAX_BALL_STEP_M = MAX_BALL_SPEED_MPS / FRAME_RATE + 0.05 # max step of a ball in m per frame
-SPEED_MISMATCH_FIX_MPS = 5.0  # overwrite speed from positions only if gap is larger than this
+from config import (
+    FRAME_RATE,
+    MAX_BALL_SPEED_MPS,
+    MAX_BALL_STEP_M,
+    MAX_PLAYER_SPEED_MPS,
+    MAX_PLAYER_STEP_M,
+    SPEED_MISMATCH_FIX_MPS,
+)
 
 # Jumps up to these sizes may be interpolated if they look like a 1-frame spike.
 BALL_FIX_MAX_M = 5.0

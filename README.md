@@ -17,7 +17,7 @@ The pipeline is built around **FIFA World Cup 2026 enriched tracking** (scrubbed
 | Path               | Role                                                                                  |
 | ------------------ | ------------------------------------------------------------------------------------- |
 | `input/`           | FIFA enriched folder + metadata JSON (converter input; gitignored)                    |
-| `preprocess/` | Convert, jump-fix, validate; `jsonl_to_parquet.py` builds analysis parquet from JSONL |
+| `preprocess/` | Convert (or reuse data/), jump-fix, validate, parquet, responsibility |
 | `data/`            | Converter outputs: `tracking.jsonl`, `metaData.json`, `tracking.parquet` (gitignored) |
 | `website/` | `index.html`: standard marking comparison; `responsibility/`: author’s responsibility algorithm |
 | `serve.py`         | Local HTTP server + clip-export API (`localhost:8000`)                                |
@@ -59,7 +59,7 @@ input/
 The converter discovers them by pattern, not by fixed match name:
 
 - Metadata: exactly one file matching `input/*Metadata.json`
-- Enriched: exactly one directory whose name ends with `_Enriched`, containing `*.enriched` files whose names match `*_N_N_N.football...` (parsed by `preprocess/convert_fwc_match.py`)
+- Enriched: exactly one directory whose name ends with `_Enriched`, containing `*.enriched` files whose names match `*_N_N_N.football...` (parsed by `preprocess/convert_fwc.py`)
 
 ### Metadata fields the converter uses
 
@@ -83,21 +83,54 @@ Filename is hardcoded in `serve.py` → `find_source_video()`. For another match
 
 ---
 
-## 2. Preprocess (convert → fix → validate → parquet)
+## Official workflow (thesis)
+
+This project is analysis-first. There is **no browser upload**. Always run the same preprocess command; it picks the input mode automatically:
+
+**Mode A — FIFA enriched in `input/`**
+1. Put enriched tracking (+ optional `*Metadata.json`) in `input/`.
+2. Run `.venv/bin/python preprocess/run.py` (zones on by default; use `--no-zones` to skip).
+3. Converts enriched → `data/tracking.jsonl` + `metaData.json`, then fix → validate → parquet → responsibility.
+
+**Mode B — tracking already in `data/`**
+1. Place `tracking.jsonl` (+ optional `metaData.json`) directly in `data/`.
+2. Run the **same** command: `.venv/bin/python preprocess/run.py` (zones on by default; use `--no-zones` to skip).
+3. Skips enriched conversion; only fix → validate → parquet → responsibility.
+
+If both exist, Mode A wins (rebuilds from enriched).
+
+Then:
+4. Serve with `python3 serve.py` and open the standard or responsibility viewer.
+5. Run full-match analyses from CLI against `tracking.parquet`.
+
+Viewers only load local `data/*` files.
+
+---
+
+## 2. Preprocess (convert or reuse → fix → validate → parquet)
 
 From the repo root:
 
 ```bash
-.venv/bin/python preprocess/convert_fwc_match.py
-# optional overrides:
-.venv/bin/python preprocess/convert_fwc_match.py --input-dir input --output-dir data
+.venv/bin/python preprocess/run.py
+# skip space zones:
+.venv/bin/python preprocess/run.py --no-zones
+# optional path overrides:
+.venv/bin/python preprocess/run.py --input-dir input --output-dir data
 ```
 
-### What the converter does (in order)
+Layout: `run.py` orchestrates; `convert_fwc.py` handles Mode A conversion; `fix_tracking` / `validate_tracking` / `parquet_io` share constants from `config.py`; `responsibility.py` builds `responsibility.jsonl` and zones in-process (skip zones with `--no-zones`).
 
+### What the preprocessor does
+
+**Mode A** (FIFA enriched in `input/`):
 1. **Scan** all `.enriched` files: unique `frameCount`s, first `halfId == 2` → period-2 start, goalkeeper `playerId`s.
 2. **Write** `data/tracking.jsonl` — one JSON object per frame (viewer format).
 3. **Write** `data/metaData.json` — teams, players, goalkeepers, kit colours, optional `videoSync`.
+
+**Mode B** (existing `data/tracking.jsonl`): skip steps 1–3 above.
+
+**Then both modes:**
 4. **Jump fix** (`fix_tracking`) on that JSONL in place:
   - interpolate clean single-frame position spikes;
   - set `live: false` on severe / systemic teleports;
@@ -105,21 +138,24 @@ From the repo root:
   - recompute ball `speed` / `direction` from the forward position delta (enriched ball kinematics are not used as they turned out to be unreliable).
 5. **Validate** (`validate_tracking`) and print a report (does not abort the run).
 6. **Write** `data/tracking.parquet` — one row per entity (home / away / ball) per frame, including non-live frames.
+7. **Responsibility** (unless `--skip-responsibility`): write `responsibility.jsonl`, and `responsibility_zones.jsonl` (skip with `--no-zones`).
 
-Standalone re-fix / re-validate (normally not needed after convert):
+Standalone re-fix / re-validate (normally not needed after preprocess):
 
 ```bash
 .venv/bin/python preprocess/fix_tracking.py data/tracking.jsonl
 .venv/bin/python preprocess/validate_tracking.py data/tracking.jsonl
 ```
 
-After a standalone fix, re-run convert or rewrite parquet yourself if analysis must see the new positions (`convert_fwc_match.py` is the supported path that keeps JSONL and parquet aligned).
+After a standalone fix, re-run `preprocess/run.py` (Mode B) so parquet / responsibility stay aligned.
 
 ### Outputs
 
-- `data/tracking.jsonl` — viewer + upload format
-- `data/metaData.json` — teams / GK / `videoSync`
+- `data/tracking.jsonl` — viewer format
+- `data/metaData.json` — teams / GK / `videoSync` (optional in Mode B)
 - `data/tracking.parquet` — analysis input (default for `python -m analysis.run`)
+- `data/responsibility.jsonl` — responsibility viewer overlays
+- `data/responsibility_zones.jsonl` — space zones (default)
 
 ---
 
@@ -127,7 +163,7 @@ After a standalone fix, re-run convert or rewrite parquet yourself if analysis m
 
 | What | Where | Notes |
 |------|--------|-------|
-| Frame rate 50 Hz | `convert_fwc_match.py`, `fix_tracking.py`, `validate_tracking.py`, `trackingJsonl.js`, `temporal_stability.py` | Assumed, not read from FIFA as FPS |
+| Frame rate 50 Hz | `preprocess/config.py` (+ fix/validate/convert_fwc), `trackingJsonl.js`, `temporal_stability.py` | Assumed, not read from FIFA as FPS |
 | Pitch 105 × 68 m | preprocess / viewer / `analysis/pitch.py` | Centre origin after convert |
 | Broadcast MP4 | `serve.py` → `find_source_video()` | Default `clips/281-M08-QAT-SUI-camera1-720p.mp4` |
 | Video sync fallback | `website/core/timeline.js` → `VIDEO_*_SEC` | Used only if `metaData.json` has no `videoSync` |
@@ -160,7 +196,7 @@ Open:
 - [website/index.html](http://localhost:8000/website/index.html) — main viewer for comparing standard marking algorithms
 - [website/responsibility/index.html](http://localhost:8000/website/responsibility/index.html) — responsibility marking (author’s own algorithm)
 
-Both load `../data/tracking.jsonl` and `../data/metaData.json` via the local server (or you can upload a JSONL from the UI). Serving with a plain file URL will not fetch those files reliably—use `serve.py`.
+Both load `../data/tracking.jsonl` and `../data/metaData.json` via the local server. Serving with a plain file URL will not fetch those files reliably—use `serve.py`.
 
 Clip export needs `ffmpeg`, the MP4 from `find_source_video()`, and correct sync ([§4](#4-video-sync)). Outputs: `clips/clip/`, `clips/image/`.
 
@@ -179,7 +215,7 @@ General form:
 
 All statistics and plots used in the thesis were produced by running these analyses (and the optional sweeps below).
 
-**Order:** have `data/tracking.parquet` → run assignment analyses. The viewer does not require analysis. After convert, parquet is written automatically; if you only have `tracking.jsonl`, run `preprocess/jsonl_to_parquet.py` first (see [§7](#7-custom-tracking-skip-fifa-converter)).
+**Order:** have `data/tracking.parquet` → run assignment analyses. The viewer does not require analysis. After preprocess, parquet is written automatically; if you only placed `tracking.jsonl` in `data/`, run `preprocess/run.py` (Mode B) first (see [§7](#7-custom-tracking-already-in-data)).
 
 Default data path: `data/tracking.parquet`. Default: **live frames only** (`--live-only`; use `--no-live-only` to include dead-ball frames).
 
@@ -255,16 +291,23 @@ Use `--compare-only` on the threshold/knn/oriented sweeps to rebuild comparison 
 
 ---
 
-## 7. Custom tracking (skip FIFA converter)
+## 7. Custom tracking (already in `data/`)
 
-Place files directly under `data/`:
+Place files directly under `data/` and run the same preprocess command (Mode B — no enriched conversion):
 
 ```text
 data/
-  tracking.jsonl    # required for the viewer
+  tracking.jsonl    # required
   metaData.json     # optional
-  tracking.parquet  # required for analysis (build yourself or via converter)
 ```
+
+```bash
+.venv/bin/python preprocess/run.py
+# or skip zones:
+.venv/bin/python preprocess/run.py --no-zones
+```
+
+That fixes/validates the JSONL, builds `tracking.parquet`, and writes responsibility outputs.
 
 ### `tracking.jsonl`
 
@@ -283,17 +326,7 @@ One JSON object per line. Coordinates: metres on a **105×68 m** pitch, **origin
 
 ### `tracking.parquet`
 
-Required for `python -m analysis.run`. Columns: `period`, `frameIdx`, `gameClock`, `live`, `attacking`, `team` (`home` / `away` / `ball`), `playerId`, `number`, `isGoalie`, `x`, `y`, `z`, `speed`, `direction`.
-
-If you only have `tracking.jsonl` (and optionally `metaData.json` for goalkeeper flags), build parquet without re-converting from FIFA:
-
-```bash
-.venv/bin/python preprocess/jsonl_to_parquet.py data/tracking.jsonl
-# or explicitly:
-.venv/bin/python preprocess/jsonl_to_parquet.py data/tracking.jsonl -o data/tracking.parquet --meta data/metaData.json
-```
-
-Then run analysis as usual. Needs `pyarrow` (see `requirements.txt`).
+Required for `python -m analysis.run`. Columns: `period`, `frameIdx`, `gameClock`, `live`, `attacking`, `team` (`home` / `away` / `ball`), `playerId`, `number`, `isGoalie`, `x`, `y`, `z`, `speed`, `direction`. Built by `preprocess/run.py`.
 
 ### `metaData.json`
 
@@ -344,7 +377,7 @@ Without metadata: teams default to Home / Away; goalkeepers may be inferred from
 | Viewer shows no match                                | Run `serve.py`; confirm `data/tracking.jsonl` exists; check browser network for failed fetches          |
 | Video / clip out of sync | See [§4](#4-video-sync) |
 | Clip export fails | `ffmpeg` on PATH; MP4 path in `find_source_video()` |
-| Analysis `FileNotFoundError` for parquet | Run converter or `preprocess/jsonl_to_parquet.py` (or pass `--data`) |
+| Analysis `FileNotFoundError` for parquet | Run `preprocess/run.py` (or pass `--data`) |
 | Validation warnings after convert                    | Informational; convert still finishes. Large jumps may already be `live: false`                         |
 | Wrong frame rate / pitch size                        | Update every hardcoded site in the table above—do not assume FIFA files declare FPS                     |
 
@@ -357,7 +390,7 @@ Without metadata: teams default to Home / Away; goalkeepers may be inferred from
 2. Confirm 50 Hz and 105×68 m (or update constants).
 3. Verify video sync against the MP4 ([§4](#4-video-sync)); place/rename broadcast and update `serve.py` if exporting clips.
 4. `.venv/bin/pip install -r requirements.txt`
-5. `.venv/bin/python preprocess/convert_fwc_match.py`
+5. `.venv/bin/python preprocess/run.py`
 6. `python3 serve.py` → verify playback and sync in the browser.
 7. `.venv/bin/python -m analysis.run --assignment … --analyses … --live-only`
 8. Inspect `analysis/output/.../run_manifest.json` and summaries.

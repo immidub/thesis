@@ -64,39 +64,19 @@
 
             <!-- Entry View --------------------------------------------------------------- -->
             <div id="entry_view" style="max-width: 700px;">
-
                 <h3>Football tracking playback</h3>
                 <p class="text-muted"><a href="responsibility/index.html">Responsibility</a></p>
                 <hr>
-
-                <h5></h5>
-
-                <p>Please upload <code>tracking.jsonl</code> and optionally <code>metaData.json</code>, then press Submit.</p>
-                <div>
-                    <div
-                        id="drop_zone"
-                        ondrop="dropHandler(event);"
-                        ondragover="dragOverHandler(event);">
-
-                        <form action="" onsubmit="return false;">
-                            <input type="file" id="fileupload" accept=".jsonl" style="display: none;" onchange="onTrackingFileSelected(event)">
-                            <input type="file" id="metaupload" accept=".json,application/json" style="display: none;" onchange="onMetadataFileSelected(event)">
-
-                            <div class="upload-row">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pickTrackingFile()">Choose tracking</button>
-                                <span id="tracking_file_name" class="upload-file-name">No file selected</span>
-                            </div>
-                            <div class="upload-row">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="pickMetadataFile()">Choose metadata</button>
-                                <span id="metadata_file_name" class="upload-file-name">No file selected</span>
-                            </div>
-                            <button type="button" class="btn btn-primary mb-1" onclick="submitUploads()">Submit</button>
-                        </form>
-
-                    <p>or drag files here</p>
-
-                  </div>
-                </div>
+                <p class="mb-2">
+                    This viewer reads local preprocessed files from <code>data/</code>.
+                </p>
+                <p class="text-muted small mb-2">
+                    Put FIFA enriched (+ optional metadata) in <code>input/</code>,
+                    <em>or</em> place <code>tracking.jsonl</code> (+ optional <code>metaData.json</code>) in <code>data/</code>.
+                </p>
+                <p class="text-muted small mb-0">
+                    Then run <code>python preprocess/run.py</code> and refresh.
+                </p>
             </div>
             <!-- Data Error View --------------------------------------------------------------- -->
             <div id="data_error_view"  style="display: none;">

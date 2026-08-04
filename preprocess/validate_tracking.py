@@ -17,16 +17,17 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-FRAME_RATE = 50.0
+from config import (
+    FRAME_RATE,
+    MAX_BALL_SPEED_MPS,
+    MAX_BALL_STEP_M,
+    MAX_PLAYER_SPEED_MPS,
+    MAX_PLAYER_STEP_M,
+    SPEED_MISMATCH_REPORT_MPS,
+)
+
 PLAYERS_PER_SIDE = 11
-
-MAX_PLAYER_SPEED_MPS = 14.0 # max speed of a player in m/s
-MAX_BALL_SPEED_MPS = 50.0 # max speed of a ball in m/s
-MAX_PLAYER_STEP_M = MAX_PLAYER_SPEED_MPS / FRAME_RATE + 0.05 # max step of a player in m per frame
-MAX_BALL_STEP_M = MAX_BALL_SPEED_MPS / FRAME_RATE + 0.05 # max step of a ball in m per frame
-SPEED_MISMATCH_REPORT_MPS = 3.0  # report mismatches above this (fixer only rewrites gaps > 5 m/s)
-
-MAX_EXAMPLES = 5 # max number of examples to show for each issue
+MAX_EXAMPLES = 5  # max number of examples to show for each issue
 
 
 @dataclass

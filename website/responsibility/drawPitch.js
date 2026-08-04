@@ -16,20 +16,32 @@ function draw() {
     drawPitch();
 
     var ballLive = isBallLive(frameNr);
+    var defendingTeam = typeof getDefendingTeam === "function" ? getDefendingTeam(frameNr) : null;
 
     gameCanvas.ctx.save();
     if (!ballLive) {
         gameCanvas.ctx.globalAlpha = 0.45;
     }
 
-    drawTeam(1, null);
-    drawTeam(2, null);
-    drawGoalKeepers(frameNr, null);
+    if (ballLive && typeof drawResponsibilitySpaceZones === "function") {
+        drawResponsibilitySpaceZones(frameNr);
+    }
+
+    if (ballLive && typeof drawVelocityArrows === "function") {
+        drawVelocityArrows(frameNr);
+    }
+
+    drawTeam(1, defendingTeam);
+    drawTeam(2, defendingTeam);
+    drawGoalKeepers(frameNr, defendingTeam);
+    if (typeof drawSelectedSpaceZoneDefenderHighlight === "function") {
+        drawSelectedSpaceZoneDefenderHighlight(frameNr);
+    }
     drawPlayerLabels(frameNr);
     drawBall(frameNr, ballLive);
 
     if (ballLive) {
-        drawBallContestOverlay(frameNr);
+        drawResponsibilityResults(frameNr);
     }
     gameCanvas.ctx.restore();
 }
@@ -42,6 +54,9 @@ const CONTEST_RING_EXTRA_RADIUS = 3.5;
 const MUTUAL_HELP_EDGE_COLOR = "#94A3B8";
 const MUTUAL_HELP_EDGE_WIDTH = 1;
 const RESPONSIBILITY_MARKING_EDGE_WIDTH = 2;
+const RESPONSIBILITY_SELECTED_MARKING_COLOR = "#DC2626";
+const RESPONSIBILITY_SELECTED_MARKING_WIDTH = 4;
+const RESPONSIBILITY_SELECTED_ATTACKER_RING = "#DC2626";
 
 function drawRingAt(x, y, radius, color) {
     var ctx = gameCanvas.ctx;
@@ -56,44 +71,62 @@ function drawRingAt(x, y, radius, color) {
     ctx.lineWidth = prevWidth;
 }
 
-function drawBallContestOverlay(frame) { // draws the ball contest overlay
-    if (typeof inferBallContest !== "function") return;
-    var res = inferBallContest(frame);
-    if (!res || !res.ball) return;
-    if (res.state !== "controlled" && res.state !== "contested") return;
+function drawResponsibilityResults(frame) {
+    var row = typeof getResponsibilityFrame === "function" ? getResponsibilityFrame(frame) : null;
+    if (!row) return;
 
-    if (!res.contestants || res.contestants.length === 0) return;
+    var contestantIds = row.contestantIds || [];
+    if (contestantIds.length === 0) return;
 
-    if (typeof getMutualHelpEdges === "function") { // draws the mutual help edges between the contestants
-        drawCanvasEdges(getMutualHelpEdges(frame, res.contestants), {
-            color: MUTUAL_HELP_EDGE_COLOR,
-            lineWidth: MUTUAL_HELP_EDGE_WIDTH,
-            dashedSupport: false,
-        });
-    }
+    drawCanvasEdges(edgesFromIdPairs(frame, row.mutualHelpEdges, false), {
+        color: MUTUAL_HELP_EDGE_COLOR,
+        lineWidth: MUTUAL_HELP_EDGE_WIDTH,
+        dashedSupport: false,
+    });
 
-    if (typeof getResponsibilityMarkingEdges === "function") { // draws the responsibility marking edges between the contestants
-        drawCanvasEdges(getResponsibilityMarkingEdges(frame, res.contestants), {
+    var markingEdges = edgesFromIdPairs(frame, row.markingEdges, true);
+    if (markingEdges.length) {
+        drawCanvasEdges(markingEdges, {
             color: MARKING_EDGE_COLOR,
             lineWidth: RESPONSIBILITY_MARKING_EDGE_WIDTH,
             dashedSupport: false,
         });
     }
 
-    var ringColor = res.contestants.length === 1
+    if (typeof selectedSpaceZonePlayerId !== "undefined" && selectedSpaceZonePlayerId != null) {
+        var selectedId = String(selectedSpaceZonePlayerId);
+        var selectedEdges = [];
+        for (var e = 0; e < markingEdges.length; e++) {
+            if (String(markingEdges[e].defenderId) === selectedId) {
+                selectedEdges.push(markingEdges[e]);
+            }
+        }
+        if (selectedEdges.length) {
+            drawCanvasEdges(selectedEdges, {
+                color: RESPONSIBILITY_SELECTED_MARKING_COLOR,
+                lineWidth: RESPONSIBILITY_SELECTED_MARKING_WIDTH,
+                dashedSupport: false,
+            });
+            for (var s = 0; s < selectedEdges.length; s++) {
+                var attPos = getPlayerScreenPosition(frame, selectedEdges[s].attackerId);
+                if (!attPos) continue;
+                drawRingAt(
+                    attPos.x,
+                    attPos.y,
+                    PLAYER_DOT_RADIUS + CONTEST_RING_EXTRA_RADIUS,
+                    RESPONSIBILITY_SELECTED_ATTACKER_RING
+                );
+            }
+        }
+    }
+
+    var ringColor = contestantIds.length === 1
         ? CONTEST_CONTROLLER_RING_COLOR
         : CONTEST_CONTESTANT_RING_COLOR;
 
-    for (var i = 0; i < res.contestants.length; i++) {
-        var c = res.contestants[i];
-        if (!c || c.id == null) continue;
-        var pos = getPlayerScreenPosition(frame, c.id);
+    for (var i = 0; i < contestantIds.length; i++) {
+        var pos = getPlayerScreenPosition(frame, contestantIds[i]);
         if (!pos) continue;
-        drawRingAt( // draws the ring at the position of the contestant
-            pos.x,
-            pos.y,
-            PLAYER_DOT_RADIUS + CONTEST_RING_EXTRA_RADIUS,
-            ringColor
-        );
+        drawRingAt(pos.x, pos.y, PLAYER_DOT_RADIUS + CONTEST_RING_EXTRA_RADIUS, ringColor);
     }
 }
