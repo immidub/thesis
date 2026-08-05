@@ -33,7 +33,7 @@
 
         <link rel="stylesheet" type="text/css" href="styles.css" />
 
-        <title>Football Tracking Playback</title>
+        <title>Standard Marking Algorithms</title>
     </head>
     <body>
         <br>
@@ -64,14 +64,14 @@
 
             <!-- Entry View --------------------------------------------------------------- -->
             <div id="entry_view" style="max-width: 700px;">
-                <h3>Football tracking playback</h3>
+                <h3>Standard marking algorithms</h3>
                 <p class="text-muted"><a href="responsibility/index.html">Responsibility</a></p>
                 <hr>
                 <p class="mb-2">
                     This viewer reads local preprocessed files from <code>data/</code>.
                 </p>
                 <p class="text-muted small mb-2">
-                    Put FIFA enriched (+ optional metadata) in <code>input/</code>,
+                    Put FIFA World Cup enriched tracking data (+ optional metadata) in <code>input/</code>,
                     <em>or</em> place <code>tracking.jsonl</code> (+ optional <code>metaData.json</code>) in <code>data/</code>.
                 </p>
                 <p class="text-muted small mb-0">
@@ -103,64 +103,44 @@
             <div id="data_loading_view"  style="display: none;">
                 <h3 id="dataLoadingTitle">Processing...</h3>
                 <p id="dataLoadingSubtitle"></p>
-                <div class="spinner-border m-5" role="status">
-                    <span class="sr-only"></span>
+                <div id="data_loading_progress_wrap" class="data-loading-progress mx-auto">
+                    <div class="progress" id="data_loading_progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="data_loading_progress_bar" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- Main Dashboard View --------------------------------------------------------------- -->
             <div id="website_view" style="display: none;">
 
-                <p class="text-muted mb-2"><a href="responsibility/index.html">Responsibility</a></p>
                 <h1><div id="title_text">Home vs Away</div></h1>
                 <hr>
 
                 <div class="row justify-content-center">
                     <div class="col-12" id="main_div_pitch">
 
-                        <div class="playback-controls row justify-content-center align-items-center mb-3">
-                            <div class="col-md-auto p-0">
-                                <div class="dropup">
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-primary btn-sm" id="play_pause_btn">
-                                            <div id="button_play">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16">
-                                                    <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393"/>
-                                                </svg>
-                                            </div>
-                                            <div id="button_pause">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-pause" viewBox="0 0 16 16">
-                                                    <path d="M6 3.5a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5"/>
-                                                </svg>
-                                            </div>
-                                        </button>
-                                        <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(0.5)">0.5x</a></li>
-                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(1)">1x</a></li>
-                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(2)">2x</a></li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col p-0 d-flex" style="max-width: 500px;">
-                                <div class="d-flex container align-items-center justify-content-center">
-                                    <input type="range" min="0" max="1000" value="0" class="form-range" id="duration_slider">
-                                </div>
-                            </div>
-                            <div class="col-md-auto p-0 d-flex">
-                                <div class="d-flex container align-items-center justify-content-center">
-                                    <div id="time_label_wrap" class="time-label-wrap">
-                                        <span id="time_label_text"></span>
-                                        <span class="time-label-divider" aria-hidden="true">·</span>
-                                        <span id="video_time_label_text" class="time-label-mp4"></span>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="viewer-intro text-start mx-auto mb-3">
+                            <h2 class="h5 mb-2">Standard marking algorithms</h2>
+                            <p class="mb-2" style="font-size: 0.95rem;">
+                                Compare four approaches to infer defensive responsibilities from tracking data.
+                                The four pitches below use Euclidean distance and share the same frame and overlays so you can
+                                see how each method behaves side by side.
+                            </p>
+                            <ul class="mb-2 ps-3" style="font-size: 0.95rem;">
+                                <li><strong>Delaunay / shape graph</strong> — spatial neighbourhood over all outfield players.</li>
+                                <li><strong>Distance threshold</strong> — mark every defender–attacker pair within a distance cutoff.</li>
+                                <li><strong>k-nearest neighbours</strong> — each player links to their <em>k</em> closest opponents, optionally with preference for goal-side defenders.</li>
+                                <li><strong>Perfect matching</strong> — globally optimal one-to-one assignment (Hungarian algorithm), optionally restricted by graph or max length.</li>
+                            </ul>
+                            <p class="mb-0" style="font-size: 0.95rem;">
+                                Tune the shared distance model and overlays above the pitches, then adjust each method’s own controls under its panel.
+                                These controls correspond to different configurations of the same algorithm or variations of the algorithm, analyzed in the thesis.
+                                Export a clip of any pitch when you want a still and/or video. For the thesis algorithm built on these ideas, open
+                                <a href="responsibility/index.html">Responsibility</a>.
+                            </p>
                         </div>
 
-                        <div class="model-overlays-row mb-4">
+                        <div class="viewer-controls mb-3">
                             <div class="distance-model-bar">
                                 <div class="distance-model-title">Distance model</div>
                                 <div class="distance-model-row">
@@ -175,12 +155,21 @@
                                         <input type="range" min="0" max="2" step="0.1" value="1" class="form-range distance-model-lambda-slider" id="momentum_lambda_slider" disabled>
                                     </div>
                                 </div>
-                                <div class="pitch-control-hint">Uses closing speed v<sub>towards</sub> along each defender–attacker line: d′ = d − λ·v<sub>towards</sub>. λ is lookahead time in seconds (λ = 0 is plain Euclidean). Applies to threshold, k-NN, and perfect matching.</div>
+                                <div class="pitch-control-hint">Uses closing speed v<sub>towards</sub> along each defender–attacker line: d′ = d − λ·v<sub>towards</sub>. λ is lookahead time in seconds (λ = 0 is plain Euclidean).</div>
                             </div>
 
                             <div class="overlays-bar">
                                 <div class="overlays-title">Overlays</div>
+                                <p class="viewer-panel-lead">Highlight edge quality and context on every pitch.</p>
                                 <ul class="overlays-list">
+                                    <li class="overlays-item overlays-item--legend-only">
+                                        <div class="overlays-item-main">
+                                            <span class="overlays-legend-label">Marking edge</span>
+                                        </div>
+                                        <span class="overlays-item-legend">
+                                            <span class="overlays-swatch overlays-swatch--edge" style="--edge-color: #2563EB;" aria-hidden="true"></span>
+                                        </span>
+                                    </li>
                                     <li class="overlays-item">
                                         <div class="overlays-item-main">
                                             <label class="pitch-checkbox pitch-checkbox--inline" for="overlay_long_edges">
@@ -264,47 +253,112 @@
                                     </li>
                                 </ul>
                             </div>
+
+                            <div class="clip-export-panel">
+                                <div class="clip-export-title">Export clip</div>
+                                <p class="viewer-panel-lead">Record one pitch for a chosen time window.</p>
+                                <div class="clip-export-row">
+                                    <label class="clip-export-field">
+                                        Pitch
+                                        <select class="form-select form-select-sm" id="clip_pitch_select"></select>
+                                    </label>
+                                    <label class="clip-export-field">
+                                        Start
+                                        <div class="clip-export-time">
+                                            <input type="text" class="form-control form-control-sm" id="clip_start_time" placeholder="23:45">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_start_btn" title="Use current playback time">Now</button>
+                                        </div>
+                                    </label>
+                                    <label class="clip-export-field">
+                                        End
+                                        <div class="clip-export-time">
+                                            <input type="text" class="form-control form-control-sm" id="clip_end_time" placeholder="24:30">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_end_btn" title="Use current playback time">Now</button>
+                                        </div>
+                                    </label>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="clip_export_btn">Export clip</button>
+                                </div>
+                                <div class="clip-export-hint">Saves clip and start-frame image (video above, pitch below).</div>
+                                <div id="clip_export_progress_wrap" class="clip-export-progress" hidden>
+                                    <div class="clip-export-progress-label" id="clip_export_progress_label">Preparing clip…</div>
+                                    <div class="progress" id="clip_export_progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="clip_export_progress_bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="clip-export-status" id="clip_export_status"></div>
+                            </div>
                         </div>
 
-                        <div class="clip-export-panel mb-4">
-                            <div class="clip-export-title">Export clip</div>
-                            <div class="clip-export-row">
-                                <label class="clip-export-field">
-                                    Pitch
-                                    <select class="form-select form-select-sm" id="clip_pitch_select"></select>
-                                </label>
-                                <label class="clip-export-field">
-                                    Start
-                                    <div class="clip-export-time">
-                                        <input type="text" class="form-control form-control-sm" id="clip_start_time" placeholder="23:45">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_start_btn" title="Use current playback time">Now</button>
+                        <div class="playback-controls row justify-content-center align-items-center mb-4">
+                            <div class="col-md-auto p-0">
+                                <div class="dropup">
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-primary btn-sm" id="play_pause_btn">
+                                            <div id="button_play">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16">
+                                                    <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393"/>
+                                                </svg>
+                                            </div>
+                                            <div id="button_pause">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-pause" viewBox="0 0 16 16">
+                                                    <path d="M6 3.5a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5m4 0a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5"/>
+                                                </svg>
+                                            </div>
+                                        </button>
+                                        <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(0.5)">0.5x</a></li>
+                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(1)">1x</a></li>
+                                            <li><a class="dropdown-item" href="javascript:changePlaybackSpeed(2)">2x</a></li>
+                                        </ul>
                                     </div>
-                                </label>
-                                <label class="clip-export-field">
-                                    End
-                                    <div class="clip-export-time">
-                                        <input type="text" class="form-control form-control-sm" id="clip_end_time" placeholder="24:30">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_end_btn" title="Use current playback time">Now</button>
-                                    </div>
-                                </label>
-                                <button type="button" class="btn btn-secondary btn-sm" id="clip_export_btn">Export clips</button>
-                            </div>
-                            <div class="clip-export-hint">Saves clip and start-frame image (video above, pitch below).</div>
-                            <div id="clip_export_progress_wrap" class="clip-export-progress" hidden>
-                                <div class="clip-export-progress-label" id="clip_export_progress_label">Preparing clip…</div>
-                                <div class="progress" id="clip_export_progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="clip_export_progress_bar" style="width: 0%"></div>
                                 </div>
                             </div>
-                            <div class="clip-export-status" id="clip_export_status"></div>
+                            <div class="col p-0 d-flex" style="max-width: 500px;">
+                                <div class="d-flex container align-items-center justify-content-center">
+                                    <input type="range" min="0" max="1000" value="0" class="form-range" id="duration_slider">
+                                </div>
+                            </div>
+                            <div class="col-md-auto p-0 d-flex">
+                                <div class="d-flex container align-items-center justify-content-center">
+                                    <div id="time_label_wrap" class="time-label-wrap">
+                                        <span id="time_label_text"></span>
+                                        <span class="time-label-divider" aria-hidden="true">·</span>
+                                        <span id="video_time_label_text" class="time-label-mp4"></span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div id="pitches_container" class="pitches-container">
                             <div class="pitches-row">
                                 <div class="pitch-panel">
-                                    <div class="pitch-title">Distance threshold</div>
+                                    <div class="pitch-title">Delaunay / shape graph</div>
                                     <div class="pitch-direction" id="pitch_direction_1"></div>
                                     <canvas id="canvas1"></canvas>
+                                    <div class="pitch-control pitch-control--radio">
+                                        <fieldset class="pitch-radio-group">
+                                            <legend class="visually-hidden">All outfield graph type</legend>
+                                            <label class="pitch-radio">
+                                                <input type="radio" name="all_outfield_graph_mode" value="delaunay" checked>
+                                                <span>Delaunay</span>
+                                            </label>
+                                            <label class="pitch-radio">
+                                                <input type="radio" name="all_outfield_graph_mode" value="shape">
+                                                <span>Shape graph</span>
+                                            </label>
+                                        </fieldset>
+                                        <label class="pitch-checkbox pitch-checkbox--inline" for="shape_graph_opponents_only">
+                                            <input type="checkbox" id="shape_graph_opponents_only">
+                                            <span>Opponents only</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="pitch-panel">
+                                    <div class="pitch-title">Distance threshold</div>
+                                    <div class="pitch-direction" id="pitch_direction_2"></div>
+                                    <canvas id="canvas2"></canvas>
                                     <div class="pitch-control">
                                         <label class="pitch-control-label" for="distance_threshold_slider">
                                             Threshold: <span id="distance_threshold_label">10.0</span> m
@@ -314,14 +368,15 @@
                                             <input type="checkbox" id="distance_threshold_density_based">
                                             <span>Density-based threshold</span>
                                         </label>
-                                        <div class="pitch-control-hint mt-2">t = clip(1.5 × mean nearest-attacker distance of defenders, 5–15 m). Euclidean only (ignores momentum).</div>
-                                        <div class="pitch-control-hint mt-1" id="distance_density_momentum_note" hidden>Density mode ignores global momentum (same as analysis dynamic_threshold).</div>
+                                        <div class="pitch-control-hint mt-2">t = clip(1.5 × mean nearest-attacker distance of defenders, 5–15 m). When enabled ignores momentum and uses euclidean distance.</div>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="pitches-row">
                                 <div class="pitch-panel">
                                     <div class="pitch-title">k-nearest neighbors</div>
-                                    <div class="pitch-direction" id="pitch_direction_2"></div>
-                                    <canvas id="canvas2"></canvas>
+                                    <div class="pitch-direction" id="pitch_direction_3"></div>
+                                    <canvas id="canvas3"></canvas>
                                     <div class="pitch-control">
                                         <label class="pitch-control-label" for="knn_k_select">
                                             k: <span id="knn_k_label">1</span>
@@ -340,33 +395,35 @@
                                             <option value="both-all">Both-all</option>
                                             <option value="both-mutual">Both-mutual</option>
                                         </select>
-                                        <label class="pitch-checkbox pitch-checkbox--inline mt-2" for="knn_oriented_enabled">
-                                            <input type="checkbox" id="knn_oriented_enabled">
-                                            <span>Oriented (goal-side)</span>
-                                        </label>
-                                        <div id="knn_oriented_controls" class="pitch-control-subsection pitch-control-subsection--passive mt-2">
-                                            <label class="pitch-control-label" for="knn_oriented_alpha_slider">
-                                                α: <span id="knn_oriented_alpha_label">2.0</span>
+                                        <div class="pitch-control-section mt-2">
+                                            <div class="pitch-control-section-title">Orientation</div>
+                                            <label class="pitch-checkbox pitch-checkbox--inline" for="knn_oriented_enabled">
+                                                <input type="checkbox" id="knn_oriented_enabled">
+                                                <span>Oriented (goal-side) distance</span>
                                             </label>
-                                            <input type="range" min="1" max="3" step="0.1" value="2" class="form-range pitch-threshold-slider" id="knn_oriented_alpha_slider" disabled>
-                                            <label class="pitch-control-label mt-2" for="knn_oriented_behind_select">
-                                                Behind attacker
-                                            </label>
-                                            <select class="form-select form-select-sm pitch-k-select" id="knn_oriented_behind_select" disabled>
-                                                <option value="neutral" selected>Neutral</option>
-                                                <option value="penalize">Penalize</option>
-                                            </select>
+                                            <div class="pitch-control-hint">
+                                                When enabled, ranking uses a different distance model. An ellipse is stretched toward the defended goal, so defenders goal-side of an attacker are preferred. α stretches the goal-side axis (α = 1 is Euclidean). Momentum is ignored while this is on.
+                                            </div>
+                                            <div id="knn_oriented_controls" class="pitch-control-subsection pitch-control-subsection--passive mt-1">
+                                                <label class="pitch-control-label" for="knn_oriented_alpha_slider">
+                                                    α: <span id="knn_oriented_alpha_label">2.0</span>
+                                                </label>
+                                                <input type="range" min="1" max="3" step="0.1" value="2" class="form-range pitch-threshold-slider" id="knn_oriented_alpha_slider" disabled>
+                                                <label class="pitch-control-label mt-2" for="knn_oriented_behind_select">
+                                                    Behind attacker
+                                                </label>
+                                                <select class="form-select form-select-sm pitch-k-select" id="knn_oriented_behind_select" disabled>
+                                                    <option value="neutral" selected>Neutral (euclidean distance)</option>
+                                                    <option value="penalize">Penalize (1/α)</option>
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div class="pitch-control-hint mt-2">Stretches ranking distance toward the defended goal (ellipse). Analysis uses both-mutual. α = 1 is Euclidean.</div>
-                                        <div class="pitch-control-hint mt-1" id="knn_oriented_momentum_note" hidden>Oriented k-NN ignores global momentum (same as analysis).</div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="pitches-row">
                                 <div class="pitch-panel">
                                     <div class="pitch-title">Perfect matching</div>
-                                    <div class="pitch-direction" id="pitch_direction_3"></div>
-                                    <canvas id="canvas3"></canvas>
+                                    <div class="pitch-direction" id="pitch_direction_4"></div>
+                                    <canvas id="canvas4"></canvas>
                                     <div class="pitch-control pitch-control--sections">
                                         <div class="pitch-control-section">
                                             <div class="pitch-control-section-title">Max edge length</div>
@@ -380,7 +437,7 @@
                                                 </label>
                                                 <input type="number" min="10" max="50" step="1" value="20" class="form-control form-control-sm pitch-k-select" id="hungarian_max_length_m" disabled>
                                             </div>
-                                            <div class="pitch-control-hint mt-2">Can combine with a graph restriction below (same as analysis).</div>
+                                            <div class="pitch-control-hint mt-2">When enabled, edges over the max length are not considered for the matching. Can be combined with a graph restriction below.</div>
                                         </div>
                                         <div class="pitch-control-section">
                                             <div class="pitch-control-section-title">Graph restriction</div>
@@ -412,7 +469,6 @@
                                                         <option value="both-all" selected>Both-all</option>
                                                         <option value="both-mutual">Both-mutual</option>
                                                     </select>
-                                                    <div class="pitch-control-hint mt-2">Independent of the k-NN pitch (analysis default: k=2, both-all). Uses momentum when enabled; ignores oriented ranking.</div>
                                                 </div>
                                                 <label class="pitch-radio">
                                                     <input type="radio" name="hungarian_edge_restriction" value="delaunay">
@@ -420,28 +476,6 @@
                                                 </label>
                                             </fieldset>
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="pitch-panel">
-                                    <div class="pitch-title">All outfield players</div>
-                                    <div class="pitch-direction" id="pitch_direction_4"></div>
-                                    <canvas id="canvas4"></canvas>
-                                    <div class="pitch-control pitch-control--radio">
-                                        <fieldset class="pitch-radio-group">
-                                            <legend class="visually-hidden">All outfield graph type</legend>
-                                            <label class="pitch-radio">
-                                                <input type="radio" name="all_outfield_graph_mode" value="delaunay" checked>
-                                                <span>Delaunay</span>
-                                            </label>
-                                            <label class="pitch-radio">
-                                                <input type="radio" name="all_outfield_graph_mode" value="shape">
-                                                <span>Shape graph</span>
-                                            </label>
-                                        </fieldset>
-                                        <label class="pitch-checkbox pitch-checkbox--inline" for="shape_graph_opponents_only">
-                                            <input type="checkbox" id="shape_graph_opponents_only">
-                                            <span>Opponents only</span>
-                                        </label>
                                     </div>
                                 </div>
                             </div>

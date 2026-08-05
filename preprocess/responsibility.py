@@ -405,30 +405,6 @@ def mutual_pairs(cost: np.ndarray, k: int) -> list[tuple[int, int]]:
     return sorted(d & a)
 
 
-def outfield_delaunay_opp_pairs(frame: dict) -> set[tuple[str, str]]:
-    home, away = outfield(frame, "home"), outfield(frame, "away")
-    players = home + away
-    if len(players) < 2:
-        return set()
-    teams = ["home"] * len(home) + ["away"] * len(away)
-    pts = np.array([[p["x"], p["y"]] for p in players], dtype=float)
-    idx_pairs = {(0, 1)} if len(players) == 2 else ({(0, 1), (0, 2), (1, 2)} if len(players) == 3 else set())
-    if len(players) > 3:
-        try:
-            for a, b, c in Delaunay(pts).simplices:
-                for u, v in ((int(a), int(b)), (int(b), int(c)), (int(c), int(a))):
-                    idx_pairs.add((u, v) if u < v else (v, u))
-        except QhullError:
-            return set()
-    out = set()
-    for i, j in idx_pairs:
-        if teams[i] == teams[j]:
-            continue
-        a, b = players[i]["id"], players[j]["id"]
-        out.add((a, b) if a < b else (b, a))
-    return out
-
-
 def marking_edges(frame: dict, contestant_ids: list[str], attacking: str, home_pos_x: bool, near: set[str] | None = None) -> list[list[str]]:
     if not contestant_ids or attacking not in ("home", "away"):
         return []
@@ -442,12 +418,9 @@ def marking_edges(frame: dict, contestant_ids: list[str], attacking: str, home_p
     def_xy = np.array([[p["x"], p["y"]] for p in defenders], dtype=float)
     att_xy = np.array([[p["x"], p["y"]] for p in attackers], dtype=float)
     cost, _ = oriented_cost(def_xy, att_xy, np.asarray(defended_goal(attacking, home_pos_x), dtype=float), MARKING_ALPHA)
-    allowed = outfield_delaunay_opp_pairs(frame)
     out = []
     for i, j in mutual_pairs(cost, MARKING_K):
-        d_id, a_id = defenders[i]["id"], attackers[j]["id"]
-        if ((d_id, a_id) if d_id < a_id else (a_id, d_id)) in allowed:
-            out.append([d_id, a_id])
+        out.append([defenders[i]["id"], attackers[j]["id"]])
     return out
 
 
@@ -558,7 +531,7 @@ def build_results(
                 {
                     "type": "header",
                     "nearBall": "hull_expanded",
-                    "marking": "oriented_mutual_2nn_delaunay",
+                    "marking": "oriented_mutual_2nn",
                     "hullMargin_m": HULL_MARGIN_M,
                 }
             )

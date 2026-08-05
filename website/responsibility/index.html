@@ -19,6 +19,7 @@
         <script src="../pitch/drawPlayers.js"></script>
         <script src="drawPitch.js"></script>
         <script src="../core/timeline.js"></script>
+        <script src="../core/clipExport.js"></script>
         <script src="../core/uiElements.js"></script>
 
         <link rel="stylesheet" type="text/css" href="../styles.css" />
@@ -47,13 +48,9 @@
                     This viewer reads local preprocessed files from <code>data/</code>.
                 </p>
                 <p class="text-muted small mb-2">
-                    Put FIFA enriched (+ optional metadata) in <code>input/</code>,
+                    Put FIFA World Cup enriched tracking data (+ optional metadata) in <code>input/</code>,
                     <em>or</em> place <code>tracking.jsonl</code> (+ optional <code>metaData.json</code>) in <code>data/</code>,
                     then run <code>python preprocess/run.py</code>.
-                </p>
-                <p class="text-muted small mb-0">
-                    This page also needs <code>responsibility.jsonl</code>
-                    (and optionally <code>responsibility_zones.jsonl</code>).
                 </p>
             </div>
 
@@ -73,13 +70,14 @@
             <div id="data_loading_view" style="display: none;">
                 <h3 id="dataLoadingTitle">Processing...</h3>
                 <p id="dataLoadingSubtitle"></p>
-                <div class="spinner-border m-5" role="status">
-                    <span class="sr-only"></span>
+                <div id="data_loading_progress_wrap" class="data-loading-progress mx-auto">
+                    <div class="progress" id="data_loading_progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="data_loading_progress_bar" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
 
             <div id="website_view" style="display: none;">
-                <p class="text-muted mb-2"><a href="../index.html">Marking views</a></p>
                 <h1><div id="title_text">Home vs Away</div></h1>
                 <hr>
 
@@ -87,61 +85,21 @@
                     <div class="col-12" id="main_div_pitch">
 
                         <div class="text-start mx-auto mb-3" style="max-width: 900px;">
-                            <p class="mb-2">
-                                Ball carrier, near-ball marking, and defender space coverage —
-                                all precomputed; this page only draws them.
+                            <h2 class="h5 mb-2">Algorithm to infer marking responsibilities</h2>
+                            <p class="mb-2" style="font-size: 0.95rem;">
+                                This is my own algorithm, developed from analyzing the
+                                <a href="../index.html">standard marking methods</a>
+                                and incorporating zone coverage. It works as follows:
                             </p>
-                            <p class="text-muted small mb-2">
-                                Click a defender or their coloured zone to outline that space and highlight their marking edge(s).
+                            <ol class="mb-2 ps-3" style="font-size: 0.95rem;">
+                                <li>Find who can reach the ball first (and who can contest them shortly after).</li>
+                                <li>Build a near-ball region from those players and their Delaunay teammates, then expand it.</li>
+                                <li>Assign marking edges to attackersinside that region (oriented mutual 2-Nearest-Neighbours).</li>
+                                <li>Outside the bubble, colour each defender’s pitch-control space, corresponding to the zone they are responsible for covering.</li>
+                            </ol>
+                            <p class="mb-0">
+                                <strong>Click a defender or their coloured zone to outline that space and highlight their marking edge(s).</strong>
                             </p>
-                            <ul class="overlays-list mb-3">
-                                <li class="overlays-item">
-                                    <div class="overlays-item-main">
-                                        <span class="overlays-item-legend">
-                                            <span class="overlays-swatch" style="background: rgba(37, 99, 235, 0.45);"></span>
-                                            <span class="overlays-item-legend--text">Blue bubble — near-ball hull</span>
-                                        </span>
-                                    </div>
-                                </li>
-                                <li class="overlays-item">
-                                    <div class="overlays-item-main">
-                                        <span class="overlays-item-legend">
-                                            <span class="overlays-swatch" style="background: rgba(22, 163, 74, 0.45);"></span>
-                                            <span class="overlays-item-legend--text">Coloured regions — defender space</span>
-                                        </span>
-                                    </div>
-                                </li>
-                                <li class="overlays-item">
-                                    <div class="overlays-item-main">
-                                        <span class="overlays-item-legend">
-                                            <span class="overlays-swatch" style="background: #2563EB;"></span>
-                                            <span class="overlays-item-legend--text">Blue edges — marking</span>
-                                        </span>
-                                    </div>
-                                </li>
-                                <li class="overlays-item">
-                                    <div class="overlays-item-main">
-                                        <span class="overlays-item-legend">
-                                            <span class="overlays-swatch" style="background: #94A3B8;"></span>
-                                            <span class="overlays-item-legend--text">Grey edges — mutual help</span>
-                                        </span>
-                                    </div>
-                                </li>
-                                <li class="overlays-item">
-                                    <div class="overlays-item-main">
-                                        <span class="overlays-item-legend">
-                                            <span class="overlays-swatch" style="background: #16A34A;"></span>
-                                            <span class="overlays-item-legend--text">Green / amber rings — carrier / contest</span>
-                                        </span>
-                                    </div>
-                                </li>
-                            </ul>
-                            <div class="mb-2">
-                                <label class="pitch-checkbox pitch-checkbox--inline" for="show_velocity_arrows">
-                                    <input type="checkbox" id="show_velocity_arrows">
-                                    <span>Velocity / momentum vectors</span>
-                                </label>
-                            </div>
                         </div>
 
                         <div class="playback-controls row justify-content-center align-items-center mb-3">
@@ -186,11 +144,92 @@
                             </div>
                         </div>
 
-                        <div class="pitches-container">
-                            <div class="pitch-panel pitch-panel--single">
-                                <div class="pitch-direction" id="pitch_direction_1"></div>
-                                <canvas id="canvas1"></canvas>
+                        <div class="clip-export-panel mb-4 mx-auto" style="max-width: 900px; text-align: left;">
+                            <div class="clip-export-title">Export clip</div>
+                            <div class="clip-export-row">
+                                <label class="clip-export-field">
+                                    Start
+                                    <div class="clip-export-time">
+                                        <input type="text" class="form-control form-control-sm" id="clip_start_time" placeholder="23:45">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_start_btn" title="Use current playback time">Now</button>
+                                    </div>
+                                </label>
+                                <label class="clip-export-field">
+                                    End
+                                    <div class="clip-export-time">
+                                        <input type="text" class="form-control form-control-sm" id="clip_end_time" placeholder="24:30">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="clip_set_end_btn" title="Use current playback time">Now</button>
+                                    </div>
+                                </label>
+                                <button type="button" class="btn btn-secondary btn-sm" id="clip_export_btn">Export clip</button>
                             </div>
+                            <div class="clip-export-hint">Saves clip and start-frame image (video above, pitch below).</div>
+                            <div id="clip_export_progress_wrap" class="clip-export-progress" hidden>
+                                <div class="clip-export-progress-label" id="clip_export_progress_label">Preparing clip…</div>
+                                <div class="progress" id="clip_export_progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="clip_export_progress_bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="clip-export-status" id="clip_export_status"></div>
+                        </div>
+
+                        <div class="resp-pitch-layout">
+                            <div class="pitches-container">
+                                <div class="pitch-panel pitch-panel--single">
+                                    <div class="pitch-direction" id="pitch_direction_1"></div>
+                                    <canvas id="canvas1"></canvas>
+                                </div>
+                            </div>
+                            <aside class="resp-legend" aria-label="Pitch legend">
+                                <div class="resp-legend-title">Legend</div>
+                                <ul class="resp-legend-list">
+                                    <li class="resp-legend-item">
+                                        <span class="overlays-swatch overlays-swatch--hull" aria-hidden="true"></span>
+                                        <span>Near-ball hull (attacking team)</span>
+                                    </li>
+                                    <li class="resp-legend-item">
+                                        <span class="overlays-swatch overlays-swatch--zones" aria-hidden="true"></span>
+                                        <span>Defender space (defending team)</span>
+                                    </li>
+                                    <li class="resp-legend-item">
+                                        <span class="overlays-swatch overlays-swatch--edge" style="--edge-color: #2563EB;" aria-hidden="true"></span>
+                                        <span>Marking edge</span>
+                                    </li>
+                                    <li class="resp-legend-item">
+                                        <span class="overlays-swatch overlays-swatch--ring" style="border-color: #16A34A;" aria-hidden="true"></span>
+                                        <span>Carrier ring</span>
+                                    </li>
+                                    <li class="resp-legend-item">
+                                        <span class="overlays-swatch overlays-swatch--ring" style="border-color: #F59E0B;" aria-hidden="true"></span>
+                                        <span>Contestant ring</span>
+                                    </li>
+                                    <li class="resp-legend-item">
+                                        <span class="overlays-swatch overlays-swatch--ring" style="border-color: #1a1a1a;" aria-hidden="true"></span>
+                                        <span>Defender ring</span>
+                                    </li>
+                                    <li class="resp-legend-item resp-legend-item--check">
+                                        <label class="pitch-checkbox pitch-checkbox--inline" for="show_velocity_arrows">
+                                            <input type="checkbox" id="show_velocity_arrows">
+                                            <span>Velocity vectors</span>
+                                        </label>
+                                        <span class="overlays-swatch overlays-swatch--arrow" aria-hidden="true"></span>
+                                    </li>
+                                    <li class="resp-legend-item resp-legend-item--check">
+                                        <label class="pitch-checkbox pitch-checkbox--inline" for="show_mutual_help_edges">
+                                            <input type="checkbox" id="show_mutual_help_edges">
+                                            <span>Teammate Delaunay</span>
+                                        </label>
+                                        <span class="overlays-swatch overlays-swatch--edge" style="--edge-color: #94A3B8;" aria-hidden="true"></span>
+                                    </li>
+                                    <li class="resp-legend-item resp-legend-item--check">
+                                        <label class="pitch-checkbox pitch-checkbox--inline" for="show_zone_attacker_edges">
+                                            <input type="checkbox" id="show_zone_attacker_edges">
+                                            <span>Attacker in zone</span>
+                                        </label>
+                                        <span class="overlays-swatch overlays-swatch--edge overlays-swatch--edge-dashed" style="--edge-color: #EA580C;" aria-hidden="true"></span>
+                                    </li>
+                                </ul>
+                            </aside>
                         </div>
 
                     </div>
@@ -199,19 +238,28 @@
         </div>
         <script>
             configureCanvasLayout({ pitchCount: 1, pitchesPerRow: 1, maxWidth: 900, minWidth: 400, gap: 0 });
-            configureUIElements({ enableClipExport: false });
+            configureUIElements({ enableClipExport: true });
             setupResponsibilitySpaceZonesUi();
+
+            // Keep the loading view up until responsibility sidecars are ready (don't flash the pitch).
+            dataFinishedReading = function () {
+                $("#entry_view").hide();
+                $("#data_error_view").hide();
+                $("#website_view").hide();
+                $("#data_loading_view").show();
+                setupCanvases();
+            };
 
             var _tryLoadLocalData = tryLoadLocalData;
             tryLoadLocalData = async function () {
                 await _tryLoadLocalData();
                 if (!gameData) return;
 
-                // Keep overlays loading visible; tracking already opened the main view.
-                $("#data_loading_view").show();
                 var resultsOk = await tryLoadLocalResponsibilityResults();
                 var zonesOk = await tryLoadLocalResponsibilityZones();
+
                 $("#data_loading_view").hide();
+                $("#website_view").show();
 
                 if (!resultsOk) {
                     console.warn("Responsibility edges/carrier unavailable: missing or empty data/responsibility.jsonl");

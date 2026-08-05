@@ -6,28 +6,49 @@ var responsibilityZonesEnabled = true;
 var responsibilityZonesHeader = null;
 var responsibilityZonesByFrame = {};
 var responsibilityZonesFrameList = [];
-// Sticky color index per defender id (stable across frames; only changes on neighbor conflict).
-var responsibilityZoneColorByPlayer = {};
 var selectedSpaceZonePlayerId = null;
 
-const SPACE_ZONE_COLLECTIVE_FILL = "rgba(37, 99, 235, 0.22)";
 const SPACE_ZONE_SELECTED_OUTLINE = "#111827";
 const SPACE_ZONE_SELECTED_PLAYER_BORDER = "#111827";
 const SPACE_ZONE_SELECTED_PLAYER_BORDER_WIDTH = 4;
-// Distinct categorical colors (not near-identical greens).
-const SPACE_ZONE_DEFENDER_PALETTE = [
-    { fill: "rgba(220, 38, 38, 0.38)", stroke: "#991B1B" },   // red
-    { fill: "rgba(234, 88, 12, 0.38)", stroke: "#9A3412" },   // orange
-    { fill: "rgba(202, 138, 4, 0.40)", stroke: "#854D0E" },   // yellow
-    { fill: "rgba(22, 163, 74, 0.38)", stroke: "#166534" },   // green
-    { fill: "rgba(13, 148, 136, 0.38)", stroke: "#115E59" },  // teal
-    { fill: "rgba(2, 132, 199, 0.38)", stroke: "#075985" },   // sky
-    { fill: "rgba(79, 70, 229, 0.38)", stroke: "#3730A3" },   // indigo
-    { fill: "rgba(147, 51, 234, 0.38)", stroke: "#6B21A8" },  // purple
-    { fill: "rgba(219, 39, 119, 0.38)", stroke: "#9D174D" },  // pink
-    { fill: "rgba(100, 116, 139, 0.40)", stroke: "#334155" }, // slate
-    { fill: "rgba(180, 83, 9, 0.38)", stroke: "#78350F" },    // amber-brown
-];
+const SPACE_ZONE_OUTLINE_WIDTH = 1.15;
+const SPACE_ZONE_SELECTED_OUTLINE_WIDTH = 2.75;
+
+function parseHexRgb(hex) {
+    var h = String(hex || "").replace("#", "").trim();
+    if (h.length === 3) {
+        h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    if (h.length !== 6) return { r: 100, g: 116, b: 139 };
+    return {
+        r: parseInt(h.slice(0, 2), 16),
+        g: parseInt(h.slice(2, 4), 16),
+        b: parseInt(h.slice(4, 6), 16),
+    };
+}
+
+/** Soft tint of a team's shirt colour for zone fills (lighter + translucent vs player dots). */
+function teamZoneStyle(team) {
+    var hex =
+        team === 1
+            ? (gameData.homeTeam && gameData.homeTeam.colorShirt) || "#B73B92"
+            : (gameData.awayTeam && gameData.awayTeam.colorShirt) || "#3395AB";
+    var c = parseHexRgb(hex);
+    var lighten = 0.38;
+    var r = Math.round(c.r + (255 - c.r) * lighten);
+    var g = Math.round(c.g + (255 - c.g) * lighten);
+    var b = Math.round(c.b + (255 - c.b) * lighten);
+    var stroke = {
+        r: Math.round(c.r * 0.55),
+        g: Math.round(c.g * 0.55),
+        b: Math.round(c.b * 0.55),
+    };
+    return {
+        fill: "rgba(" + r + "," + g + "," + b + ",0.34)",
+        fillSelected: "rgba(" + r + "," + g + "," + b + ",0.55)",
+        stroke: "rgba(" + stroke.r + "," + stroke.g + "," + stroke.b + ",0.95)",
+    };
+}
 
 function setResponsibilityZonesEnabled(on) {
     responsibilityZonesEnabled = on !== false;
@@ -38,7 +59,6 @@ function clearResponsibilityZones() {
     responsibilityZonesHeader = null;
     responsibilityZonesByFrame = {};
     responsibilityZonesFrameList = [];
-    responsibilityZoneColorByPlayer = {};
     selectedSpaceZonePlayerId = null;
 }
 
@@ -62,19 +82,16 @@ function ingestResponsibilityZonesLine(line) {
 async function tryLoadLocalResponsibilityZones() {
     try {
         if (typeof setResponsibilityLoadingSubtitle === "function") {
-            setResponsibilityLoadingSubtitle("Loading responsibility_zones.jsonl...");
+            setResponsibilityLoadingSubtitle("Loading responsibility zones…");
         }
+        if (typeof resetDataLoadingProgress === "function") resetDataLoadingProgress();
         var response = await fetch(getLocalDataDir() + "/responsibility_zones.jsonl");
         if (!response.ok) {
             console.warn("responsibility_zones.jsonl not found (" + response.status + ")");
             return false;
         }
         clearResponsibilityZones();
-        await streamJsonlResponse(response, ingestResponsibilityZonesLine, function (n) {
-            if (typeof setResponsibilityLoadingSubtitle === "function") {
-                setResponsibilityLoadingSubtitle("Loading responsibility_zones.jsonl... " + n + " frames");
-            }
-        });
+        await streamJsonlResponse(response, ingestResponsibilityZonesLine, "Loading responsibility zones…");
         responsibilityZonesFrameList.sort(function (a, b) { return a - b; });
         var ok = responsibilityZonesFrameList.length > 0 && !!responsibilityZonesHeader;
         console.info(
@@ -180,14 +197,14 @@ function edgeKey(x0, y0, x1, y1) {
     return bx + "," + by + "," + ax + "," + ay;
 }
 
-function drawSelectedZoneOutline(cells, header, strokeColor) {
+function drawZoneOutline(cells, header, strokeColor, lineWidth) {
     if (!cells || !cells.length) return;
     var cellInfo = buildCellSet(cells, header);
     var ctx = gameCanvas.ctx;
     var prevStroke = ctx.strokeStyle;
     var prevWidth = ctx.lineWidth;
     ctx.strokeStyle = strokeColor || "#111827";
-    ctx.lineWidth = 2.75;
+    ctx.lineWidth = lineWidth != null ? lineWidth : SPACE_ZONE_OUTLINE_WIDTH;
 
     var set = cellInfo.set;
     var boundsByKey = cellInfo.boundsByKey;
@@ -214,92 +231,6 @@ function drawSelectedZoneOutline(cells, header, strokeColor) {
     ctx.lineWidth = prevWidth;
 }
 
-function buildDefenderZoneAdjacency(defenders, header) {
-    var shape = header.shape;
-    var rows = shape[0];
-    var cols = shape[1];
-    var owner = {};
-    var playerIds = [];
-
-    for (var playerId in defenders) {
-        if (!defenders.hasOwnProperty(playerId)) continue;
-        var cells = defenders[playerId];
-        if (!cells || !cells.length) continue;
-        playerIds.push(String(playerId));
-        for (var i = 0; i < cells.length; i++) {
-            owner[cells[i]] = String(playerId);
-        }
-    }
-
-    var adj = {};
-    for (var p = 0; p < playerIds.length; p++) {
-        adj[playerIds[p]] = {};
-    }
-
-    function link(a, b) {
-        if (!a || !b || a === b) return;
-        adj[a][b] = true;
-        adj[b][a] = true;
-    }
-
-    for (var cellIdx in owner) {
-        if (!owner.hasOwnProperty(cellIdx)) continue;
-        var idx = +cellIdx;
-        var row = Math.floor(idx / cols);
-        var col = idx % cols;
-        var id = owner[idx];
-        if (col + 1 < cols) link(id, owner[idx + 1]);
-        if (row + 1 < rows) link(id, owner[idx + cols]);
-    }
-
-    return { playerIds: playerIds, adj: adj };
-}
-
-function preferredDefenderColorIndex(playerId) {
-    var id = String(playerId);
-    var hash = 0;
-    for (var i = 0; i < id.length; i++) {
-        hash = ((hash << 5) - hash) + id.charCodeAt(i);
-        hash |= 0;
-    }
-    return Math.abs(hash) % SPACE_ZONE_DEFENDER_PALETTE.length;
-}
-
-function colorDefenderZones(defenders, header) {
-    var graph = buildDefenderZoneAdjacency(defenders, header);
-    var playerIds = graph.playerIds.slice();
-    var adj = graph.adj;
-    var paletteSize = SPACE_ZONE_DEFENDER_PALETTE.length;
-
-    // Stable order so the same conflict resolves the same way each frame.
-    playerIds.sort();
-
-    var colorIndex = {};
-    for (var i = 0; i < playerIds.length; i++) {
-        var pid = playerIds[i];
-        var used = {};
-        var neighbors = Object.keys(adj[pid] || {});
-        for (var n = 0; n < neighbors.length; n++) {
-            var nid = neighbors[n];
-            if (colorIndex[nid] != null) used[colorIndex[nid]] = true;
-        }
-
-        var prefer = responsibilityZoneColorByPlayer[pid];
-        if (prefer == null) prefer = preferredDefenderColorIndex(pid);
-
-        var choice = prefer;
-        if (used[choice]) {
-            choice = 0;
-            while (choice < paletteSize && used[choice]) choice++;
-            if (choice >= paletteSize) choice = prefer % paletteSize;
-        }
-
-        colorIndex[pid] = choice;
-        responsibilityZoneColorByPlayer[pid] = choice;
-    }
-    return colorIndex;
-}
-
 function drawResponsibilitySpaceZones(frame) {
     if (!responsibilityZonesEnabled) return;
     if (!responsibilityZonesHeader || !responsibilityZonesHeader.shape) return;
@@ -313,10 +244,12 @@ function drawResponsibilitySpaceZones(frame) {
     var ctx = gameCanvas.ctx;
     var prevFill = ctx.fillStyle;
     var header = responsibilityZonesHeader;
-    var styles = data.defenders
-        ? colorDefenderZones(data.defenders, header)
-        : {};
     var selectedCells = null;
+    var defendingTeam = typeof getDefendingTeam === "function" ? getDefendingTeam(frame) : null;
+    var defTeam = defendingTeam === 1 || defendingTeam === 2 ? defendingTeam : 1;
+    var attTeam = defTeam === 1 ? 2 : 1;
+    var style = teamZoneStyle(defTeam);
+    var hullStyle = teamZoneStyle(attTeam);
     var selectedStroke = SPACE_ZONE_SELECTED_OUTLINE;
 
     if (data.defenders) {
@@ -324,23 +257,22 @@ function drawResponsibilitySpaceZones(frame) {
             if (!data.defenders.hasOwnProperty(playerId)) continue;
             var cells = data.defenders[playerId];
             if (!cells || !cells.length) continue;
-            var colorIdx = styles[String(playerId)];
-            if (colorIdx == null) colorIdx = 0;
-            var style = SPACE_ZONE_DEFENDER_PALETTE[colorIdx % SPACE_ZONE_DEFENDER_PALETTE.length];
-            ctx.fillStyle = style.fill;
+            var isSelected =
+                selectedSpaceZonePlayerId != null && String(playerId) === String(selectedSpaceZonePlayerId);
+            ctx.fillStyle = isSelected ? style.fillSelected : style.fill;
             for (var i = 0; i < cells.length; i++) {
                 var b = meshCellBounds(header, cells[i]);
                 if (b) fillPitchCell(b);
             }
-            if (selectedSpaceZonePlayerId != null && String(playerId) === String(selectedSpaceZonePlayerId)) {
+            drawZoneOutline(cells, header, style.stroke, SPACE_ZONE_OUTLINE_WIDTH);
+            if (isSelected) {
                 selectedCells = cells;
-                selectedStroke = style.stroke || SPACE_ZONE_SELECTED_OUTLINE;
             }
         }
     }
 
     if (data.collective && data.collective.length) {
-        ctx.fillStyle = SPACE_ZONE_COLLECTIVE_FILL;
+        ctx.fillStyle = hullStyle.fillSelected;
         for (var j = 0; j < data.collective.length; j++) {
             var bc = meshCellBounds(header, data.collective[j]);
             if (bc) fillPitchCell(bc);
@@ -348,7 +280,7 @@ function drawResponsibilitySpaceZones(frame) {
     }
 
     if (selectedCells) {
-        drawSelectedZoneOutline(selectedCells, header, selectedStroke);
+        drawZoneOutline(selectedCells, header, selectedStroke, SPACE_ZONE_SELECTED_OUTLINE_WIDTH);
     }
 
     ctx.fillStyle = prevFill;
@@ -457,11 +389,34 @@ function onResponsibilityPitchClick(event) {
 }
 
 function setupResponsibilitySpaceZonesUi() {
+    function redraw() {
+        if (typeof draw === "function" && gameData) draw();
+    }
+
     var arrowsCheckbox = document.getElementById("show_velocity_arrows");
     if (arrowsCheckbox && typeof setShowVelocityArrows === "function") {
         setShowVelocityArrows(arrowsCheckbox.checked);
         arrowsCheckbox.addEventListener("change", function () {
             setShowVelocityArrows(arrowsCheckbox.checked);
+            redraw();
+        });
+    }
+
+    var mutualHelpCheckbox = document.getElementById("show_mutual_help_edges");
+    if (mutualHelpCheckbox && typeof setShowMutualHelpEdges === "function") {
+        setShowMutualHelpEdges(mutualHelpCheckbox.checked);
+        mutualHelpCheckbox.addEventListener("change", function () {
+            setShowMutualHelpEdges(mutualHelpCheckbox.checked);
+            redraw();
+        });
+    }
+
+    var zoneAttackerCheckbox = document.getElementById("show_zone_attacker_edges");
+    if (zoneAttackerCheckbox && typeof setShowZoneAttackerEdges === "function") {
+        setShowZoneAttackerEdges(zoneAttackerCheckbox.checked);
+        zoneAttackerCheckbox.addEventListener("change", function () {
+            setShowZoneAttackerEdges(zoneAttackerCheckbox.checked);
+            redraw();
         });
     }
 

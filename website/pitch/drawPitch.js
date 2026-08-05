@@ -30,22 +30,23 @@ function drawPitchFrame(pitchIndex) {
         drawOverlayBackground(frameNr);
     }
 
+    // Canvas order: 0 Delaunay/shape, 1 threshold, 2 k-NN, 3 perfect matching.
     var edges = [];
     if (pitchIndex === 0) {
-        edges = getDistanceMarkingEdges(frameNr, distanceThresholdMeters);
-    } else if (pitchIndex === 1) {
-        edges = getKnnMarkingEdges(frameNr, knnK);
-    } else if (pitchIndex === 2) {
-        edges = getHungarianMarkingEdges(frameNr);
-    } else if (pitchIndex === 3) {
         edges = allOutfieldGraphMode === "shape"
             ? getAllOutfieldShapeGraphEdges(frameNr)
             : getAllOutfieldDelaunayEdges(frameNr);
+    } else if (pitchIndex === 1) {
+        edges = getDistanceMarkingEdges(frameNr, distanceThresholdMeters);
+    } else if (pitchIndex === 2) {
+        edges = getKnnMarkingEdges(frameNr, knnK);
+    } else if (pitchIndex === 3) {
+        edges = getHungarianMarkingEdges(frameNr);
     }
 
     if (typeof drawOverlayEdges === "function") {
         drawOverlayEdges(edges, frameNr);
-    } else if (pitchIndex === 3) {
+    } else if (pitchIndex === 0) {
         drawGraphEdges(edges, MARKING_EDGE_COLOR);
     } else {
         drawMarkingEdges(edges, MARKING_EDGE_COLOR);

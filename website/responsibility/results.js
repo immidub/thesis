@@ -19,24 +19,45 @@ function ingestResponsibilityResultsLine(line) {
 }
 
 /** Stream a JSONL response line-by-line (avoids loading huge files as one string). */
-async function streamJsonlResponse(response, onLine, onProgress) {
+async function streamJsonlResponse(response, onLine, label) {
+    if (label && typeof setDataLoadingLabel === "function") {
+        setDataLoadingLabel(label);
+    }
+    var totalBytes = typeof getResponseContentLength === "function"
+        ? getResponseContentLength(response)
+        : (parseInt((response.headers && response.headers.get("Content-Length")) || "0", 10) || 0);
+    var receivedBytes = 0;
+
+    function reportProgress() {
+        if (typeof setDataLoadingProgress !== "function") return;
+        if (totalBytes > 0) {
+            setDataLoadingProgress((100 * receivedBytes) / totalBytes);
+        } else if (typeof setDataLoadingIndeterminate === "function") {
+            setDataLoadingIndeterminate();
+        }
+    }
+
     if (!response.body || !response.body.getReader) {
         var text = await response.text();
+        receivedBytes = totalBytes || new TextEncoder().encode(text).length;
         var lines = text.split(/\n/);
         for (var i = 0; i < lines.length; i++) {
             var trimmed = lines[i].trim();
             if (trimmed) onLine(trimmed);
-            if (onProgress && (i + 1) % 5000 === 0) onProgress(i + 1);
         }
+        if (typeof setDataLoadingProgress === "function") setDataLoadingProgress(100);
         return;
     }
+
+    reportProgress();
     var reader = response.body.getReader();
     var decoder = new TextDecoder();
     var buffer = "";
-    var count = 0;
     while (true) {
         var chunk = await reader.read();
         if (chunk.done) break;
+        if (chunk.value) receivedBytes += chunk.value.byteLength;
+        reportProgress();
         buffer += decoder.decode(chunk.value, { stream: true });
         var nl;
         while ((nl = buffer.indexOf("\n")) >= 0) {
@@ -44,36 +65,33 @@ async function streamJsonlResponse(response, onLine, onProgress) {
             buffer = buffer.slice(nl + 1);
             if (!line) continue;
             onLine(line);
-            count += 1;
-            if (onProgress && count % 5000 === 0) onProgress(count);
         }
     }
     buffer += decoder.decode();
     var last = buffer.trim();
-    if (last) {
-        onLine(last);
-        count += 1;
-        if (onProgress) onProgress(count);
-    }
+    if (last) onLine(last);
+    if (typeof setDataLoadingProgress === "function") setDataLoadingProgress(100);
 }
 
 function setResponsibilityLoadingSubtitle(msg) {
-    var el = document.getElementById("dataLoadingSubtitle");
-    if (el) el.textContent = msg;
+    if (typeof setDataLoadingLabel === "function") setDataLoadingLabel(msg);
+    else {
+        var el = document.getElementById("dataLoadingSubtitle");
+        if (el) el.textContent = msg;
+    }
 }
 
 async function tryLoadLocalResponsibilityResults() {
     try {
-        setResponsibilityLoadingSubtitle("Loading responsibility.jsonl...");
+        setResponsibilityLoadingSubtitle("Loading responsibility…");
+        if (typeof resetDataLoadingProgress === "function") resetDataLoadingProgress();
         var response = await fetch(getLocalDataDir() + "/responsibility.jsonl");
         if (!response.ok) {
             console.warn("responsibility.jsonl not found (" + response.status + ")");
             return false;
         }
         clearResponsibilityResults();
-        await streamJsonlResponse(response, ingestResponsibilityResultsLine, function (n) {
-            setResponsibilityLoadingSubtitle("Loading responsibility.jsonl... " + n + " frames");
-        });
+        await streamJsonlResponse(response, ingestResponsibilityResultsLine, "Loading responsibility…");
         responsibilityFrameList.sort(function (a, b) { return a - b; });
         console.info("Loaded responsibility results:", responsibilityFrameList.length, "frames");
         return responsibilityFrameList.length > 0;

@@ -99,7 +99,7 @@ def run_preprocess(
     else:
         raise FileNotFoundError(
             "No preprocess input found.\n"
-            f"  Either put FIFA enriched (+ *Metadata.json) in {input_dir}\n"
+            f"  Either put FIFA World Cup enriched tracking data (+ *Metadata.json) in {input_dir}\n"
             f"  Or place tracking.jsonl (+ optional metaData.json) in {output_dir}\n"
             "  then re-run this command."
         )

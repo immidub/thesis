@@ -8,6 +8,45 @@ function getLocalDataDir() {
 		: "../data";
 }
 
+function setDataLoadingLabel(text) {
+	var el = document.getElementById("dataLoadingSubtitle");
+	if (el) el.textContent = text || "";
+}
+
+function setDataLoadingProgress(percent) {
+	var bar = document.getElementById("data_loading_progress_bar");
+	var progress = document.getElementById("data_loading_progress");
+	if (!bar) return;
+	bar.classList.remove("data-loading-progress-bar--indeterminate");
+	var p = Math.max(0, Math.min(100, Number(percent) || 0));
+	bar.style.width = p + "%";
+	if (progress) {
+		progress.setAttribute("aria-valuenow", String(Math.round(p)));
+		progress.removeAttribute("aria-valuetext");
+	}
+}
+
+function setDataLoadingIndeterminate() {
+	var bar = document.getElementById("data_loading_progress_bar");
+	var progress = document.getElementById("data_loading_progress");
+	if (!bar) return;
+	bar.classList.add("data-loading-progress-bar--indeterminate");
+	bar.style.width = "35%";
+	if (progress) {
+		progress.removeAttribute("aria-valuenow");
+		progress.setAttribute("aria-valuetext", "Loading");
+	}
+}
+
+function resetDataLoadingProgress() {
+	setDataLoadingProgress(0);
+}
+
+function getResponseContentLength(response) {
+	if (!response || !response.headers || typeof response.headers.get !== "function") return 0;
+	return parseInt(response.headers.get("Content-Length") || "0", 10) || 0;
+}
+
 //-- Local data handling ------------------------------------------------------------------------------
 
 //try to load local data if not available then returns
@@ -27,8 +66,11 @@ async function tryLoadLocalData() {
 //loads tracking data from source; optionalMeta may be a parsed object or a File/Blob
 async function loadTrackingData(source, optionalMeta) {
 	dataReceived();
-	document.getElementById("dataLoadingSubtitle").textContent = "Loading tracking data...";
-	gameData = await parseTrackingJsonl(source);
+	setDataLoadingLabel("Loading tracking…");
+	resetDataLoadingProgress();
+	gameData = await parseTrackingJsonl(source, {
+		totalBytes: getResponseContentLength(source) || (source && source.size) || 0,
+	});
 	var meta = null;
 	if (optionalMeta) {
 		meta = optionalMeta instanceof Blob
@@ -55,6 +97,7 @@ function dataReceived() {
 	$("#website_view").hide();
 	$("#data_error_view").hide();
 	$("#data_loading_view").show();
+	resetDataLoadingProgress();
 }
 
 function dataFinishedReading() {

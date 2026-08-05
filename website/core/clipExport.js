@@ -2,10 +2,10 @@ var isExporting = false;
 var CLIP_EXPORT_PLAYBACK_SPEED = 0.5;
 
 var PITCH_EXPORT_OPTIONS = [
-    { index: 0, label: "Distance threshold" },
-    { index: 1, label: "k-nearest neighbors" },
-    { index: 2, label: "Perfect matching" },
-    { index: 3, label: "All outfield graph" },
+    { index: 0, label: "Delaunay / shape graph" },
+    { index: 1, label: "Distance threshold" },
+    { index: 2, label: "k-nearest neighbors" },
+    { index: 3, label: "Perfect matching" },
 ];
 
 //picks supported mime type for recording
@@ -29,8 +29,14 @@ function sanitizeClipFilenamePart(str) {
 }
 
 function buildClipFilename(pitchIndex, startTime, endTime, ext) {
-    var pitch = PITCH_EXPORT_OPTIONS.find(function (p) { return p.index === pitchIndex; });
-    var slug = pitch ? pitch.label.toLowerCase().replace(/[^a-z0-9]+/g, "_") : "pitch_" + pitchIndex;
+    var select = document.getElementById("clip_pitch_select");
+    var slug;
+    if (!select) {
+        slug = "responsibility";
+    } else {
+        var pitch = PITCH_EXPORT_OPTIONS.find(function (p) { return p.index === pitchIndex; });
+        slug = pitch ? pitch.label.toLowerCase().replace(/[^a-z0-9]+/g, "_") : "pitch_" + pitchIndex;
+    }
     return slug + "_" + sanitizeClipFilenamePart(startTime) + "_to_" + sanitizeClipFilenamePart(endTime) + ext;
 }
 
@@ -266,10 +272,11 @@ function populateClipPitchSelect(select) {
 }
 
 function setupClipExport() { //called by uiElements.js
-    var select = document.getElementById("clip_pitch_select");
-    if (!select) return;
+    var exportBtn = document.getElementById("clip_export_btn");
+    if (!exportBtn) return;
 
-    populateClipPitchSelect(select);
+    var select = document.getElementById("clip_pitch_select");
+    if (select) populateClipPitchSelect(select);
 
     document.getElementById("clip_set_start_btn").addEventListener("click", function () {
         document.getElementById("clip_start_time").value = frameToTime(frameNr);
@@ -279,8 +286,8 @@ function setupClipExport() { //called by uiElements.js
         document.getElementById("clip_end_time").value = frameToTime(frameNr);
     });
 
-    document.getElementById("clip_export_btn").addEventListener("click", function () {
-        var pitchIndex = +document.getElementById("clip_pitch_select").value;
+    exportBtn.addEventListener("click", function () {
+        var pitchIndex = select ? +select.value : 0;
         var startTime = document.getElementById("clip_start_time").value;
         var endTime = document.getElementById("clip_end_time").value;
         exportPitchClip(pitchIndex, startTime, endTime);

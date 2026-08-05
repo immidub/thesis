@@ -1,6 +1,7 @@
 function draw() {
     if (gameCanvases.length === 0) return;
     if (gameData == null) return;
+    if (typeof isExporting !== "undefined" && isExporting) return;
 
     handleFrameNr();
     updateTimeLabels(frameNr);
@@ -13,6 +14,11 @@ function draw() {
     updatePitchDirectionBars(frameNr);
 
     gameCanvas.clearCanvasWhite();
+    drawPitchFrame(0);
+}
+
+/** Single-pitch draw used by the animation loop and clip export. */
+function drawPitchFrame(_pitchIndex) {
     drawPitch();
 
     var ballLive = isBallLive(frameNr);
@@ -57,6 +63,19 @@ const RESPONSIBILITY_MARKING_EDGE_WIDTH = 2;
 const RESPONSIBILITY_SELECTED_MARKING_COLOR = "#DC2626";
 const RESPONSIBILITY_SELECTED_MARKING_WIDTH = 4;
 const RESPONSIBILITY_SELECTED_ATTACKER_RING = "#DC2626";
+const ZONE_ATTACKER_EDGE_COLOR = "#EA580C";
+const ZONE_ATTACKER_EDGE_WIDTH = 1.5;
+
+var showMutualHelpEdges = false;
+var showZoneAttackerEdges = false;
+
+function setShowMutualHelpEdges(enabled) {
+    showMutualHelpEdges = enabled !== false;
+}
+
+function setShowZoneAttackerEdges(enabled) {
+    showZoneAttackerEdges = !!enabled;
+}
 
 function drawRingAt(x, y, radius, color) {
     var ctx = gameCanvas.ctx;
@@ -71,6 +90,50 @@ function drawRingAt(x, y, radius, color) {
     ctx.lineWidth = prevWidth;
 }
 
+/** Dashed defender→attacker edges when an attacker stands in that defender's PC zone. */
+function edgesFromZoneAttackers(frame) {
+    var edges = [];
+    if (typeof getHeldResponsibilityZoneFrame !== "function") return edges;
+    if (typeof buildZoneOwnerByCell !== "function") return edges;
+    if (typeof trackingPitchToCellIndex !== "function") return edges;
+    if (!responsibilityZonesHeader) return edges;
+
+    var held = getHeldResponsibilityZoneFrame(frame);
+    if (held == null) return edges;
+    var data = responsibilityZonesByFrame[held];
+    if (!data || !data.defenders) return edges;
+
+    var sides = typeof getMarkingSides === "function" ? getMarkingSides(frame) : null;
+    if (!sides) return edges;
+
+    var owner = buildZoneOwnerByCell(data.defenders);
+    var byId = {};
+    for (var d = 0; d < sides.defenders.length; d++) {
+        byId[String(sides.defenders[d].id)] = sides.defenders[d];
+    }
+
+    for (var a = 0; a < sides.attackers.length; a++) {
+        var attacker = sides.attackers[a];
+        // player.h/v are display pitch coords from getCoordinates ([-trackingX, trackingY]).
+        var cellIdx = trackingPitchToCellIndex(-attacker.h, attacker.v, responsibilityZonesHeader);
+        if (cellIdx == null) continue;
+        var defenderId = owner[cellIdx];
+        if (!defenderId) continue;
+        var defender = byId[String(defenderId)];
+        if (!defender) continue;
+        edges.push({
+            x1: defender.x,
+            y1: defender.y,
+            x2: attacker.x,
+            y2: attacker.y,
+            dashed: true,
+            defenderId: String(defenderId),
+            attackerId: String(attacker.id),
+        });
+    }
+    return edges;
+}
+
 function drawResponsibilityResults(frame) {
     var row = typeof getResponsibilityFrame === "function" ? getResponsibilityFrame(frame) : null;
     if (!row) return;
@@ -78,11 +141,21 @@ function drawResponsibilityResults(frame) {
     var contestantIds = row.contestantIds || [];
     if (contestantIds.length === 0) return;
 
-    drawCanvasEdges(edgesFromIdPairs(frame, row.mutualHelpEdges, false), {
-        color: MUTUAL_HELP_EDGE_COLOR,
-        lineWidth: MUTUAL_HELP_EDGE_WIDTH,
-        dashedSupport: false,
-    });
+    if (showMutualHelpEdges) {
+        drawCanvasEdges(edgesFromIdPairs(frame, row.mutualHelpEdges, false), {
+            color: MUTUAL_HELP_EDGE_COLOR,
+            lineWidth: MUTUAL_HELP_EDGE_WIDTH,
+            dashedSupport: false,
+        });
+    }
+
+    if (showZoneAttackerEdges) {
+        drawCanvasEdges(edgesFromZoneAttackers(frame), {
+            color: ZONE_ATTACKER_EDGE_COLOR,
+            lineWidth: ZONE_ATTACKER_EDGE_WIDTH,
+            dashedSupport: true,
+        });
+    }
 
     var markingEdges = edgesFromIdPairs(frame, row.markingEdges, true);
     if (markingEdges.length) {

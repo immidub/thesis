@@ -80,17 +80,12 @@ function updateOrientedKnnControls() {
     var controls = document.getElementById("knn_oriented_controls");
     var alphaSlider = document.getElementById("knn_oriented_alpha_slider");
     var behindSelect = document.getElementById("knn_oriented_behind_select");
-    var momentumNote = document.getElementById("knn_oriented_momentum_note");
 
     if (controls) {
         controls.classList.toggle("pitch-control-subsection--passive", !enabled);
     }
     if (alphaSlider) alphaSlider.disabled = !enabled;
     if (behindSelect) behindSelect.disabled = !enabled;
-    if (momentumNote) {
-        var showNote = enabled && typeof momentumDistanceEnabled !== "undefined" && momentumDistanceEnabled;
-        momentumNote.hidden = !showNote;
-    }
 }
 
 function setKnnOrientedAlpha(value) {

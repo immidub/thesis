@@ -3,13 +3,25 @@ const TRACKING_FRAME_RATE = 50;
 
 
 //builds tracking data from a jsonl file
-async function parseTrackingJsonl(source) {
+async function parseTrackingJsonl(source, options) {
+    options = options || {};
+    var totalBytes = options.totalBytes || 0;
+    var receivedBytes = 0;
     var tracking = [];
     var homePlayerMeta = {};
     var awayPlayerMeta = {};
     var periods = [];
     var periodStartIndex = 0;
     var currentPeriod = null;
+
+    function reportProgress() {
+        if (typeof setDataLoadingProgress !== "function") return;
+        if (totalBytes > 0) {
+            setDataLoadingProgress((100 * receivedBytes) / totalBytes);
+        } else if (typeof setDataLoadingIndeterminate === "function") {
+            setDataLoadingIndeterminate();
+        }
+    }
 
     function addLine(trimmed) {
         if (!trimmed) return;
@@ -43,11 +55,6 @@ async function parseTrackingJsonl(source) {
             live: frame.live != null ? frame.live : null,
             objects: objects,
         });
-
-        if (tracking.length % 5000 === 0) {
-            var subtitle = document.getElementById("dataLoadingSubtitle");
-            if (subtitle) subtitle.textContent = "Parsing " + tracking.length + " frames";
-        }
     }
 
     var decoder = new TextDecoder();
@@ -58,9 +65,12 @@ async function parseTrackingJsonl(source) {
             ? source.getReader()
             : source.stream().getReader();
 
+    reportProgress();
     while (true) {
         var chunk = await reader.read();
         if (chunk.done) break;
+        if (chunk.value) receivedBytes += chunk.value.byteLength;
+        reportProgress();
 
         buffer += decoder.decode(chunk.value, { stream: true });
         var nl;
@@ -72,6 +82,7 @@ async function parseTrackingJsonl(source) {
 
     buffer += decoder.decode();
     addLine(buffer.trim());
+    if (typeof setDataLoadingProgress === "function") setDataLoadingProgress(100);
 
     if (tracking.length === 0) {
         throw new Error("No tracking frames found");
