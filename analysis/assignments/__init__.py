@@ -19,6 +19,7 @@ from analysis.assignments.perfect_match import (
     PERFECT_MATCH_RESTRICT_MODES,
     PerfectMatchAssignment,
 )
+from analysis.assignments.responsibility import ResponsibilityAssignment
 
 ASSIGNMENTS: dict[str, Callable[..., Assignment]] = {
     "distance_threshold": DistanceThresholdAssignment,
@@ -28,6 +29,7 @@ ASSIGNMENTS: dict[str, Callable[..., Assignment]] = {
     "oriented_knn": OrientedKnnAssignment,
     "delaunay": DelaunayAssignment,
     "shape_graph": ShapeGraphAssignment,
+    "responsibility": ResponsibilityAssignment,
 }
 
 
@@ -53,6 +55,7 @@ __all__ = [
     "KnnAssignment",
     "PERFECT_MATCH_RESTRICT_MODES",
     "PerfectMatchAssignment",
+    "ResponsibilityAssignment",
     "ShapeGraphAssignment",
     "assignment_plot_label",
     "assignment_slug",

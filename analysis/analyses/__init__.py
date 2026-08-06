@@ -12,6 +12,7 @@ from analysis.analyses.edge_lengths import EdgeLengthsAnalysis
 from analysis.analyses.goal_side import GoalSideAnalysis
 from analysis.analyses.overlap import OverlapAnalysis
 from analysis.analyses.pitch_zones import PitchZonesAnalysis
+from analysis.analyses.responsibility import ResponsibilityAnalysis
 from analysis.analyses.temporal_stability import TemporalStabilityAnalysis
 
 ANALYSES: dict[str, Callable[..., Analysis]] = {
@@ -22,6 +23,7 @@ ANALYSES: dict[str, Callable[..., Analysis]] = {
     "pitch_zones": PitchZonesAnalysis,
     "ball_zones": BallZonesAnalysis,
     "overlap": OverlapAnalysis,
+    "responsibility": ResponsibilityAnalysis,
 }
 
 
@@ -45,5 +47,6 @@ __all__ = [
     "PitchZonesAnalysis",
     "TemporalStabilityAnalysis",
     "OverlapAnalysis",
+    "ResponsibilityAnalysis",
     "create_analysis",
 ]

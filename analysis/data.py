@@ -92,7 +92,7 @@ def iter_frames(
         else np.full(len(work), np.nan)
     )
     is_goalie = (
-        work["isGoalie"].fillna(False).to_numpy(dtype=bool, copy=False)
+        work["isGoalie"].eq(True).to_numpy(dtype=bool, copy=False)
         if "isGoalie" in work.columns
         else np.zeros(len(work), dtype=bool)
     )

@@ -42,6 +42,8 @@ def assignment_summary_fields(assignment: Assignment) -> dict[str, Any]:
         fields["momentum_lambda"] = 0.0
     elif name == "perfect_match":
         fields.update(assignment.summary_fields())
+    elif name == "responsibility":
+        fields["momentum_lambda"] = 0.0
     return fields
 
 
@@ -91,6 +93,8 @@ def assignment_plot_label(source: Assignment | dict[str, Any]) -> str:
         if k is not None and alpha is not None and behind is not None:
             return f"oriented_knn (k={k}, a={float(alpha):g}, {behind})"
         return name
+    if name == "responsibility":
+        return "responsibility (2NN + space)"
     if name == "perfect_match":
         restrict = fields.get("pmRestrict") or "none"
         if restrict == "knn":
@@ -140,4 +144,6 @@ def assignment_slug(assignment: Assignment) -> str:
         return assignment.slug()
     if name == "perfect_match":
         return assignment.slug()
+    if name == "responsibility":
+        return "responsibility"
     return name

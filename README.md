@@ -214,8 +214,8 @@ After a standalone fix, re-run `preprocess/run.py` in Mode B so parquet and resp
 | `data/tracking.jsonl`             | Both viewers                                                       |
 | `data/metaData.json`              | Both viewers (optional but recommended)                            |
 | `data/tracking.parquet`           | `python -m analysis.run`                                           |
-| `data/responsibility.jsonl`       | Responsibility viewer (edges, carrier, contestants, near-ball set) |
-| `data/responsibility_zones.jsonl` | Responsibility viewer (space zones; default)                       |
+| `data/responsibility.jsonl`       | Responsibility viewer; `--assignment responsibility`               |
+| `data/responsibility_zones.jsonl` | Responsibility viewer / analysis (space zones; default)            |
 
 
 
@@ -322,7 +322,7 @@ High-level algorithm (precomputed in `preprocess/responsibility.py`):
 
 Click a defender or their zone to highlight that space and their marking edge(s).
 
-**Important:** analysis assignments use each frame’s `attacking` field for defending/attacking sides. Responsibility overlays use reachability-based possession (`possessionTeam` / `carrierId`, majority-smoothed). The two can diverge on some frames.
+**Important:** most analysis assignments use each frame’s `attacking` field for defending/attacking sides. The responsibility viewer and `--assignment responsibility` use reachability-based possession (`possessionTeam` / `carrierId`, majority-smoothed). Those two sources can diverge on some frames.
 
 ---
 
@@ -353,9 +353,10 @@ Defaults: `--data data/tracking.parquet`, `--assignment distance_threshold`, `--
 .venv/bin/python -m analysis.run --assignment oriented_knn --k 2 --alpha 2 --behind-mode neutral --analyses edge_counts
 .venv/bin/python -m analysis.run --assignment delaunay --analyses overlap edge_counts
 .venv/bin/python -m analysis.run --assignment dynamic_threshold --dyn-scale 1.5 --dyn-min 5 --dyn-max 15 --analyses edge_counts
+.venv/bin/python -m analysis.run --assignment responsibility --analyses responsibility
 ```
 
-See `python -m analysis.run --help` for the full flag list (including `--momentum-lambda`, perfect-match `--pm-max-length` / `--pm-restrict`, etc.).
+See `python -m analysis.run --help` for the full flag list (including `--momentum-lambda`, perfect-match `--pm-max-length` / `--pm-restrict`, optional `--responsibility-results` / `--responsibility-zones`, etc.).
 
 ### Assignments (`--assignment`)
 
@@ -369,13 +370,25 @@ See `python -m analysis.run --help` for the full flag list (including `--momentu
 | `oriented_knn`       | `--k`, `--alpha`, `--behind-mode` (`neutral` / `penalize`); no momentum                                              |
 | `delaunay`           | —                                                                                                                    |
 | `shape_graph`        | —                                                                                                                    |
+| `responsibility`     | Loads `data/responsibility.jsonl` (+ zones); optional `--responsibility-results` / `--responsibility-zones`          |
 
 
 Note: CLI default for `--k` is **1**. The oriented kNN **sweep** and many thesis figures use `k=2` — set `--k 2` explicitly when reproducing those settings.
 
 ### Analyses (`--analyses`)
 
-`edge_counts`, `edge_lengths`, `goal_side`, `temporal_stability`, `pitch_zones`, `ball_zones`, `overlap`
+Run one or more names in a single `analysis.run` call (or use a sweep under `analysis/sweep_compare/` for parameter grids).
+
+| Name | Role |
+| ---- | ---- |
+| `edge_counts` | Edges per frame; defender/attacker degree shares |
+| `edge_lengths` | Distance distribution of edges |
+| `goal_side` | Share of edges with defender goal-side of attacker |
+| `temporal_stability` | Assignment spells and defender switches |
+| `pitch_zones` | Metrics on a 12×8 attack-oriented pitch grid |
+| `ball_zones` | Metrics by attacker–ball distance bands |
+| `overlap` | Share of other assignments’ edges contained in the current one |
+| `responsibility` | Edge categories, oriented-2NN overlap, near-ball / residual-zone summaries |
 
 ### Outputs
 

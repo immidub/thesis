@@ -52,6 +52,11 @@ def main(argv: list[str] | None = None) -> int:
     frames: list[Frame] = list(iter_frames(df, live_only=args.live_only))
     print(f"  {len(frames)} frames", flush=True)
 
+    align = getattr(assignment, "align_frames", None)
+    if align is not None:
+        print("Aligning frames to responsibility possession...", flush=True)
+        frames = align(frames)
+
 # compute the edges for the assignment for each frame
     print(f"Computing edges ({assignment.name})...", flush=True)
     edges_by_frame = [assignment.edges_for_frame(frame) for frame in frames]
@@ -68,7 +73,11 @@ def main(argv: list[str] | None = None) -> int:
     run_summaries: dict[str, dict] = {}
     for name in analysis_names:
         analysis = create_analysis(name) # main call to the analysis module
-        analysis_out = out_dir / name / slug
+        # Responsibility writes a single flat output folder.
+        if analysis.name == "responsibility":
+            analysis_out = out_dir / "responsibility"
+        else:
+            analysis_out = out_dir / name / slug
         ctx = AnalysisContext(assignment=assignment, out_dir=analysis_out)
         print(f"Running analysis: {name} → {analysis_out}", flush=True)
         run_summaries[name] = analysis.run(frames, edges_by_frame, ctx) # run the analysis
@@ -201,6 +210,39 @@ def main(argv: list[str] | None = None) -> int:
                 for z in zones
             )
             print(f"ball_zones: {brief}", flush=True)
+        elif name == "responsibility":
+            cats = run_summaries[name].get("categories") or []
+            parts = [
+                f"{c.get('category')}:edges/f={c.get('meanEdgesPerFrame', 0):.2f}"
+                for c in cats
+            ]
+            print(f"responsibility: {', '.join(parts)}", flush=True)
+            ov = run_summaries[name].get("overlapWithOrientedMutual2nn") or {}
+            if ov.get("jaccard") is not None:
+                print(
+                    "  overlap: "
+                    f"jaccard={100 * ov['jaccard']:.1f}%",
+                    flush=True,
+                )
+            zl = run_summaries[name].get("spaceZoneAttackerLoad") or {}
+            if zl.get("mean") is not None:
+                print(
+                    f"  zone load: mean={zl['mean']:.2f} p95={zl.get('p95'):.2f} max={zl.get('max')}",
+                    flush=True,
+                )
+            nb = run_summaries[name].get("nearBallRegion") or {}
+            players = nb.get("players") or {}
+            area = nb.get("area_m2") or {}
+            if players.get("mean") is not None:
+                print(
+                    f"  near-ball: players mean={players['mean']:.2f} p95={players.get('p95'):.2f}"
+                    + (
+                        f", area mean={area['mean']:.1f}m² p95={area.get('p95'):.1f}m²"
+                        if area.get("mean") is not None
+                        else ""
+                    ),
+                    flush=True,
+                )
         elif name == "overlap":
             comps = run_summaries[name].get("comparisons") or []
             print(
@@ -236,6 +278,15 @@ def _assignment_kwargs(args: argparse.Namespace) -> dict:
             kwargs["k"] = args.pm_k
             kwargs["knn_mode"] = args.pm_knn_mode
         return kwargs
+    if args.assignment == "responsibility":
+        kwargs = {}
+        if args.responsibility_results is not None:
+            kwargs["results_path"] = args.responsibility_results
+        if args.responsibility_zones is not None:
+            kwargs["zones_path"] = args.responsibility_zones
+        if args.responsibility_results is None and args.responsibility_zones is None:
+            kwargs["data_dir"] = args.data.resolve().parent
+        return kwargs
     return {}
 
 
@@ -261,6 +312,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "oriented_knn",
             "delaunay",
             "shape_graph",
+            "responsibility",
         ],
         help=(
             "Marking assignment: distance_threshold, dynamic_threshold "
@@ -268,8 +320,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "(all-outfield min-cost matching; optional --pm-max-length / "
             "--pm-restrict), knn, oriented_knn "
             "(mutual knn with goal-side oriented cost), delaunay "
-            "(bipartite all-outfield Delaunay), or shape_graph "
-            "(bipartite all-outfield shape graph)"
+            "(bipartite all-outfield Delaunay), shape_graph "
+            "(bipartite all-outfield shape graph), or responsibility "
+            "(precomputed near-ball 2-NN + space-derived edges)"
         ),
     )
     parser.add_argument(
@@ -375,6 +428,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--responsibility-results",
+        type=Path,
+        default=None,
+        help="responsibility only: path to responsibility.jsonl",
+    )
+    parser.add_argument(
+        "--responsibility-zones",
+        type=Path,
+        default=None,
+        help="responsibility only: path to responsibility_zones.jsonl",
+    )
+    parser.add_argument(
         "--analyses",
         nargs="+",
         default=["edge_counts"],
@@ -386,6 +451,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "pitch_zones",
             "ball_zones",
             "overlap",
+            "responsibility",
         ],
         help="Analyses to run",
     )

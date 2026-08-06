@@ -336,30 +336,34 @@ function buildZoneOwnerByCell(defenders) {
 }
 
 function findClickedZoneDefenderId(canvasX, canvasY, frame) {
-    var held = getHeldResponsibilityZoneFrame(frame);
-    if (held == null) return null;
-    var data = responsibilityZonesByFrame[held];
-    if (!data || !data.defenders) return null;
-
     var hitR = (typeof PLAYER_DOT_RADIUS === "number" ? PLAYER_DOT_RADIUS : 8) + 2;
     var bestId = null;
     var bestDist = hitR;
-    for (var playerId in data.defenders) {
-        if (!data.defenders.hasOwnProperty(playerId)) continue;
-        if (!data.defenders[playerId] || !data.defenders[playerId].length) continue;
-        var pos = getPlayerScreenPosition(frame, playerId);
-        if (!pos) continue;
-        var dx = pos.x - canvasX;
-        var dy = pos.y - canvasY;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= bestDist) {
-            bestDist = dist;
-            bestId = String(playerId);
+
+    // Prefer any defending outfield player under the cursor — including those whose
+    // residual space zone is empty (fully covered by the near-ball bubble). Selection
+    // still highlights their man-marking edges.
+    var sides = typeof getMarkingSides === "function" ? getMarkingSides(frame) : null;
+    if (sides && sides.defenders) {
+        for (var d = 0; d < sides.defenders.length; d++) {
+            var defender = sides.defenders[d];
+            var dx = defender.x - canvasX;
+            var dy = defender.y - canvasY;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= bestDist) {
+                bestDist = dist;
+                bestId = String(defender.id);
+            }
         }
     }
     if (bestId != null) return bestId;
 
-    // Fall back: click anywhere inside a defender's zone cells.
+    // Fall back: click anywhere inside a residual defender space-control zone.
+    var held = getHeldResponsibilityZoneFrame(frame);
+    if (held == null) return null;
+    var data = responsibilityZonesByFrame[held];
+    if (!data || !data.defenders || !responsibilityZonesHeader) return null;
+
     var pitch = screenToTrackingPitch(canvasX, canvasY);
     var cellIdx = trackingPitchToCellIndex(pitch.x, pitch.y, responsibilityZonesHeader);
     if (cellIdx == null) return null;
@@ -386,6 +390,7 @@ function onResponsibilityPitchClick(event) {
     } else {
         selectedSpaceZonePlayerId = clickedId;
     }
+    if (typeof draw === "function") draw();
 }
 
 function setupResponsibilitySpaceZonesUi() {
