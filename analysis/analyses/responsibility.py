@@ -166,6 +166,14 @@ class ResponsibilityAnalysis:
         }
         pitch = PITCH_LENGTH_M * PITCH_WIDTH_M
         area_d = _dist(near_a)
+        by_cat = {r["category"]: r for r in rows}
+        nb_row = by_cat["near_ball"]
+        mean_def_per_att = nb_row.get("meanAttackerDegree")
+        unmarked = nb_row.get("pctUnmarkedAttackers")
+        marked_share = (1.0 - unmarked / 100.0) if unmarked is not None else None
+        mean_def_per_marked = (
+            (mean_def_per_att / marked_share) if mean_def_per_att is not None and marked_share else None
+        )
         near_ball = {
             "players": _dist(near_n),
             "defenders": _dist(near_def),
@@ -173,6 +181,10 @@ class ResponsibilityAnalysis:
             "area_m2": area_d,
             "meanAreaShareOfPitch": (area_d["mean"] / pitch) if area_d["mean"] is not None else None,
             "p95AreaShareOfPitch": (area_d["p95"] / pitch) if area_d["p95"] is not None else None,
+            # Same quantity as near_ball meanAttackerDegree; kept here next to region size.
+            "meanDefendersPerAttacker": mean_def_per_att,
+            "meanDefendersPerMarkedAttacker": mean_def_per_marked,
+            "pctUnmarkedAttackers": unmarked,
         }
         defender_workload = def_load.finish()
 
