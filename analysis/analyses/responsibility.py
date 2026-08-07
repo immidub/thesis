@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 
 from analysis.analyses.base import AnalysisContext
-from analysis.assignments.base import Edge
 from analysis.assignments.meta import assignment_plot_label, assignment_summary_fields
 from analysis.assignments.oriented_knn import OrientedKnnAssignment
 from analysis.assignments.responsibility import ResponsibilityAssignment
@@ -33,6 +32,7 @@ from analysis.pitch import (
     player_by_id,
 )
 from analysis.zone_metrics import style_ax
+from preprocess.config import FRAME_RATE, MARKING_ALPHA, MARKING_K
 
 CATS = ["contestant", "near_ball", "space", "collective"]
 LABELS = {
@@ -42,10 +42,11 @@ LABELS = {
     "collective": "Collective",
 }
 COLORS = ["#b45309", "#1d4ed8", "#047857", "#374151"]
-FPS, MAX_GAP = 50.0, 2
+FPS, MAX_GAP = float(FRAME_RATE), 2
 LEN_BINS = (0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, float("inf"))
 LEN_THRESH = (5, 10, 15, 20, 25)
-ORIENTED = OrientedKnnAssignment(k=2, alpha=1.5, behind_mode="neutral")
+# Overlap baseline: same k/α as preprocess near-ball marking (full-pitch attackers).
+ORIENTED = OrientedKnnAssignment(k=MARKING_K, alpha=MARKING_ALPHA, behind_mode="neutral")
 
 
 class ResponsibilityAnalysis:

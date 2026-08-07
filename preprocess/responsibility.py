@@ -633,11 +633,26 @@ def build_zones(
         return dvm._cell_controls_[1].copy(), dvm._meshx_, dvm._meshy_
 
     def bubble_mask(players: list[dict], mesh_x, mesh_y, margin: float):
+        """Near-ball bubble on the zone mesh — same geometry as ``make_hull_contains``."""
         if not players:
             return np.zeros(mesh_x.shape, dtype=bool)
         if len(players) == 1:
             p = players[0]
             return (mesh_x - p["x"]) ** 2 + (mesh_y - p["y"]) ** 2 <= margin * margin
+        # Two-player core: capsule (segment + margin), matching make_hull_contains.
+        if len(players) == 2:
+            a, b = players[0], players[1]
+            r2 = margin * margin
+            abx, aby = b["x"] - a["x"], b["y"] - a["y"]
+            ab2 = abx * abx + aby * aby
+            dx = mesh_x - a["x"]
+            dy = mesh_y - a["y"]
+            if ab2 <= 0:
+                return dx * dx + dy * dy <= r2
+            t = np.clip((dx * abx + dy * aby) / ab2, 0.0, 1.0)
+            cx = a["x"] + t * abx
+            cy = a["y"] + t * aby
+            return (mesh_x - cx) ** 2 + (mesh_y - cy) ** 2 <= r2
         try:
             expanded = expand_ring(players, margin)
             hull = ConvexHull(expanded)

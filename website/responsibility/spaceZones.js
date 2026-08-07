@@ -1,4 +1,4 @@
-// Space-control zone overlay for the Responsibility Viewer (option A).
+// Space-control zone overlay for the Responsibility Viewer.
 // Sidecar: header + {frame, collective:[cellIdx...] marking bubble,
 //          defenders:{id:[cellIdx...]} defender pitch-control outside bubble}.
 
@@ -313,11 +313,15 @@ function trackingPitchToCellIndex(x, y, header) {
     if (!header || !header.shape) return null;
     var rows = header.shape[0];
     var cols = header.shape[1];
-    var dx = header.dx != null ? header.dx : ((header.xlim[1] - header.xlim[0]) / cols);
-    var dy = header.dy != null ? header.dy : ((header.ylim[1] - header.ylim[0]) / rows);
+    var xlim = header.xlim || [-52.5, 52.5];
+    var ylim = header.ylim || [-34.0, 34.0];
+    var dx = header.dx != null ? header.dx : ((xlim[1] - xlim[0]) / cols);
+    var dy = header.dy != null ? header.dy : ((ylim[1] - ylim[0]) / rows);
     if (!dx || !dy) return null;
-    var col = Math.round((x - header.x0) / dx);
-    var row = Math.round((y - header.y0) / dy);
+    var x0 = header.x0 != null ? header.x0 : xlim[0];
+    var y0 = header.y0 != null ? header.y0 : ylim[0];
+    var col = Math.round((x - x0) / dx);
+    var row = Math.round((y - y0) / dy);
     if (row < 0 || row >= rows || col < 0 || col >= cols) return null;
     return row * cols + col;
 }
