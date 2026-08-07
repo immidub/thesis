@@ -74,8 +74,11 @@ def main(argv: list[str] | None = None) -> int:
     for name in analysis_names:
         analysis = create_analysis(name) # main call to the analysis module
         # Responsibility writes a single flat output folder.
+        # Marking network writes under matrix/{assignment_slug}/.
         if analysis.name == "responsibility":
             analysis_out = out_dir / "responsibility"
+        elif analysis.name == "marking_network":
+            analysis_out = out_dir / "matrix" / slug
         else:
             analysis_out = out_dir / name / slug
         ctx = AnalysisContext(assignment=assignment, out_dir=analysis_out)
@@ -272,6 +275,17 @@ def main(argv: list[str] | None = None) -> int:
                 f"sources={len(comps)}",
                 flush=True,
             )
+        elif name == "marking_network":
+            mats = run_summaries[name].get("matrices") or {}
+            for side in ("home", "away"):
+                m = mats.get(side) or {}
+                print(
+                    f"  marking_network {side}: "
+                    f"{m.get('defendingTeam')} defending vs {m.get('attackingTeam')} "
+                    f"total={m.get('totalSeconds', 0):.1f}s "
+                    f"max={m.get('maxSeconds', 0):.1f}s → {m.get('csv')}",
+                    flush=True,
+                )
 
     return 0
 
@@ -474,6 +488,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "ball_zones",
             "overlap",
             "responsibility",
+            "marking_network",
         ],
         help="Analyses to run",
     )

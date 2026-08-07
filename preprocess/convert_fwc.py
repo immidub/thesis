@@ -339,13 +339,15 @@ def build_team_metadata(players: list[dict], goalkeepers: set[int], colors: dict
     roster = []
     for player in sorted(players, key=lambda entry: entry["player_shirt_number"]):
         player_id = player["player_id"]
-        roster.append(
-            {
-                "id": str(player_id),
-                "shirtNumber": player["player_shirt_number"],
-                "isGoalie": player_id in goalkeepers,
-            }
-        )
+        entry = {
+            "id": str(player_id),
+            "shirtNumber": player["player_shirt_number"],
+            "isGoalie": player_id in goalkeepers,
+        }
+        pname = player.get("player_name") or player.get("name")
+        if pname:
+            entry["name"] = str(pname).strip().title()
+        roster.append(entry)
 
     return {
         "colorShirt": colors["colorShirt"],
