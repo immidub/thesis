@@ -1,16 +1,13 @@
-"""Single analysis for the hybrid responsibility algorithm.
+"""Hybrid responsibility analysis.
 
 Categories: contestant | near_ball | space | collective
-Plus: overlap vs oriented mutual 2-NN (α=1.5), residual zone load, near-ball size.
+Plus: overlap vs oriented mutual 2-NN, residual zone load, near-ball size,
+collective defender workload (degree + man/space/mixed).
 
-Only complete frames are analysed: possession known, non-empty contestants,
-non-empty near-ball set, and residual space zones computed for that exact frame.
+Only complete frames: possession, contestants, near-ball set, exact-frame zones.
+Attacker metrics use category pools; defender workload is collective-only.
 
-Category metrics use the matching player pools (near-ball attackers/defenders,
-residual zone owners, etc.), not all outfield players. Space edges exclude
-attackers inside the near-ball set.
-
-Requires --assignment responsibility. CLI: --analyses responsibility
+CLI: --assignment responsibility --analyses responsibility
 Output: analysis/output/responsibility/
 """
 
@@ -50,11 +47,9 @@ LABELS = {
 }
 COLORS = ["#b45309", "#1d4ed8", "#047857", "#374151"]
 FPS = float(FRAME_RATE)
-# Complete frames follow the zone stride, so allow at least that gap.
 MAX_GAP = max(2, int(ZONES_STRIDE))
 LEN_BINS = (0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, float("inf"))
 LEN_THRESH = (5, 10, 15, 20, 25)
-# Overlap baseline: same k/α as preprocess near-ball marking (full-pitch attackers).
 ORIENTED = OrientedKnnAssignment(k=MARKING_K, alpha=MARKING_ALPHA, behind_mode="neutral")
 
 
@@ -68,7 +63,8 @@ class ResponsibilityAnalysis:
 
         gk = home_goalkeeper_on_positive_x_by_period(frames)
         track = {c: _Cat(c) for c in CATS}
-        n_coll = n_ori = n_inter = assigned = skipped_incomplete = 0
+        def_load = _DefenderLoad()
+        n_coll = n_ori = n_inter = assigned = skipped = 0
         zone_loads: list[int] = []
         near_n: list[int] = []
         near_def: list[int] = []
@@ -76,25 +72,25 @@ class ResponsibilityAnalysis:
         near_a: list[float] = []
         prev_clock = prev_idx = prev_period = prev_def = None
 
+        def flush(t, idx):
+            for tr in track.values():
+                tr.flush(t, idx)
+                tr.prev.clear()
+
         for frame, _ in zip(frames, edges_by_frame):
             defending = frame.defending_team
             complete = defending is not None and asg.is_complete_frame(frame)
 
             if not complete:
                 if defending is not None:
-                    skipped_incomplete += 1
-                # Keep the last complete frame as the continuity cursor so strided
-                # zone frames can still form spells. Hard-break only on unknown
-                # possession or when the gap from the last complete frame is too large.
+                    skipped += 1
                 if defending is None or (
                     prev_idx is not None and frame.frame_idx - prev_idx > MAX_GAP
                 ):
-                    for t in track.values():
-                        t.flush(
-                            prev_clock if prev_clock is not None else frame.game_clock,
-                            prev_idx if prev_idx is not None else frame.frame_idx,
-                        )
-                        t.prev.clear()
+                    flush(
+                        prev_clock if prev_clock is not None else frame.game_clock,
+                        prev_idx if prev_idx is not None else frame.frame_idx,
+                    )
                     prev_clock, prev_idx, prev_period, prev_def = (
                         frame.game_clock, frame.frame_idx, frame.period, None
                     )
@@ -108,23 +104,22 @@ class ResponsibilityAnalysis:
                 and frame.frame_idx - prev_idx <= MAX_GAP
             )
             if not cont:
-                for t in track.values():
-                    t.flush(
-                        prev_clock if prev_clock is not None else frame.game_clock,
-                        prev_idx if prev_idx is not None else frame.frame_idx,
-                    )
-                    t.prev.clear()
+                flush(
+                    prev_clock if prev_clock is not None else frame.game_clock,
+                    prev_idx if prev_idx is not None else frame.frame_idx,
+                )
 
             assigned += 1
             cats = asg.categories_for_frame(frame)
             elig = _eligible(asg, frame)
-            defs_by_cat = _defenders_by_category(asg, frame)
+            defs = _defenders_by_category(asg, frame)
             goal = defended_goal_center(frame, home_goalkeeper_on_positive_x_flag=gk[frame.period])
             dt = max(0.0, float(frame.game_clock) - float(prev_clock)) if cont and prev_clock else 0.0
             end_c = prev_clock if prev_clock is not None else frame.game_clock
 
             for c in CATS:
-                track[c].add(frame, cats[c], elig[c], defs_by_cat[c], goal, cont, dt, end_c)
+                track[c].add(frame, cats[c], elig[c], defs[c], goal, cont, dt, end_c)
+            def_load.add(defs["collective"], cats["near_ball"], cats["space"])
 
             coll = {(e.defender_id, e.attacker_id) for e in cats["collective"]}
             ori = {(e.defender_id, e.attacker_id) for e in ORIENTED.edges_for_frame(frame)}
@@ -133,8 +128,7 @@ class ResponsibilityAnalysis:
             n_inter += len(coll & ori)
 
             zs = asg.zone_stats(frame, space_edges=cats["space"])
-            if zs["loads"]:
-                zone_loads.extend(zs["loads"])
+            zone_loads.extend(zs["loads"])
             if zs["nearPlayers"] is not None:
                 near_n.append(int(zs["nearPlayers"]))
             if zs["nearDefenders"] is not None:
@@ -149,10 +143,10 @@ class ResponsibilityAnalysis:
             )
 
         if frames:
-            for t in track.values():
-                t.flush(frames[-1].game_clock, frames[-1].frame_idx)
+            flush(frames[-1].game_clock, frames[-1].frame_idx)
 
         rows = [track[c].finish(assigned) for c in CATS]
+        denom = n_coll + n_ori - n_inter
         overlap = {
             "baseline": ORIENTED.slug(),
             "nCollectiveEdges": n_coll,
@@ -160,39 +154,35 @@ class ResponsibilityAnalysis:
             "nIntersection": n_inter,
             "shareOrientedInCollective": (n_inter / n_ori) if n_ori else None,
             "shareCollectiveInOriented": (n_inter / n_coll) if n_coll else None,
-            "jaccard": (n_inter / (n_coll + n_ori - n_inter)) if (n_coll + n_ori > n_inter) else None,
+            "jaccard": (n_inter / denom) if denom else None,
         }
-        occupied_loads = [x for x in zone_loads if x > 0]
+        occupied = [x for x in zone_loads if x > 0]
         zone_load = {
             "n": len(zone_loads),
-            "nOccupied": len(occupied_loads),
+            "nOccupied": len(occupied),
             **_dist(zone_loads),
             **_load_shares(zone_loads),
-            "meanOccupied": (
-                float(sum(occupied_loads) / len(occupied_loads)) if occupied_loads else None
-            ),
+            "meanOccupied": (sum(occupied) / len(occupied)) if occupied else None,
         }
         pitch = PITCH_LENGTH_M * PITCH_WIDTH_M
+        area_d = _dist(near_a)
         near_ball = {
             "players": _dist(near_n),
             "defenders": _dist(near_def),
             "attackers": _dist(near_att),
-            "area_m2": _dist(near_a),
-            "meanAreaShareOfPitch": (
-                _dist(near_a)["mean"] / pitch if near_a else None
-            ),
-            "p95AreaShareOfPitch": (
-                _dist(near_a)["p95"] / pitch if near_a else None
-            ),
+            "area_m2": area_d,
+            "meanAreaShareOfPitch": (area_d["mean"] / pitch) if area_d["mean"] is not None else None,
+            "p95AreaShareOfPitch": (area_d["p95"] / pitch) if area_d["p95"] is not None else None,
         }
+        defender_workload = def_load.finish()
 
         for r in rows:
-            r.update({
-                "overlapJaccard": overlap["jaccard"] if r["category"] == "collective" else None,
-                "overlapOrientedInCollective": (
-                    overlap["shareOrientedInCollective"] if r["category"] == "collective" else None
-                ),
-            })
+            if r["category"] == "collective":
+                r["overlapJaccard"] = overlap["jaccard"]
+                r["overlapOrientedInCollective"] = overlap["shareOrientedInCollective"]
+            else:
+                r["overlapJaccard"] = None
+                r["overlapOrientedInCollective"] = None
 
         out = ctx.out_dir
         out.mkdir(parents=True, exist_ok=True)
@@ -203,7 +193,7 @@ class ResponsibilityAnalysis:
             **assignment_summary_fields(asg),
             **asg.summary_fields(),
             "assignedFrames": assigned,
-            "skippedIncompleteFrames": skipped_incomplete,
+            "skippedIncompleteFrames": skipped,
             "completeFrameRule": (
                 "possession known; non-empty contestantIds; non-empty nearBallIds; "
                 "residual space zones present for the exact frame"
@@ -212,21 +202,61 @@ class ResponsibilityAnalysis:
             "overlapWithOrientedMutual2nn": overlap,
             "spaceZoneAttackerLoad": zone_load,
             "nearBallRegion": near_ball,
+            "defenderWorkload": defender_workload,
             "outputs": {"summaryCsv": "summary.csv", "summaryJson": "summary.json"},
         }
-        summary["outputs"].update(_plots(rows, summary, out, overlap, zone_load, near_ball))
+        summary["outputs"].update(
+            _plots(rows, summary, out, overlap, zone_load, near_ball, defender_workload)
+        )
         (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         return summary
 
 
-# --- category tracker -------------------------------------------------------
-
 @dataclass
-class _Spell:
-    t0: float
-    i0: int
-    period: int
-    team: str
+class _DefenderLoad:
+    n_obs: int = 0
+    deg_sum: int = 0
+    deg: Counter = field(default_factory=Counter)
+    mix: Counter = field(default_factory=Counter)
+
+    def add(self, defenders, near_edges, space_edges) -> None:
+        near_by: dict[str, set[str]] = defaultdict(set)
+        space_by: dict[str, set[str]] = defaultdict(set)
+        for e in near_edges:
+            near_by[e.defender_id].add(e.attacker_id)
+        for e in space_edges:
+            space_by[e.defender_id].add(e.attacker_id)
+        for p in defenders:
+            near_set = near_by.get(p.player_id, set())
+            space_set = space_by.get(p.player_id, set())
+            deg = len(near_set | space_set)
+            self.n_obs += 1
+            self.deg_sum += deg
+            self.deg[0 if deg == 0 else 1 if deg == 1 else 2 if deg == 2 else 3] += 1
+            if not near_set and not space_set:
+                self.mix["none"] += 1
+            elif near_set and not space_set:
+                self.mix["man"] += 1
+            elif space_set and not near_set:
+                self.mix["space"] += 1
+            else:
+                self.mix["mixed"] += 1
+
+    def finish(self) -> dict:
+        n = self.n_obs
+        pct = lambda k, ctr: (100.0 * ctr[k] / n) if n else None
+        return {
+            "nDefenderObservations": n,
+            "meanDefenderDegree": (self.deg_sum / n) if n else None,
+            "pctDegree0": pct(0, self.deg),
+            "pctDegree1": pct(1, self.deg),
+            "pctDegree2": pct(2, self.deg),
+            "pctDegree3Plus": pct(3, self.deg),
+            "pctNoEdges": pct("none", self.mix),
+            "pctManMarkingOnly": pct("man", self.mix),
+            "pctSpaceOnly": pct("space", self.mix),
+            "pctMixed": pct("mixed", self.mix),
+        }
 
 
 @dataclass
@@ -247,21 +277,15 @@ class _Cat:
     prev: dict = field(default_factory=dict)
 
     def flush(self, t: float, idx: int) -> None:
-        for k in list(self.open):
-            self._close(k, t, idx)
-
-    def _close(self, key, t, idx) -> None:
-        sp = self.open.pop(key, None)
-        if sp is None:
-            return
-        dur = max(0.0, float(t) - float(sp.t0))
-        if dur <= 0 and idx == sp.i0:
-            dur = 1.0 / FPS
-        self.durs.append(dur)
+        for key in list(self.open):
+            sp = self.open.pop(key)
+            dur = max(0.0, float(t) - float(sp[0]))
+            if dur <= 0 and idx == sp[1]:
+                dur = 1.0 / FPS
+            self.durs.append(dur)
 
     def add(self, frame, edges, attackers, defenders, goal, cont, dt, end_c) -> None:
-        n = len(edges)
-        self.counts.append(n)
+        self.counts.append(len(edges))
         att_deg: Counter[str] = Counter()
         partners = {p.player_id: set() for p in defenders}
         pairs = set()
@@ -287,12 +311,14 @@ class _Cat:
 
         for key in list(self.open):
             if key not in pairs:
-                self._close(key, end_c, frame.frame_idx)
+                sp = self.open.pop(key)
+                dur = max(0.0, float(end_c) - float(sp[0]))
+                if dur <= 0 and frame.frame_idx == sp[1]:
+                    dur = 1.0 / FPS
+                self.durs.append(dur)
         for key in pairs:
             if key not in self.open:
-                self.open[key] = _Spell(
-                    frame.game_clock, frame.frame_idx, frame.period, frame.defending_team or ""
-                )
+                self.open[key] = (frame.game_clock, frame.frame_idx)
 
         ids = {p.player_id for p in defenders}
         for did in ids:
@@ -304,18 +330,14 @@ class _Cat:
             self.prev[did] = pset
         for did in list(self.prev):
             if did not in ids:
-                self.prev.pop(did, None)
+                del self.prev[did]
 
     def finish(self, assigned: int) -> dict:
         c, L = self.counts, self.lengths
         arr = np.asarray(L, dtype=float) if L else None
         darr = np.asarray(self.durs, dtype=float) if self.durs else None
         n_e = int(sum(c)) if c else 0
-        rates = [
-            self.switches[pid] / (sec / 60.0)
-            for pid, sec in self.active.items()
-            if sec > 0
-        ]
+        rates = [self.switches[pid] / (sec / 60.0) for pid, sec in self.active.items() if sec > 0]
         return {
             "category": self.cat,
             "label": LABELS[self.cat],
@@ -344,7 +366,6 @@ class _Cat:
 
 
 def _eligible(asg: ResponsibilityAssignment, frame: Frame) -> dict[str, list]:
-    """Attackers who belong to each responsibility category on this frame."""
     att = "away" if frame.defending_team == "home" else "home"
     all_att = list(frame.outfield_players(att))
     row = asg.result_row(frame.frame_idx) or {}
@@ -359,21 +380,16 @@ def _eligible(asg: ResponsibilityAssignment, frame: Frame) -> dict[str, list]:
 
 
 def _defenders_by_category(asg: ResponsibilityAssignment, frame: Frame) -> dict[str, list]:
-    """Defenders relevant to each category (for switches / active time).
-
-    Previously every category tracked all ten outfield defenders, which diluted
-    near-ball / contestant switch rates with players outside the region.
-    """
+    """Defender pools for switches/active time (not for degree — that is collective-only)."""
     all_defs = list(frame.outfield_players(frame.defending_team))
     row = asg.result_row(frame.frame_idx) or {}
     near = {str(x) for x in (row.get("nearBallIds") or [])}
     near_defs = [p for p in all_defs if p.player_id in near]
-    space_owners = set(asg.residual_zone_owner_ids(frame))
-    space_defs = [p for p in all_defs if p.player_id in space_owners]
+    owners = set(asg.residual_zone_owner_ids(frame))
     return {
         "contestant": near_defs,
         "near_ball": near_defs,
-        "space": space_defs,
+        "space": [p for p in all_defs if p.player_id in owners],
         "collective": all_defs,
     }
 
@@ -404,19 +420,23 @@ def _load_shares(loads: list[int]) -> dict:
 
 
 def _hist_shares(vals: list[float], edges) -> list[dict]:
-    bins = []
     if not vals:
-        for i in range(len(edges) - 1):
-            bins.append({"binStart": edges[i], "binEnd": None if edges[i + 1] == float("inf") else edges[i + 1], "share": 0.0})
-        return bins
+        return [
+            {"binStart": edges[i], "binEnd": None if edges[i + 1] == float("inf") else edges[i + 1], "share": 0.0}
+            for i in range(len(edges) - 1)
+        ]
     arr = np.asarray(vals, dtype=float)
     finite = list(edges[:-1]) + [max(float(arr.max()) + 1.0, edges[-2] + 1.0)]
     hist, _ = np.histogram(arr, bins=finite)
     total = max(int(hist.sum()), 1)
-    for i, cnt in enumerate(hist):
-        end = edges[i + 1]
-        bins.append({"binStart": edges[i], "binEnd": None if end == float("inf") else end, "share": float(cnt / total)})
-    return bins
+    return [
+        {
+            "binStart": edges[i],
+            "binEnd": None if edges[i + 1] == float("inf") else edges[i + 1],
+            "share": float(hist[i] / total),
+        }
+        for i in range(len(hist))
+    ]
 
 
 def _count_hist(counts: list[int], width: int = 5) -> list[dict]:
@@ -454,6 +474,11 @@ def _bars(path: Path, labels, vals, title, ylabel, colors=None) -> None:
     plt.close(fig)
 
 
+def _dist_bars(path: Path, dist: dict, title: str, ylabel: str, color: str) -> None:
+    keys = ("mean", "median", "p90", "p95", "max")
+    _bars(path, list(keys), [_f(dist.get(k)) for k in keys], title, ylabel, colors=[color] * 5)
+
+
 def _grouped(ax, bin_labels, series, ylabel, title) -> None:
     x = np.arange(len(bin_labels))
     n = len(series)
@@ -461,15 +486,17 @@ def _grouped(ax, bin_labels, series, ylabel, title) -> None:
     for i, (cat, vals) in enumerate(series.items()):
         ax.bar(x + (i - (n - 1) / 2) * w, vals, w, label=LABELS[cat], color=COLORS[CATS.index(cat)])
     ax.set_xticks(x)
-    ax.set_xticklabels(bin_labels, rotation=45 if len(bin_labels) > 6 else 0,
-                       ha="right" if len(bin_labels) > 6 else "center")
+    ax.set_xticklabels(
+        bin_labels, rotation=45 if len(bin_labels) > 6 else 0,
+        ha="right" if len(bin_labels) > 6 else "center",
+    )
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     ax.legend(frameon=False, fontsize=8)
     style_ax(ax)
 
 
-def _plots(rows, summary, out: Path, overlap, zone_load, near_ball) -> dict[str, str]:
+def _plots(rows, summary, out: Path, overlap, zone_load, near_ball, defender_workload) -> dict[str, str]:
     import matplotlib.pyplot as plt
 
     label = assignment_plot_label(summary)
@@ -492,9 +519,32 @@ def _plots(rows, summary, out: Path, overlap, zone_load, near_ball) -> dict[str,
         _bars(out / fname, labels, [_f(r.get(key)) for r in rows], f"{ylab} — {label}", ylab)
         out_map[key] = fname
 
+    dw = defender_workload or {}
+    _bars(
+        out / "cmp_def_degree_shares.png",
+        ["deg 0", "deg 1", "deg 2", "deg ≥3"],
+        [_f(dw.get(k)) for k in ("pctDegree0", "pctDegree1", "pctDegree2", "pctDegree3Plus")],
+        f"Collective defender degree — {label} (mean={_f(dw.get('meanDefenderDegree')):.2f})",
+        "Share of defender observations (%)",
+        colors=["#94a3b8", "#047857", "#1d4ed8", "#b45309"],
+    )
+    out_map["defenderDegreeShares"] = "cmp_def_degree_shares.png"
+    _bars(
+        out / "cmp_def_edge_mix.png",
+        ["none", "man only", "space only", "mixed"],
+        [_f(dw.get(k)) for k in ("pctNoEdges", "pctManMarkingOnly", "pctSpaceOnly", "pctMixed")],
+        f"Defender edge mix (collective) — {label}",
+        "Share of defender observations (%)",
+        colors=["#94a3b8", "#1d4ed8", "#047857", "#b45309"],
+    )
+    out_map["defenderEdgeMix"] = "cmp_def_edge_mix.png"
+
     by = {r["category"]: r for r in rows}
     ref = by["collective"]["lengthBinShares"]
-    bin_labs = [f"{b['binStart']:.0f}+" if b["binEnd"] is None else f"{b['binStart']:.0f}–{b['binEnd']:.0f}" for b in ref]
+    bin_labs = [
+        f"{b['binStart']:.0f}+" if b["binEnd"] is None else f"{b['binStart']:.0f}–{b['binEnd']:.0f}"
+        for b in ref
+    ]
     series = {c: [100 * _f(by[c]["lengthBinShares"][i]["share"]) for i in range(len(ref))] for c in CATS}
     fig, ax = plt.subplots(figsize=(11, 4.5))
     _grouped(ax, bin_labs, series, "Share of edges (%)", f"Edge length distribution — {label}")
@@ -503,10 +553,9 @@ def _plots(rows, summary, out: Path, overlap, zone_load, near_ball) -> dict[str,
     plt.close(fig)
     out_map["lengthBins"] = "cmp_length_bins.png"
 
-    t_labs = [f">{t}" for t in LEN_THRESH]
     series = {c: [100 * _f(by[c]["lengthThresholdShares"].get(str(t))) for t in LEN_THRESH] for c in CATS}
     fig, ax = plt.subplots(figsize=(8, 4.2))
-    _grouped(ax, t_labs, series, "Share longer than T (%)", f"Long edges — {label}")
+    _grouped(ax, [f">{t}" for t in LEN_THRESH], series, "Share longer than T (%)", f"Long edges — {label}")
     fig.tight_layout()
     fig.savefig(out / "cmp_length_thresholds.png", dpi=150)
     plt.close(fig)
@@ -514,19 +563,17 @@ def _plots(rows, summary, out: Path, overlap, zone_load, near_ball) -> dict[str,
 
     starts = sorted({b["binStart"] for r in rows for b in r.get("edgeCountHistShares") or []})
     if starts:
-        labs = [f"{s}–{s + 5}" for s in starts]
-        series = {}
-        for c in CATS:
-            lookup = {b["binStart"]: b["share"] for b in by[c].get("edgeCountHistShares") or []}
-            series[c] = [100 * _f(lookup.get(s)) for s in starts]
+        series = {
+            c: [100 * _f({b["binStart"]: b["share"] for b in by[c].get("edgeCountHistShares") or []}.get(s)) for s in starts]
+            for c in CATS
+        }
         fig, ax = plt.subplots(figsize=(10, 4.5))
-        _grouped(ax, labs, series, "Share of frames (%)", f"Edges per frame — {label}")
+        _grouped(ax, [f"{s}–{s + 5}" for s in starts], series, "Share of frames (%)", f"Edges per frame — {label}")
         fig.tight_layout()
         fig.savefig(out / "cmp_edge_counts.png", dpi=150)
         plt.close(fig)
         out_map["edgeCounts"] = "cmp_edge_counts.png"
 
-    # Overlap
     _bars(
         out / "cmp_overlap_oriented2nn.png",
         ["Oriented ⊆ coll.", "Coll. ⊆ oriented", "Jaccard"],
@@ -541,65 +588,34 @@ def _plots(rows, summary, out: Path, overlap, zone_load, near_ball) -> dict[str,
     )
     out_map["overlap"] = "cmp_overlap_oriented2nn.png"
 
-    # Residual zone attacker load
-    zl = zone_load
-    _bars(
-        out / "cmp_zone_load.png",
-        ["mean", "median", "p90", "p95", "max"],
-        [_f(zl.get(k)) for k in ("mean", "median", "p90", "p95", "max")],
-        f"Attackers per residual defender zone — {label}",
-        "Attackers",
-        colors=["#047857"] * 5,
+    _dist_bars(
+        out / "cmp_zone_load.png", zone_load,
+        f"Attackers per residual defender zone — {label}", "Attackers", "#047857",
     )
     out_map["zoneLoad"] = "cmp_zone_load.png"
     _bars(
         out / "cmp_zone_load_shares.png",
         ["load 0", "load 1", "load ≥2", "load ≥3"],
-        [100 * _f(zl.get(k)) for k in ("share0", "share1", "share2Plus", "share3Plus")],
+        [100 * _f(zone_load.get(k)) for k in ("share0", "share1", "share2Plus", "share3Plus")],
         f"Residual zone load shares — {label}",
         "Share of zones (%)",
         colors=["#94a3b8", "#047857", "#b45309", "#7f1d1d"],
     )
     out_map["zoneLoadShares"] = "cmp_zone_load_shares.png"
 
-    # Near-ball players + area
-    nb_p, nb_a = near_ball.get("players") or {}, near_ball.get("area_m2") or {}
-    nb_d, nb_att = near_ball.get("defenders") or {}, near_ball.get("attackers") or {}
-    _bars(
-        out / "cmp_near_ball_players.png",
-        ["mean", "median", "p90", "p95", "max"],
-        [_f(nb_p.get(k)) for k in ("mean", "median", "p90", "p95", "max")],
-        f"Players in near-ball region — {label}",
-        "Players",
-        colors=["#1d4ed8"] * 5,
-    )
-    out_map["nearBallPlayers"] = "cmp_near_ball_players.png"
-    _bars(
-        out / "cmp_near_ball_defenders.png",
-        ["mean", "median", "p90", "p95", "max"],
-        [_f(nb_d.get(k)) for k in ("mean", "median", "p90", "p95", "max")],
-        f"Defenders in near-ball region — {label}",
-        "Defenders",
-        colors=["#1d4ed8"] * 5,
-    )
-    out_map["nearBallDefenders"] = "cmp_near_ball_defenders.png"
-    _bars(
-        out / "cmp_near_ball_attackers.png",
-        ["mean", "median", "p90", "p95", "max"],
-        [_f(nb_att.get(k)) for k in ("mean", "median", "p90", "p95", "max")],
-        f"Attackers in near-ball region — {label}",
-        "Attackers",
-        colors=["#b45309"] * 5,
-    )
-    out_map["nearBallAttackers"] = "cmp_near_ball_attackers.png"
-    _bars(
-        out / "cmp_near_ball_area.png",
-        ["mean", "median", "p90", "p95", "max"],
-        [_f(nb_a.get(k)) for k in ("mean", "median", "p90", "p95", "max")],
-        f"Near-ball bubble area (m²) — {label}",
-        "Area (m²)",
-        colors=["#1d4ed8"] * 5,
-    )
-    out_map["nearBallArea"] = "cmp_near_ball_area.png"
+    for key, fname, title, color in (
+        ("players", "cmp_near_ball_players.png", "Players in near-ball region", "#1d4ed8"),
+        ("defenders", "cmp_near_ball_defenders.png", "Defenders in near-ball region", "#1d4ed8"),
+        ("attackers", "cmp_near_ball_attackers.png", "Attackers in near-ball region", "#b45309"),
+        ("area_m2", "cmp_near_ball_area.png", "Near-ball bubble area (m²)", "#1d4ed8"),
+    ):
+        ylab = "Area (m²)" if key == "area_m2" else title.split()[0]
+        _dist_bars(out / fname, near_ball.get(key) or {}, f"{title} — {label}", ylab, color)
+        out_map[{
+            "players": "nearBallPlayers",
+            "defenders": "nearBallDefenders",
+            "attackers": "nearBallAttackers",
+            "area_m2": "nearBallArea",
+        }[key]] = fname
 
     return out_map
