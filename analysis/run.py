@@ -232,10 +232,14 @@ def main(argv: list[str] | None = None) -> int:
                 )
             nb = run_summaries[name].get("nearBallRegion") or {}
             players = nb.get("players") or {}
+            defs = nb.get("defenders") or {}
+            atts = nb.get("attackers") or {}
             area = nb.get("area_m2") or {}
             if players.get("mean") is not None:
                 print(
-                    f"  near-ball: players mean={players['mean']:.2f} p95={players.get('p95'):.2f}"
+                    f"  near-ball: players mean={players['mean']:.2f} "
+                    f"(def={defs.get('mean', 0):.2f} att={atts.get('mean', 0):.2f}) "
+                    f"p95={players.get('p95'):.2f}"
                     + (
                         f", area mean={area['mean']:.1f}m² p95={area.get('p95'):.1f}m²"
                         if area.get("mean") is not None

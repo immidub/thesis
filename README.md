@@ -388,7 +388,7 @@ Run one or more names in a single `analysis.run` call (or use a sweep under `ana
 | `pitch_zones` | Metrics on a 12×8 attack-oriented pitch grid |
 | `ball_zones` | Metrics by attacker–ball distance bands |
 | `overlap` | Share of other assignments’ edges contained in the current one |
-| `responsibility` | Edge categories, oriented-2NN overlap, near-ball / residual-zone summaries |
+| `responsibility` | Edge categories, oriented-2NN overlap, near-ball / residual-zone summaries (complete frames only: contestants + near-ball set + exact-frame space zones) |
 
 ### Outputs
 

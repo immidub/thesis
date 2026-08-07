@@ -3,6 +3,13 @@
 Categories: contestant | near_ball | space | collective
 Plus: overlap vs oriented mutual 2-NN (α=1.5), residual zone load, near-ball size.
 
+Only complete frames are analysed: possession known, non-empty contestants,
+non-empty near-ball set, and residual space zones computed for that exact frame.
+
+Category metrics use the matching player pools (near-ball attackers/defenders,
+residual zone owners, etc.), not all outfield players. Space edges exclude
+attackers inside the near-ball set.
+
 Requires --assignment responsibility. CLI: --analyses responsibility
 Output: analysis/output/responsibility/
 """
@@ -32,7 +39,7 @@ from analysis.pitch import (
     player_by_id,
 )
 from analysis.zone_metrics import style_ax
-from preprocess.config import FRAME_RATE, MARKING_ALPHA, MARKING_K
+from preprocess.config import FRAME_RATE, MARKING_ALPHA, MARKING_K, ZONES_STRIDE
 
 CATS = ["contestant", "near_ball", "space", "collective"]
 LABELS = {
@@ -42,7 +49,9 @@ LABELS = {
     "collective": "Collective",
 }
 COLORS = ["#b45309", "#1d4ed8", "#047857", "#374151"]
-FPS, MAX_GAP = float(FRAME_RATE), 2
+FPS = float(FRAME_RATE)
+# Complete frames follow the zone stride, so allow at least that gap.
+MAX_GAP = max(2, int(ZONES_STRIDE))
 LEN_BINS = (0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, float("inf"))
 LEN_THRESH = (5, 10, 15, 20, 25)
 # Overlap baseline: same k/α as preprocess near-ball marking (full-pitch attackers).
@@ -59,14 +68,38 @@ class ResponsibilityAnalysis:
 
         gk = home_goalkeeper_on_positive_x_by_period(frames)
         track = {c: _Cat(c) for c in CATS}
-        n_coll = n_ori = n_inter = assigned = 0
+        n_coll = n_ori = n_inter = assigned = skipped_incomplete = 0
         zone_loads: list[int] = []
         near_n: list[int] = []
+        near_def: list[int] = []
+        near_att: list[int] = []
         near_a: list[float] = []
         prev_clock = prev_idx = prev_period = prev_def = None
 
         for frame, _ in zip(frames, edges_by_frame):
             defending = frame.defending_team
+            complete = defending is not None and asg.is_complete_frame(frame)
+
+            if not complete:
+                if defending is not None:
+                    skipped_incomplete += 1
+                # Keep the last complete frame as the continuity cursor so strided
+                # zone frames can still form spells. Hard-break only on unknown
+                # possession or when the gap from the last complete frame is too large.
+                if defending is None or (
+                    prev_idx is not None and frame.frame_idx - prev_idx > MAX_GAP
+                ):
+                    for t in track.values():
+                        t.flush(
+                            prev_clock if prev_clock is not None else frame.game_clock,
+                            prev_idx if prev_idx is not None else frame.frame_idx,
+                        )
+                        t.prev.clear()
+                    prev_clock, prev_idx, prev_period, prev_def = (
+                        frame.game_clock, frame.frame_idx, frame.period, None
+                    )
+                continue
+
             cont = (
                 prev_idx is not None
                 and prev_period == frame.period
@@ -76,26 +109,22 @@ class ResponsibilityAnalysis:
             )
             if not cont:
                 for t in track.values():
-                    t.flush(prev_clock if prev_clock is not None else frame.game_clock,
-                            prev_idx if prev_idx is not None else frame.frame_idx)
+                    t.flush(
+                        prev_clock if prev_clock is not None else frame.game_clock,
+                        prev_idx if prev_idx is not None else frame.frame_idx,
+                    )
                     t.prev.clear()
-
-            if defending is None:
-                prev_clock, prev_idx, prev_period, prev_def = (
-                    frame.game_clock, frame.frame_idx, frame.period, None
-                )
-                continue
 
             assigned += 1
             cats = asg.categories_for_frame(frame)
             elig = _eligible(asg, frame)
-            defs = frame.outfield_players(defending)
+            defs_by_cat = _defenders_by_category(asg, frame)
             goal = defended_goal_center(frame, home_goalkeeper_on_positive_x_flag=gk[frame.period])
             dt = max(0.0, float(frame.game_clock) - float(prev_clock)) if cont and prev_clock else 0.0
             end_c = prev_clock if prev_clock is not None else frame.game_clock
 
             for c in CATS:
-                track[c].add(frame, cats[c], elig[c], defs, goal, cont, dt, end_c)
+                track[c].add(frame, cats[c], elig[c], defs_by_cat[c], goal, cont, dt, end_c)
 
             coll = {(e.defender_id, e.attacker_id) for e in cats["collective"]}
             ori = {(e.defender_id, e.attacker_id) for e in ORIENTED.edges_for_frame(frame)}
@@ -108,6 +137,10 @@ class ResponsibilityAnalysis:
                 zone_loads.extend(zs["loads"])
             if zs["nearPlayers"] is not None:
                 near_n.append(int(zs["nearPlayers"]))
+            if zs["nearDefenders"] is not None:
+                near_def.append(int(zs["nearDefenders"]))
+            if zs["nearAttackers"] is not None:
+                near_att.append(int(zs["nearAttackers"]))
             if zs["nearArea_m2"] is not None:
                 near_a.append(float(zs["nearArea_m2"]))
 
@@ -129,10 +162,21 @@ class ResponsibilityAnalysis:
             "shareCollectiveInOriented": (n_inter / n_coll) if n_coll else None,
             "jaccard": (n_inter / (n_coll + n_ori - n_inter)) if (n_coll + n_ori > n_inter) else None,
         }
-        zone_load = {"n": len(zone_loads), **_dist(zone_loads), **_load_shares(zone_loads)}
+        occupied_loads = [x for x in zone_loads if x > 0]
+        zone_load = {
+            "n": len(zone_loads),
+            "nOccupied": len(occupied_loads),
+            **_dist(zone_loads),
+            **_load_shares(zone_loads),
+            "meanOccupied": (
+                float(sum(occupied_loads) / len(occupied_loads)) if occupied_loads else None
+            ),
+        }
         pitch = PITCH_LENGTH_M * PITCH_WIDTH_M
         near_ball = {
             "players": _dist(near_n),
+            "defenders": _dist(near_def),
+            "attackers": _dist(near_att),
             "area_m2": _dist(near_a),
             "meanAreaShareOfPitch": (
                 _dist(near_a)["mean"] / pitch if near_a else None
@@ -159,6 +203,11 @@ class ResponsibilityAnalysis:
             **assignment_summary_fields(asg),
             **asg.summary_fields(),
             "assignedFrames": assigned,
+            "skippedIncompleteFrames": skipped_incomplete,
+            "completeFrameRule": (
+                "possession known; non-empty contestantIds; non-empty nearBallIds; "
+                "residual space zones present for the exact frame"
+            ),
             "categories": rows,
             "overlapWithOrientedMutual2nn": overlap,
             "spaceZoneAttackerLoad": zone_load,
@@ -234,7 +283,7 @@ class _Cat:
             self.att_obs += len(attackers)
             self.att_sum += sum(degs)
             self.unmarked += sum(d == 0 for d in degs)
-            self.double += sum(d == 2 for d in degs)
+            self.double += sum(d >= 2 for d in degs)
 
         for key in list(self.open):
             if key not in pairs:
@@ -295,6 +344,7 @@ class _Cat:
 
 
 def _eligible(asg: ResponsibilityAssignment, frame: Frame) -> dict[str, list]:
+    """Attackers who belong to each responsibility category on this frame."""
     att = "away" if frame.defending_team == "home" else "home"
     all_att = list(frame.outfield_players(att))
     row = asg.result_row(frame.frame_idx) or {}
@@ -305,6 +355,26 @@ def _eligible(asg: ResponsibilityAssignment, frame: Frame) -> dict[str, list]:
         "near_ball": [p for p in all_att if p.player_id in near],
         "space": [p for p in all_att if p.player_id not in near],
         "collective": all_att,
+    }
+
+
+def _defenders_by_category(asg: ResponsibilityAssignment, frame: Frame) -> dict[str, list]:
+    """Defenders relevant to each category (for switches / active time).
+
+    Previously every category tracked all ten outfield defenders, which diluted
+    near-ball / contestant switch rates with players outside the region.
+    """
+    all_defs = list(frame.outfield_players(frame.defending_team))
+    row = asg.result_row(frame.frame_idx) or {}
+    near = {str(x) for x in (row.get("nearBallIds") or [])}
+    near_defs = [p for p in all_defs if p.player_id in near]
+    space_owners = set(asg.residual_zone_owner_ids(frame))
+    space_defs = [p for p in all_defs if p.player_id in space_owners]
+    return {
+        "contestant": near_defs,
+        "near_ball": near_defs,
+        "space": space_defs,
+        "collective": all_defs,
     }
 
 
@@ -494,6 +564,7 @@ def _plots(rows, summary, out: Path, overlap, zone_load, near_ball) -> dict[str,
 
     # Near-ball players + area
     nb_p, nb_a = near_ball.get("players") or {}, near_ball.get("area_m2") or {}
+    nb_d, nb_att = near_ball.get("defenders") or {}, near_ball.get("attackers") or {}
     _bars(
         out / "cmp_near_ball_players.png",
         ["mean", "median", "p90", "p95", "max"],
@@ -503,6 +574,24 @@ def _plots(rows, summary, out: Path, overlap, zone_load, near_ball) -> dict[str,
         colors=["#1d4ed8"] * 5,
     )
     out_map["nearBallPlayers"] = "cmp_near_ball_players.png"
+    _bars(
+        out / "cmp_near_ball_defenders.png",
+        ["mean", "median", "p90", "p95", "max"],
+        [_f(nb_d.get(k)) for k in ("mean", "median", "p90", "p95", "max")],
+        f"Defenders in near-ball region — {label}",
+        "Defenders",
+        colors=["#1d4ed8"] * 5,
+    )
+    out_map["nearBallDefenders"] = "cmp_near_ball_defenders.png"
+    _bars(
+        out / "cmp_near_ball_attackers.png",
+        ["mean", "median", "p90", "p95", "max"],
+        [_f(nb_att.get(k)) for k in ("mean", "median", "p90", "p95", "max")],
+        f"Attackers in near-ball region — {label}",
+        "Attackers",
+        colors=["#b45309"] * 5,
+    )
+    out_map["nearBallAttackers"] = "cmp_near_ball_attackers.png"
     _bars(
         out / "cmp_near_ball_area.png",
         ["mean", "median", "p90", "p95", "max"],

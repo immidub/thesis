@@ -101,6 +101,30 @@ class ResponsibilityAssignment:
     def result_row(self, frame_idx: int) -> dict | None:
         return self._results.get(frame_idx)
 
+    def is_complete_frame(self, frame: Frame) -> bool:
+        """True when carrier/contestants, near-ball set, and residual zones all exist for this frame.
+
+        Space zones are only accepted for the exact frame index (not a held prior zone
+        frame), so analysis does not mix stale coverage into incomplete assignments.
+        """
+        if frame.defending_team is None:
+            return False
+        row = self._results.get(frame.frame_idx)
+        if not row:
+            return False
+        if row.get("possessionTeam") not in ("home", "away"):
+            return False
+        if not (row.get("contestantIds") or []):
+            return False
+        if not (row.get("nearBallIds") or []):
+            return False
+        data = self._zones.get(frame.frame_idx)
+        if not data:
+            return False
+        defenders = data.get("defenders") or {}
+        outfield = {p.player_id for p in frame.outfield_players(frame.defending_team)}
+        return any(cells and str(pid) in outfield for pid, cells in defenders.items())
+
     def edges_for_frame(self, frame: Frame) -> list[Edge]:
         return self.categories_for_frame(frame)["collective"]
 
@@ -119,35 +143,62 @@ class ResponsibilityAssignment:
             "collective": list(seen.values()),
         }
 
+    def residual_zone_owner_ids(self, frame: Frame) -> list[str]:
+        """Outfield defenders who own a non-empty residual (outside-bubble) zone on this frame."""
+        if frame.defending_team is None:
+            return []
+        data = self._zones.get(frame.frame_idx)
+        if not data or not data.get("defenders"):
+            return []
+        outfield = {p.player_id for p in frame.outfield_players(frame.defending_team)}
+        return [
+            str(pid)
+            for pid, cells in data["defenders"].items()
+            if cells and str(pid) in outfield
+        ]
+
     def zone_stats(self, frame: Frame, space_edges: list[Edge] | None = None) -> dict:
-        """Residual zone attacker loads + near-ball player count / bubble area."""
+        """Residual zone attacker loads + near-ball player counts (total / def / att) / bubble area.
+
+        Loads are one entry per residual zone owner on this exact frame (not held prior
+        maps, and not defenders without residual cells).
+        """
         loads: list[int] = []
-        if frame.defending_team is not None and self._zframes:
-            held = _held(frame.frame_idx, self._zframes)
-            data = self._zones.get(held) if held is not None else None
-            if data and data.get("defenders"):
-                outfield = {p.player_id for p in frame.outfield_players(frame.defending_team)}
-                zids = [
-                    str(pid)
-                    for pid, cells in data["defenders"].items()
-                    if cells and str(pid) in outfield
-                ]
-                edges = space_edges if space_edges is not None else self._space_edges(frame)
-                cnt = Counter(e.defender_id for e in edges)
-                loads = [int(cnt.get(z, 0)) for z in zids]
+        zids = self.residual_zone_owner_ids(frame)
+        if zids:
+            edges = space_edges if space_edges is not None else self._space_edges(frame)
+            cnt = Counter(e.defender_id for e in edges)
+            loads = [int(cnt.get(z, 0)) for z in zids]
 
         row = self._results.get(frame.frame_idx)
-        n_near = len(row.get("nearBallIds") or []) if row else None
+        n_near = n_def = n_att = None
+        if row is not None:
+            near = {str(x) for x in (row.get("nearBallIds") or [])}
+            if frame.defending_team is not None:
+                attacking = "away" if frame.defending_team == "home" else "home"
+                def_ids = {p.player_id for p in frame.outfield_players(frame.defending_team)}
+                att_ids = {p.player_id for p in frame.outfield_players(attacking)}
+                # Count only players who are both in the near-ball set and on the pitch.
+                near_on_pitch = near & (def_ids | att_ids)
+                n_near = len(near_on_pitch)
+                n_def = len(near & def_ids)
+                n_att = len(near & att_ids)
+            else:
+                n_near = len(near)
         area = None
-        if self._zh and self._zframes:
-            held = _held(frame.frame_idx, self._zframes)
-            data = self._zones.get(held) if held is not None else None
-            if data is not None:
-                dx = abs(float(self._zh.get("dx") or 0.0))
-                dy = abs(float(self._zh.get("dy") or 0.0))
-                if dx > 0 and dy > 0:
-                    area = float(len(data.get("collective") or []) * dx * dy)
-        return {"loads": loads, "nearPlayers": n_near, "nearArea_m2": area}
+        data = self._zones.get(frame.frame_idx) if self._zh else None
+        if data is not None and self._zh:
+            dx = abs(float(self._zh.get("dx") or 0.0))
+            dy = abs(float(self._zh.get("dy") or 0.0))
+            if dx > 0 and dy > 0:
+                area = float(len(data.get("collective") or []) * dx * dy)
+        return {
+            "loads": loads,
+            "nearPlayers": n_near,
+            "nearDefenders": n_def,
+            "nearAttackers": n_att,
+            "nearArea_m2": area,
+        }
 
     def _marking_edges(self, frame: Frame) -> list[Edge]:
         row = self._results.get(frame.frame_idx)
@@ -166,7 +217,9 @@ class ResponsibilityAssignment:
     def _space_edges(self, frame: Frame) -> list[Edge]:
         if frame.defending_team is None or not self._zh or not self._zframes:
             return []
-        held = _held(frame.frame_idx, self._zframes)
+        # Prefer exact-frame zones; fall back to held map only for viewers / incomplete frames.
+        data = self._zones.get(frame.frame_idx)
+        held = frame.frame_idx if data is not None else _held(frame.frame_idx, self._zframes)
         if held is None:
             return []
         data = self._zones.get(held)
@@ -181,8 +234,13 @@ class ResponsibilityAssignment:
         owner = self._owners[held]
         defending, attacking = frame.defending_team, ("away" if frame.defending_team == "home" else "home")
         defs = {p.player_id: p for p in frame.outfield_players(defending)}
+        row = self._results.get(frame.frame_idx) or {}
+        near = {str(x) for x in (row.get("nearBallIds") or [])}
         out = []
         for att in frame.outfield_players(attacking):
+            # Near-ball attackers are handled by oriented mutual 2NN, not residual zones.
+            if att.player_id in near:
+                continue
             cell = _cell_index(att.x, att.y, self._zh)
             if cell is None:
                 continue
