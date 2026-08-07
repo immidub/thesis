@@ -237,10 +237,22 @@ def main(argv: list[str] | None = None) -> int:
             area = nb.get("area_m2") or {}
             if players.get("mean") is not None:
                 mda = nb.get("meanDefendersPerAttacker")
+                active = (nb.get("defendersWithNearBallEdge") or {}).get("mean")
+                active_in = (nb.get("defendersInZoneWithNearBallEdge") or {}).get("mean")
                 print(
                     f"  near-ball: players mean={players['mean']:.2f} "
                     f"(def={defs.get('mean', 0):.2f} att={atts.get('mean', 0):.2f}) "
                     f"p95={players.get('p95'):.2f}"
+                    + (
+                        f", def with edge mean={active:.2f}"
+                        if active is not None
+                        else ""
+                    )
+                    + (
+                        f" (in zone {active_in:.2f})"
+                        if active_in is not None
+                        else ""
+                    )
                     + (
                         f", mean defenders/attacker={mda:.2f}"
                         if mda is not None

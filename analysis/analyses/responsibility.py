@@ -69,6 +69,8 @@ class ResponsibilityAnalysis:
         near_n: list[int] = []
         near_def: list[int] = []
         near_att: list[int] = []
+        near_def_with_edge: list[int] = []
+        near_def_with_edge_in_zone: list[int] = []
         near_a: list[float] = []
         prev_clock = prev_idx = prev_period = prev_def = None
 
@@ -135,6 +137,15 @@ class ResponsibilityAnalysis:
                 near_def.append(int(zs["nearDefenders"]))
             if zs["nearAttackers"] is not None:
                 near_att.append(int(zs["nearAttackers"]))
+            edge_defs = {e.defender_id for e in cats["near_ball"]}
+            near_def_with_edge.append(len(edge_defs))
+            near_ids = {
+                str(x)
+                for x in (
+                    (asg.result_row(frame.frame_idx) or {}).get("nearBallIds") or []
+                )
+            }
+            near_def_with_edge_in_zone.append(len(edge_defs & near_ids))
             if zs["nearArea_m2"] is not None:
                 near_a.append(float(zs["nearArea_m2"]))
 
@@ -178,6 +189,11 @@ class ResponsibilityAnalysis:
             "players": _dist(near_n),
             "defenders": _dist(near_def),
             "attackers": _dist(near_att),
+            # Distinct defenders with ≥1 near-ball marking edge (may include outside zone;
+            # preprocess runs oriented 2NN over all outfield defenders vs near-ball attackers).
+            "defendersWithNearBallEdge": _dist(near_def_with_edge),
+            # Same, restricted to defenders inside nearBallIds.
+            "defendersInZoneWithNearBallEdge": _dist(near_def_with_edge_in_zone),
             "area_m2": area_d,
             "meanAreaShareOfPitch": (area_d["mean"] / pitch) if area_d["mean"] is not None else None,
             "p95AreaShareOfPitch": (area_d["p95"] / pitch) if area_d["p95"] is not None else None,
@@ -615,19 +631,28 @@ def _plots(rows, summary, out: Path, overlap, zone_load, near_ball, defender_wor
     )
     out_map["zoneLoadShares"] = "cmp_zone_load_shares.png"
 
-    for key, fname, title, color in (
-        ("players", "cmp_near_ball_players.png", "Players in near-ball region", "#1d4ed8"),
-        ("defenders", "cmp_near_ball_defenders.png", "Defenders in near-ball region", "#1d4ed8"),
-        ("attackers", "cmp_near_ball_attackers.png", "Attackers in near-ball region", "#b45309"),
-        ("area_m2", "cmp_near_ball_area.png", "Near-ball bubble area (m²)", "#1d4ed8"),
+    for key, fname, title, color, out_key in (
+        ("players", "cmp_near_ball_players.png", "Players in near-ball region", "#1d4ed8", "nearBallPlayers"),
+        ("defenders", "cmp_near_ball_defenders.png", "Defenders in near-ball region", "#1d4ed8", "nearBallDefenders"),
+        (
+            "defendersWithNearBallEdge",
+            "cmp_near_ball_defenders_with_edge.png",
+            "Defenders with a near-ball edge",
+            "#1d4ed8",
+            "nearBallDefendersWithEdge",
+        ),
+        (
+            "defendersInZoneWithNearBallEdge",
+            "cmp_near_ball_defenders_in_zone_with_edge.png",
+            "Near-ball-zone defenders with an edge",
+            "#1d4ed8",
+            "nearBallDefendersInZoneWithEdge",
+        ),
+        ("attackers", "cmp_near_ball_attackers.png", "Attackers in near-ball region", "#b45309", "nearBallAttackers"),
+        ("area_m2", "cmp_near_ball_area.png", "Near-ball bubble area (m²)", "#1d4ed8", "nearBallArea"),
     ):
-        ylab = "Area (m²)" if key == "area_m2" else title.split()[0]
+        ylab = "Area (m²)" if key == "area_m2" else "Count"
         _dist_bars(out / fname, near_ball.get(key) or {}, f"{title} — {label}", ylab, color)
-        out_map[{
-            "players": "nearBallPlayers",
-            "defenders": "nearBallDefenders",
-            "attackers": "nearBallAttackers",
-            "area_m2": "nearBallArea",
-        }[key]] = fname
+        out_map[out_key] = fname
 
     return out_map
