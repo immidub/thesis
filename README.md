@@ -172,7 +172,7 @@ This filename is hardcoded in `serve.py` → `find_source_video()`. For another 
 | `--skip-responsibility`  | off      | Skip `responsibility.jsonl` / zones                         |
 | `--responsibility-limit` | none     | Cap live frames (debug / smoke tests)                       |
 | `--no-zones`             | off      | Skip `responsibility_zones.jsonl` (zones **on** by default) |
-| `--zones-stride`         | `2`      | Subsample responsibility frames for zones                   |
+| `--zones-stride`         | `1`      | Subsample responsibility frames for zones (`1` = every eligible frame) |
 | `--zones-xpoints`        | `50`     | Voronoi mesh resolution                                     |
 
 
@@ -188,14 +188,15 @@ This filename is hardcoded in `serve.py` → `find_source_video()`. For another 
 
 **Both modes**
 
-1. **Jump fix** (`fix_tracking.py`) in place on `tracking.jsonl`:
+1. **Live overrides** (`live_overrides.py`) from optional `data/live_overrides.json`: force `live: false` on match-specific game-clock ranges (e.g. VAR pauses mislabelled as ball-alive in enriched). Survives Mode A rebuilds without editing FIFA input.
+2. **Jump fix** (`fix_tracking.py`) in place on `tracking.jsonl`:
   - interpolate clean single-frame position spikes;
   - mark severe / systemic teleports as `live: false`;
   - replace player `speed` when it disagrees with position deltas by more than **5 m/s**;
   - recompute ball `speed` / `direction` from forward position deltas (enriched ball kinematics are treated as unreliable).
-2. **Validate** (`validate_tracking.py`) and print a report. The orchestrator **does not abort** on warnings.
-3. Write `data/tracking.parquet` (one row per entity per frame, including non-live frames).
-4. Unless `--skip-responsibility`: write `responsibility.jsonl`, and by default `responsibility_zones.jsonl` (needs `floodlight`; skip with `--no-zones`).
+3. **Validate** (`validate_tracking.py`) and print a report. The orchestrator **does not abort** on warnings.
+4. Write `data/tracking.parquet` (one row per entity per frame, including non-live frames).
+5. Unless `--skip-responsibility`: write `responsibility.jsonl`, and by default `responsibility_zones.jsonl` (needs `floodlight`; skip with `--no-zones`).
 
 Standalone re-fix / re-validate (normally unnecessary after a full preprocess):
 
@@ -213,6 +214,7 @@ After a standalone fix, re-run `preprocess/run.py` in Mode B so parquet and resp
 | --------------------------------- | ------------------------------------------------------------------ |
 | `data/tracking.jsonl`             | Both viewers                                                       |
 | `data/metaData.json`              | Both viewers (optional but recommended)                            |
+| `data/live_overrides.json`        | Optional; durable `live: false` ranges applied on every preprocess |
 | `data/tracking.parquet`           | `python -m analysis.run`                                           |
 | `data/responsibility.jsonl`       | Responsibility viewer; `--assignment responsibility`               |
 | `data/responsibility_zones.jsonl` | Responsibility viewer / analysis (space zones; default)            |
@@ -248,7 +250,7 @@ These are **not** read from FIFA as authoritative FPS / pitch size. Update every
 | Broadcast MP4                       | `serve.py` → `find_source_video()`                                                                 | Default `clips/281-M08-QAT-SUI-camera1-720p.mp4`                           |
 | Video sync fallback                 | `website/core/timeline.js` → `VIDEO_*_SEC`                                                         | Used only if `metaData.json` has no `videoSync` (Qatar–Switzerland values) |
 | Responsibility algorithm params     | `preprocess/config.py`                                                                             | e.g. `V_MAX`, `MARKING_K=2`, `MARKING_ALPHA`, hull margin, majority window |
-| Zone mesh defaults                  | `preprocess/config.py` / CLI                                                                       | `ZONES_STRIDE=2`, `ZONES_XPOINTS=50`                                       |
+| Zone mesh defaults                  | `preprocess/config.py` / CLI                                                                       | `ZONES_STRIDE=1`, `ZONES_XPOINTS=50`                                       |
 | Analysis pitch grid                 | `analysis/pitch.py`                                                                                | 12 × 8 cells                                                               |
 | Analysis ball-distance bands        | `analysis/` zone helpers                                                                           | ≤5 m / 5–20 m / >20 m                                                      |
 | Serve bind                          | `serve.py`                                                                                         | `localhost:8000`                                                           |
@@ -388,6 +390,7 @@ Run one or more names in a single `analysis.run` call (or use a sweep under `ana
 | `pitch_zones` | Metrics on a 12×8 attack-oriented pitch grid |
 | `ball_zones` | Metrics by attacker–ball distance bands |
 | `overlap` | Share of other assignments’ edges contained in the current one |
+| `marking_network` | Time-weighted defender×attacker matrices (CSV + heatmaps) for each defending side |
 | `responsibility` | Edge categories, oriented-2NN overlap, near-ball / residual-zone summaries (complete frames only: contestants + near-ball set + exact-frame space zones) |
 
 ### Outputs

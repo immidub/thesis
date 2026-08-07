@@ -33,6 +33,7 @@ from pathlib import Path
 from config import ZONES_STRIDE, ZONES_XPOINTS
 from convert_fwc import convert_enriched_to_jsonl, find_input_paths, has_enriched_input
 from fix_tracking import fix_tracking_jsonl, print_fix_stats
+from live_overrides import apply_live_overrides, print_override_stats
 from parquet_io import write_tracking_parquet
 from responsibility import build_results, build_zones
 from validate_tracking import print_report, validate_tracking_jsonl
@@ -58,6 +59,11 @@ def finalize_tracking_outputs(output_dir: Path) -> None:
     meta_for_parquet = metadata_path if metadata_path.is_file() else None
     if meta_for_parquet is None:
         print(f"Note: no metaData.json at {metadata_path} (goalie flags may be missing in parquet)")
+
+    # After convert (Mode A), re-apply match-specific live=false ranges so manual
+    # corrections survive rebuilds without editing FIFA enriched input.
+    print("Applying live overrides...")
+    print_override_stats(apply_live_overrides(tracking_path, output_dir / "live_overrides.json"))
 
     print("Fixing tracking jumps...")
     print_fix_stats(fix_tracking_jsonl(tracking_path), tracking_path)
