@@ -1,8 +1,9 @@
 """Responsibility assignment: load preprocess JSONL (do not recompute).
 
-Collective edges = near-ball oriented mutual 2-NN ∪ space-containment edges
-(attackers outside the near-ball set only). Possession = reachability
-`possessionTeam` (via align_frames).
+Collective edges = near-ball marks (global oriented mutual 2-NN filtered to
+near-ball attackers) ∪ space-containment edges (attackers outside the
+near-ball set only). Possession = reachability `possessionTeam` (via
+align_frames).
 """
 
 from __future__ import annotations

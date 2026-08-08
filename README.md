@@ -188,7 +188,7 @@ This filename is hardcoded in `serve.py` → `find_source_video()`. For another 
 
 **Both modes**
 
-1. **Live overrides** (`live_overrides.py`) from optional `data/live_overrides.json`: force `live: false` on match-specific game-clock ranges (e.g. VAR pauses mislabelled as ball-alive in enriched). Survives Mode A rebuilds without editing FIFA input.
+1. **Live overrides** (`live_overrides.py`) from optional `data/live_overrides.json`: force `live: false` on match-specific game-clock ranges (e.g. VAR pauses mislabelled as ball-alive in enriched). Survives Mode A rebuilds without editing FIFA input. For this match, enriched data wrongly kept `live: true` from about **13:00–13:32** in the first half (a VAR / penalty check); that range is corrected via `data/live_overrides.json`.
 2. **Jump fix** (`fix_tracking.py`) in place on `tracking.jsonl`:
   - interpolate clean single-frame position spikes;
   - mark severe / systemic teleports as `live: false`;

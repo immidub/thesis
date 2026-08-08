@@ -406,13 +406,14 @@ def mutual_pairs(cost: np.ndarray, k: int) -> list[tuple[int, int]]:
 
 
 def marking_edges(frame: dict, contestant_ids: list[str], attacking: str, home_pos_x: bool, near: set[str] | None = None) -> list[list[str]]:
+    """Oriented mutual 2NN on all outfield players, kept only if attacker is near-ball."""
     if not contestant_ids or attacking not in ("home", "away"):
         return []
     defending = "away" if attacking == "home" else "home"
     if near is None:
         near, _, _ = near_ball_ids(frame, contestant_ids)
     defenders = outfield(frame, defending)
-    attackers = [p for p in outfield(frame, attacking) if p["id"] in near]
+    attackers = outfield(frame, attacking)
     if not defenders or not attackers:
         return []
     def_xy = np.array([[p["x"], p["y"]] for p in defenders], dtype=float)
@@ -420,7 +421,8 @@ def marking_edges(frame: dict, contestant_ids: list[str], attacking: str, home_p
     cost, _ = oriented_cost(def_xy, att_xy, np.asarray(defended_goal(attacking, home_pos_x), dtype=float), MARKING_ALPHA)
     out = []
     for i, j in mutual_pairs(cost, MARKING_K):
-        out.append([defenders[i]["id"], attackers[j]["id"]])
+        if attackers[j]["id"] in near:
+            out.append([defenders[i]["id"], attackers[j]["id"]])
     return out
 
 
@@ -531,7 +533,7 @@ def build_results(
                 {
                     "type": "header",
                     "nearBall": "hull_expanded",
-                    "marking": "oriented_mutual_2nn",
+                    "marking": "oriented_mutual_2nn_filter_near_ball_attackers",
                     "hullMargin_m": HULL_MARGIN_M,
                 }
             )
