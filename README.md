@@ -528,7 +528,7 @@ Without metadata: teams default to Home / Away; goalkeepers may be inferred from
 
 ## Suggested checklist for a new FIFA match
 
-1. Replace `input/` with exactly one `*_Enriched/` folder and one `*Metadata.json`.
+1. Place exactly one `*_Enriched/` folder and one `*Metadata.json` in `input/`.
 2. Confirm 50 Hz and 105 × 68 m, or update all hardcoded sites (§3).
 3. Place/rename the broadcast MP4 and update `serve.py` if needed; verify video sync (§4).
 4. Install deps: `.venv/bin/pip install -r requirements.txt`.
