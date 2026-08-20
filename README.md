@@ -86,11 +86,15 @@ python3 serve.py
 - A modern browser
 - `ffmpeg` / `ffprobe` **only** if you export pitch + broadcast clips
 
+`.venv` is gitignored and is **not** included when you clone the repo. Create it first, then install:
+
 ```bash
 cd /path/to/defense
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
+
+If you skip `python3 -m venv .venv`, `.venv/bin/pip` will fail with `no such file or directory`.
 
 Always run preprocess and analysis commands from the **repository root**, using the venv interpreter (or an activated venv).
 
@@ -531,7 +535,7 @@ Without metadata: teams default to Home / Away; goalkeepers may be inferred from
 1. Place exactly one `*_Enriched/` folder and one `*Metadata.json` in `input/`.
 2. Confirm 50 Hz and 105 × 68 m, or update all hardcoded sites (§3).
 3. Place/rename the broadcast MP4 and update `serve.py` if needed; verify video sync (§4).
-4. Install deps: `.venv/bin/pip install -r requirements.txt`.
+4. Create the venv and install deps: `python3 -m venv .venv` then `.venv/bin/pip install -r requirements.txt`.
 5. Run `.venv/bin/python preprocess/run.py`.
 6. Start `python3 serve.py` and check both viewers.
 7. Run analyses: `.venv/bin/python -m analysis.run --assignment … --analyses …`.
