@@ -6,7 +6,6 @@ input/*
 clips/*
 !clips/.gitkeep
 analysis/output/
-latex_report/
 
 # Python
 .venv/
