@@ -536,8 +536,9 @@ Without metadata: teams default to Home / Away; goalkeepers may be inferred from
 2. Confirm 50 Hz and 105 × 68 m, or update all hardcoded sites (§3).
 3. Place/rename the broadcast MP4 and update `serve.py` if needed; verify video sync (§4).
 4. Create the venv and install deps: `python3 -m venv .venv` then `.venv/bin/pip install -r requirements.txt`.
-5. Run `.venv/bin/python preprocess/run.py`.
-6. Start `python3 serve.py` and check both viewers.
-7. Run analyses: `.venv/bin/python -m analysis.run --assignment … --analyses …`.
-8. Inspect `analysis/output/.../run_manifest.json` and summaries.
+5. If needed, add `data/live_overrides.json` with `forceNotLive` period / game-clock ranges for stretches wrongly marked live (e.g. VAR); see §2. Re-run preprocess after editing so overrides apply.
+6. Run `.venv/bin/python preprocess/run.py`.
+7. Start `python3 serve.py` and check both viewers.
+8. Run analyses: `.venv/bin/python -m analysis.run --assignment … --analyses …`.
+9. Inspect `analysis/output/.../run_manifest.json` and summaries.
 
